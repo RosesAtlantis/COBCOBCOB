@@ -34,7 +34,9 @@ export function DashboardCard({
           <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             {title}
           </CardTitle>
-          <p className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">{value}</p>
+          <p className="text-[1.85rem] font-semibold leading-none tracking-tight sm:text-[2rem] xl:text-[1.6rem] 2xl:text-[1.85rem]">
+            {value}
+          </p>
         </div>
         <div className={cn("rounded-lg border p-2", accentStyles[accent])}>
           <Icon className="size-4" />

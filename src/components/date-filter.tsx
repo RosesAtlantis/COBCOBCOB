@@ -19,6 +19,7 @@ interface DateFilterProps {
   years: number[];
   startDate?: string;
   endDate?: string;
+  showRangeInputs?: boolean;
   onMonthChange: (value: number) => void;
   onYearChange: (value: number) => void;
   onStartDateChange: (value: string) => void;
@@ -31,6 +32,7 @@ export function DateFilter({
   years,
   startDate,
   endDate,
+  showRangeInputs = true,
   onMonthChange,
   onYearChange,
   onStartDateChange,
@@ -77,35 +79,39 @@ export function DateFilter({
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Inicio
-        </Label>
-        <div className="relative">
-          <CalendarRange className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-          <Input
-            type="date"
-            className={`${controlClassName} pl-9`}
-            value={startDate ?? ""}
-            onChange={(event) => onStartDateChange(event.target.value)}
-          />
-        </div>
-      </div>
+      {showRangeInputs ? (
+        <>
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Inicio
+            </Label>
+            <div className="relative">
+              <CalendarRange className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              <Input
+                type="date"
+                className={`${controlClassName} pl-9`}
+                value={startDate ?? ""}
+                onChange={(event) => onStartDateChange(event.target.value)}
+              />
+            </div>
+          </div>
 
-      <div className="space-y-2">
-        <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Fim
-        </Label>
-        <div className="relative">
-          <CalendarRange className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-          <Input
-            type="date"
-            className={`${controlClassName} pl-9`}
-            value={endDate ?? ""}
-            onChange={(event) => onEndDateChange(event.target.value)}
-          />
-        </div>
-      </div>
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Fim
+            </Label>
+            <div className="relative">
+              <CalendarRange className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              <Input
+                type="date"
+                className={`${controlClassName} pl-9`}
+                value={endDate ?? ""}
+                onChange={(event) => onEndDateChange(event.target.value)}
+              />
+            </div>
+          </div>
+        </>
+      ) : null}
     </>
   );
 }

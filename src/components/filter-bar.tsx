@@ -19,11 +19,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createSearchParams } from "@/lib/portal-filters";
+import { cn } from "@/lib/utils";
 import type { DashboardFilters, FilterOptions } from "@/types/portal";
 
 interface FilterBarProps {
   filters: DashboardFilters;
   options: FilterOptions;
+  title?: string;
+  description?: string;
+  showDateRange?: boolean;
   showOperatorFilter?: boolean;
   showTeamFilter?: boolean;
   showWalletFilter?: boolean;
@@ -33,6 +37,9 @@ interface FilterBarProps {
 export function FilterBar({
   filters,
   options,
+  title = "Filtros globais",
+  description = "Aplique o mesmo recorte para cards, graficos e tabelas desta pagina.",
+  showDateRange = true,
   showOperatorFilter = true,
   showTeamFilter = true,
   showWalletFilter = true,
@@ -51,6 +58,14 @@ export function FilterBar({
 
     return options.operators;
   }, [localFilters.teamId, options.operators]);
+
+  const visibleFilterCount =
+    2 +
+    (showDateRange ? 2 : 0) +
+    (showTeamFilter ? 1 : 0) +
+    (showOperatorFilter ? 1 : 0) +
+    (showWalletFilter ? 1 : 0) +
+    (showCreditorFilter ? 1 : 0);
 
   function updateFilters(next: Partial<DashboardFilters>) {
     setLocalFilters((current) => ({
@@ -83,10 +98,8 @@ export function FilterBar({
       <CardContent className="space-y-4 p-4 sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold">Filtros globais</p>
-            <p className="text-sm text-muted-foreground">
-              Aplique o mesmo recorte para cards, graficos e tabelas desta pagina.
-            </p>
+            <p className="text-sm font-semibold">{title}</p>
+            <p className="text-sm text-muted-foreground">{description}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -112,13 +125,23 @@ export function FilterBar({
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div
+          className={cn(
+            "grid gap-3 md:grid-cols-2",
+            visibleFilterCount <= 4
+              ? "xl:grid-cols-4"
+              : visibleFilterCount === 5
+                ? "xl:grid-cols-5"
+                : "xl:grid-cols-5 2xl:grid-cols-6",
+          )}
+        >
           <DateFilter
             month={localFilters.month}
             year={localFilters.year}
             years={options.years}
             startDate={localFilters.startDate}
             endDate={localFilters.endDate}
+            showRangeInputs={showDateRange}
             onMonthChange={(value) => updateFilters({ month: value })}
             onYearChange={(value) => updateFilters({ year: value })}
             onStartDateChange={(value) => updateFilters({ startDate: value || undefined })}
@@ -163,8 +186,7 @@ export function FilterBar({
                 value={localFilters.creditor ?? "all"}
                 onValueChange={(value) =>
                   updateFilters({
-                    creditor:
-                      !value || value === "all" ? undefined : value,
+                    creditor: !value || value === "all" ? undefined : value,
                   })
                 }
               >

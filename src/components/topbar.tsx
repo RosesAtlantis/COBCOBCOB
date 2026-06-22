@@ -10,8 +10,8 @@ import type { PortalProfile } from "@/types/portal";
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": {
-    title: "Dashboard geral",
-    subtitle: "Visao consolidada da cobranca, financeiro e produtividade.",
+    title: "Dashboard",
+    subtitle: "Visao geral da performance de cobranca.",
   },
   "/ranking": {
     title: "Ranking de operadores",
@@ -75,9 +75,7 @@ export function Topbar({ profile, demoMode, onOpenSidebar }: TopbarProps) {
               Portal BKO
             </p>
             <p className="truncate text-lg font-semibold tracking-tight">{content.title}</p>
-            <p className="truncate text-sm text-muted-foreground">
-              {content.subtitle}
-            </p>
+            <p className="truncate text-sm text-muted-foreground">{content.subtitle}</p>
           </div>
         </div>
 
