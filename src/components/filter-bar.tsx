@@ -42,6 +42,7 @@ export function FilterBar({
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [localFilters, setLocalFilters] = useState(filters);
+  const controlClassName = "h-10 rounded-lg border-border/70 bg-background shadow-none";
 
   const availableOperators = useMemo(() => {
     if (!localFilters.teamId) {
@@ -79,27 +80,39 @@ export function FilterBar({
 
   return (
     <Card className="dashboard-surface">
-      <CardContent className="space-y-4 p-5">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <CardContent className="space-y-4 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium">Filtros globais</p>
+            <p className="text-sm font-semibold">Filtros globais</p>
             <p className="text-sm text-muted-foreground">
-              Atualize cards, graficos e tabelas da pagina com o mesmo recorte.
+              Aplique o mesmo recorte para cards, graficos e tabelas desta pagina.
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" type="button" onClick={resetFilters}>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              className="rounded-lg"
+              onClick={resetFilters}
+            >
               <RotateCcw className="size-4" />
               Limpar
             </Button>
-            <Button size="sm" type="button" disabled={isPending} onClick={applyFilters}>
+            <Button
+              size="sm"
+              type="button"
+              className="rounded-lg"
+              disabled={isPending}
+              onClick={applyFilters}
+            >
               <Funnel className="size-4" />
               Aplicar filtros
             </Button>
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <DateFilter
             month={localFilters.month}
             year={localFilters.year}
@@ -143,7 +156,7 @@ export function FilterBar({
 
           {showCreditorFilter ? (
             <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Credor
               </Label>
               <Select
@@ -155,7 +168,7 @@ export function FilterBar({
                   })
                 }
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className={controlClassName}>
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>

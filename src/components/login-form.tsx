@@ -88,9 +88,14 @@ export function LoginForm({ demoMode }: LoginFormProps) {
       {demoMode ? (
         <div className="space-y-3">
           <div className="space-y-2">
-            <Label htmlFor="demo-role">Perfil para testar</Label>
+            <Label htmlFor="demo-role" className="text-sm font-medium">
+              Perfil para testar
+            </Label>
             <Select value={demoRole} onValueChange={(value) => setDemoRole(value as PortalRole)}>
-              <SelectTrigger id="demo-role" className="w-full">
+              <SelectTrigger
+                id="demo-role"
+                className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+              >
                 <SelectValue placeholder="Selecione um perfil" />
               </SelectTrigger>
               <SelectContent>
@@ -103,7 +108,7 @@ export function LoginForm({ demoMode }: LoginFormProps) {
             </Select>
           </div>
 
-          <Alert>
+          <Alert className="rounded-xl border-border/70 bg-muted/25">
             <UserRound className="size-4" />
             <AlertTitle>Modo demonstracao ativo</AlertTitle>
             <AlertDescription>
@@ -115,24 +120,30 @@ export function LoginForm({ demoMode }: LoginFormProps) {
       ) : (
         <>
           <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
+            <Label htmlFor="email" className="text-sm font-medium">
+              E-mail
+            </Label>
             <Input
               id="email"
               type="email"
               autoComplete="email"
               placeholder="nome@empresa.com.br"
+              className="h-11 rounded-lg border-border/70 bg-background shadow-none"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
+            <Label htmlFor="password" className="text-sm font-medium">
+              Senha
+            </Label>
             <Input
               id="password"
               type="password"
               autoComplete="current-password"
               placeholder="Sua senha"
+              className="h-11 rounded-lg border-border/70 bg-background shadow-none"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
@@ -142,14 +153,14 @@ export function LoginForm({ demoMode }: LoginFormProps) {
       )}
 
       {errorMessage ? (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="rounded-xl">
           <LockKeyhole className="size-4" />
           <AlertTitle>Acesso nao concluido</AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       ) : null}
 
-      <Button className="w-full" size="lg" type="submit" disabled={isPending}>
+      <Button className="h-11 w-full rounded-lg" size="lg" type="submit" disabled={isPending}>
         {demoMode ? "Entrar no portal" : "Entrar com e-mail e senha"}
         <ArrowRight className="size-4" />
       </Button>

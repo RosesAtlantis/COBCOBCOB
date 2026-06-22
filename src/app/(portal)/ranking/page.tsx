@@ -1,6 +1,7 @@
 import { ChartCard } from "@/components/chart-card";
 import { FilterBar } from "@/components/filter-bar";
 import { RankingTable } from "@/components/ranking-table";
+import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { parseDashboardFilters } from "@/lib/portal-filters";
 import { getDashboardPageData } from "@/services/portal-service";
@@ -21,23 +22,44 @@ export default async function RankingPage({
 
       <div className="grid gap-6 xl:grid-cols-[0.72fr_1.28fr]">
         <div className="dashboard-surface p-5">
-          <p className="text-sm font-medium text-muted-foreground">Resumo do ranking</p>
-          <div className="mt-5 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Ranking operacional
+              </p>
+              <h2 className="mt-2 text-lg font-semibold">Resumo do ranking</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Visao rapida dos operadores com melhor performance no recorte selecionado.
+              </p>
+            </div>
+            <Badge variant="outline" className="rounded-md border-border/80 bg-card px-3 py-1">
+              Operadores
+            </Badge>
+          </div>
+
+          <div className="mt-5 space-y-3">
             {data.operatorRanking.slice(0, 5).map((row) => (
               <div
                 key={row.operatorId}
-                className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/10 px-4 py-3"
+                className="dashboard-subtle flex items-center justify-between gap-4 p-4"
               >
-                <div>
-                  <p className="text-sm text-muted-foreground">#{row.position}</p>
-                  <p className="font-medium">{row.operator}</p>
+                <div className="min-w-0">
+                  <Badge
+                    variant={row.position <= 3 ? "default" : "outline"}
+                    className="rounded-md px-2 py-0.5 text-[11px]"
+                  >
+                    #{row.position}
+                  </Badge>
+                  <p className="mt-3 truncate font-medium">{row.operator}</p>
                   <p className="text-xs text-muted-foreground">
-                    {row.team} • {row.wallet}
+                    {row.team} | {row.wallet}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="font-semibold">{formatCurrency(row.collected)}</p>
-                  <p className="text-xs text-primary">{formatPercent(row.goalCompletion)}</p>
+                  <p className="text-xs font-medium text-primary">
+                    {formatPercent(row.goalCompletion)}
+                  </p>
                 </div>
               </div>
             ))}
@@ -50,14 +72,22 @@ export default async function RankingPage({
           data={data.monthlyEvolution}
           xKey="label"
           series={[
-            { key: "arrecadacao", label: "Arrecadacao", color: "#f2c14e" },
-            { key: "acordos", label: "Acordos", color: "#39a0ed" },
+            { key: "arrecadacao", label: "Arrecadacao", color: "#7aa2f7" },
+            { key: "acordos", label: "Acordos", color: "#6bc4c8" },
           ]}
           variant="area"
         />
       </div>
 
-      <RankingTable rows={data.operatorRanking} />
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Tabela completa de operadores</h2>
+          <p className="text-sm text-muted-foreground">
+            Comparativo completo de arrecadacao, acordos, meta e ticket medio.
+          </p>
+        </div>
+        <RankingTable rows={data.operatorRanking} />
+      </section>
     </div>
   );
 }

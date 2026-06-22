@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { BarChart3, ShieldCheck, UploadCloud } from "lucide-react";
+import { ChartNoAxesColumn, LockKeyhole, ShieldCheck } from "lucide-react";
 
 import { LoginForm } from "@/components/login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,56 +21,58 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 sm:px-6">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(233,193,73,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(72,146,255,0.12),transparent_24%)]" />
-      <div className="relative grid w-full max-w-6xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+    <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
+      <div className="grid w-full max-w-6xl gap-6 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="dashboard-surface flex flex-col justify-between p-8 sm:p-10">
-          <div className="space-y-5">
-            <div className="inline-flex w-fit rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-primary">
+          <div className="space-y-6">
+            <div className="inline-flex w-fit rounded-full border border-border bg-muted/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               Portal BKO
             </div>
-            <div className="space-y-3">
-              <h1 className="max-w-xl text-4xl font-semibold tracking-tight sm:text-5xl">
-                Central de Performance e Indicadores de Cobranca
+
+            <div className="space-y-4">
+              <h1 className="max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+                Acesso ao portal corporativo de cobranca e performance.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-                Monitore arrecadacao, metas, ranking operacional e historico financeiro
-                em um unico portal interno, com visao por perfil e seguranca por RLS.
+                Ambiente interno para acompanhamento de arrecadacao, metas, ranking
+                operacional, importacoes e governanca de dados com permissao por perfil.
               </p>
             </div>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            <Card className="border-border/70 bg-card/50">
-              <CardHeader className="pb-2">
-                <BarChart3 className="size-5 text-primary" />
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card className="rounded-2xl border-border/70 bg-muted/20 shadow-none">
+              <CardHeader className="pb-3">
+                <ChartNoAxesColumn className="size-5 text-primary" />
               </CardHeader>
               <CardContent className="space-y-1 text-sm">
-                <CardTitle className="text-base">Dashboards executivos</CardTitle>
+                <CardTitle className="text-base">BI operacional</CardTitle>
                 <p className="text-muted-foreground">
                   KPIs diarios, mensais e comparativos por operador, equipe e carteira.
                 </p>
               </CardContent>
             </Card>
-            <Card className="border-border/70 bg-card/50">
-              <CardHeader className="pb-2">
-                <UploadCloud className="size-5 text-primary" />
-              </CardHeader>
-              <CardContent className="space-y-1 text-sm">
-                <CardTitle className="text-base">Importacao guiada</CardTitle>
-                <p className="text-muted-foreground">
-                  Carga de CSV e XLSX com validacao, historico e relatorio de erros.
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/70 bg-card/50">
-              <CardHeader className="pb-2">
+
+            <Card className="rounded-2xl border-border/70 bg-muted/20 shadow-none">
+              <CardHeader className="pb-3">
                 <ShieldCheck className="size-5 text-primary" />
               </CardHeader>
               <CardContent className="space-y-1 text-sm">
-                <CardTitle className="text-base">Seguranca real</CardTitle>
+                <CardTitle className="text-base">Governanca por perfil</CardTitle>
                 <p className="text-muted-foreground">
-                  Auth Supabase, RLS e bloqueio de acesso fora do escopo do usuario.
+                  Supabase Auth, RLS e escopo operacional aplicado por usuario.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-border/70 bg-muted/20 shadow-none">
+              <CardHeader className="pb-3">
+                <LockKeyhole className="size-5 text-primary" />
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                <CardTitle className="text-base">Acesso seguro</CardTitle>
+                <p className="text-muted-foreground">
+                  Login com e-mail e senha para uso interno do time.
                 </p>
               </CardContent>
             </Card>
@@ -78,15 +80,18 @@ export default async function LoginPage() {
         </div>
 
         <Card className="dashboard-surface border-border/70">
-          <CardHeader className="space-y-2">
+          <CardHeader className="space-y-2 border-b border-border/70 pb-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Acesso do usuario
+            </p>
             <CardTitle className="text-2xl">Entrar no Portal BKO</CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm leading-6 text-muted-foreground">
               {demoMode
-                ? "Ambiente pronto para demonstração local."
+                ? "Ambiente pronto para demonstracao local controlada."
                 : "Use o e-mail corporativo e a senha cadastrada no Supabase Auth."}
             </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <LoginForm demoMode={demoMode} />
           </CardContent>
         </Card>

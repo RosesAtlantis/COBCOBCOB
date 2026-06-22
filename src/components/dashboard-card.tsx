@@ -13,10 +13,10 @@ interface DashboardCardProps {
 }
 
 const accentStyles = {
-  primary: "bg-primary/14 text-primary",
-  success: "bg-emerald-500/14 text-emerald-300",
-  warning: "bg-amber-500/14 text-amber-300",
-  info: "bg-sky-500/14 text-sky-300",
+  primary: "border-primary/20 bg-primary/10 text-primary",
+  success: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+  warning: "border-amber-500/20 bg-amber-500/10 text-amber-400",
+  info: "border-sky-500/20 bg-sky-500/10 text-sky-400",
 };
 
 export function DashboardCard({
@@ -28,21 +28,25 @@ export function DashboardCard({
   accent = "primary",
 }: DashboardCardProps) {
   return (
-    <Card className="dashboard-surface border-border/80">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-        <div className="space-y-1">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+    <Card className="dashboard-surface">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+        <div className="space-y-1.5">
+          <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             {title}
           </CardTitle>
-          <p className="text-2xl font-semibold tracking-tight">{value}</p>
+          <p className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">{value}</p>
         </div>
-        <div className={cn("rounded-2xl p-2.5", accentStyles[accent])}>
+        <div className={cn("rounded-lg border p-2", accentStyles[accent])}>
           <Icon className="size-4" />
         </div>
       </CardHeader>
-      <CardContent className="space-y-1">
-        {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
-        {delta ? <p className="text-xs text-primary">{delta}</p> : null}
+      <CardContent className="space-y-2 pt-0">
+        {subtitle ? <p className="text-sm leading-5 text-muted-foreground">{subtitle}</p> : null}
+        {delta ? (
+          <p className="inline-flex rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+            {delta}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

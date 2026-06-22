@@ -37,15 +37,16 @@ export function DateFilter({
   onEndDateChange,
 }: DateFilterProps) {
   const monthOptions = getMonthOptions();
+  const controlClassName = "h-10 rounded-lg border-border/70 bg-background shadow-none";
 
   return (
     <>
       <div className="space-y-2">
-        <Label className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+        <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Mes
         </Label>
         <Select value={String(month)} onValueChange={(value) => onMonthChange(Number(value))}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className={controlClassName}>
             <SelectValue placeholder="Mes" />
           </SelectTrigger>
           <SelectContent>
@@ -59,11 +60,11 @@ export function DateFilter({
       </div>
 
       <div className="space-y-2">
-        <Label className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+        <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Ano
         </Label>
         <Select value={String(year)} onValueChange={(value) => onYearChange(Number(value))}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className={controlClassName}>
             <SelectValue placeholder="Ano" />
           </SelectTrigger>
           <SelectContent>
@@ -77,14 +78,14 @@ export function DateFilter({
       </div>
 
       <div className="space-y-2">
-        <Label className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+        <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Inicio
         </Label>
         <div className="relative">
           <CalendarRange className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
           <Input
             type="date"
-            className="pl-9"
+            className={`${controlClassName} pl-9`}
             value={startDate ?? ""}
             onChange={(event) => onStartDateChange(event.target.value)}
           />
@@ -92,14 +93,14 @@ export function DateFilter({
       </div>
 
       <div className="space-y-2">
-        <Label className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+        <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Fim
         </Label>
         <div className="relative">
           <CalendarRange className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
           <Input
             type="date"
-            className="pl-9"
+            className={`${controlClassName} pl-9`}
             value={endDate ?? ""}
             onChange={(event) => onEndDateChange(event.target.value)}
           />

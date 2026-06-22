@@ -31,16 +31,16 @@ export function DataTable<T extends object>({
   emptyMessage = "Nenhum dado encontrado para os filtros atuais.",
 }: DataTableProps<T>) {
   return (
-    <div className="overflow-hidden rounded-3xl border border-border/80 bg-card/80">
+    <div className="dashboard-surface overflow-hidden">
       <div className="overflow-x-auto">
         <Table>
-          <TableHeader>
-            <TableRow className="border-border/60">
+          <TableHeader className="bg-muted/30">
+            <TableRow className="border-border/70 hover:bg-transparent">
               {columns.map((column) => (
                 <TableHead
                   key={String(column.key)}
                   className={cn(
-                    "h-11 whitespace-nowrap text-xs uppercase tracking-[0.16em] text-muted-foreground",
+                    "h-11 whitespace-nowrap px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground",
                     column.align === "right" && "text-right",
                     column.align === "center" && "text-center",
                   )}
@@ -53,12 +53,12 @@ export function DataTable<T extends object>({
           <TableBody>
             {rows.length ? (
               rows.map((row, rowIndex) => (
-                <TableRow key={rowIndex} className="border-border/50">
+                <TableRow key={rowIndex} className="border-border/60 hover:bg-muted/20">
                   {columns.map((column) => (
                     <TableCell
                       key={String(column.key)}
                       className={cn(
-                        "py-3.5 text-sm",
+                        "px-4 py-3.5 text-sm",
                         column.align === "right" && "text-right",
                         column.align === "center" && "text-center",
                       )}
@@ -74,7 +74,7 @@ export function DataTable<T extends object>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="py-10 text-center text-sm text-muted-foreground"
+                  className="px-4 py-12 text-center text-sm text-muted-foreground"
                 >
                   {emptyMessage}
                 </TableCell>

@@ -148,19 +148,24 @@ export function ImportUpload() {
   return (
     <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <Card className="dashboard-surface">
-        <CardHeader>
+        <CardHeader className="border-b border-border/70 pb-5">
           <CardTitle>Nova importacao</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="import-type">Tipo de importacao</Label>
+                <Label htmlFor="import-type" className="text-sm font-medium">
+                  Tipo de importacao
+                </Label>
                 <Select
                   value={selectedType}
                   onValueChange={(value) => setSelectedType(value as ImportType)}
                 >
-                  <SelectTrigger id="import-type" className="w-full">
+                  <SelectTrigger
+                    id="import-type"
+                    className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                  >
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
@@ -174,11 +179,14 @@ export function ImportUpload() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="import-file">Arquivo</Label>
+                <Label htmlFor="import-file" className="text-sm font-medium">
+                  Arquivo
+                </Label>
                 <Input
                   id="import-file"
                   type="file"
                   accept=".csv,.xlsx,.xls"
+                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
                   onChange={(event) =>
                     setSelectedFile(event.target.files?.[0] ?? null)
                   }
@@ -186,7 +194,12 @@ export function ImportUpload() {
               </div>
             </div>
 
-            <Button size="lg" type="submit" disabled={isPending || !selectedFile}>
+            <Button
+              size="lg"
+              type="submit"
+              className="h-11 rounded-lg"
+              disabled={isPending || !selectedFile}
+            >
               {isPending ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
@@ -197,7 +210,7 @@ export function ImportUpload() {
           </form>
 
           {lastResult ? (
-            <Alert className="mt-5">
+            <Alert className="mt-5 rounded-xl border-border/70 bg-muted/20">
               <DownloadCloud className="size-4" />
               <AlertTitle>Resultado da ultima carga</AlertTitle>
               <AlertDescription className="space-y-1">
@@ -210,7 +223,7 @@ export function ImportUpload() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-2"
+                    className="mt-2 rounded-lg"
                     type="button"
                     onClick={downloadErrorReport}
                   >
@@ -224,15 +237,15 @@ export function ImportUpload() {
       </Card>
 
       <Card className="dashboard-surface">
-        <CardHeader>
+        <CardHeader className="border-b border-border/70 pb-5">
           <CardTitle>Colunas esperadas</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
+        <CardContent className="space-y-3 pt-6 text-sm text-muted-foreground">
           <p>
             O parser aceita CSV e XLSX. Os cabecalhos sao normalizados, mas as colunas
             abaixo precisam existir.
           </p>
-          <ul className="space-y-1 rounded-2xl border border-border/70 bg-muted/15 p-4 font-mono text-xs">
+          <ul className="space-y-1 rounded-xl border border-border/70 bg-muted/20 p-4 font-mono text-xs">
             {requiredColumns[selectedType].map((column) => (
               <li key={column}>{column}</li>
             ))}

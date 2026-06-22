@@ -19,14 +19,14 @@ interface TeamFilterProps {
 export function TeamFilter({ value, options, onChange }: TeamFilterProps) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+      <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         Equipe
       </Label>
       <Select
         value={value ?? "all"}
         onValueChange={(next) => onChange(!next || next === "all" ? undefined : next)}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="h-10 rounded-lg border-border/70 bg-background shadow-none">
           <SelectValue placeholder="Todas" />
         </SelectTrigger>
         <SelectContent>

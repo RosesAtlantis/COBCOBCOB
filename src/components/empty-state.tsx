@@ -20,18 +20,18 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <Card className="dashboard-surface">
-      <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-        <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
-          <Inbox className="size-6 text-muted-foreground" />
+      <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+        <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+          <Inbox className="size-5 text-muted-foreground" />
         </div>
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <p className="max-w-xl text-sm text-muted-foreground">{description}</p>
+        <div className="space-y-1.5">
+          <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+          <p className="max-w-xl text-sm leading-6 text-muted-foreground">{description}</p>
         </div>
         {actionHref && actionLabel ? (
           <Link
             href={actionHref}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-lg")}
           >
             {actionLabel}
           </Link>
