@@ -1,11 +1,24 @@
+import { redirect } from "next/navigation";
 import { BarChart3, ShieldCheck, UploadCloud } from "lucide-react";
 
 import { LoginForm } from "@/components/login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
+import { getHomePathByRole } from "@/lib/permissions";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const currentProfile = await getCurrentProfile();
+  const currentUser = await getCurrentUser();
   const demoMode = !isSupabaseConfigured();
+
+  if (currentProfile?.ativo) {
+    redirect(getHomePathByRole(currentProfile.perfil));
+  }
+
+  if (currentUser && !currentProfile) {
+    redirect("/acesso-negado?motivo=profile-ausente");
+  }
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 sm:px-6">

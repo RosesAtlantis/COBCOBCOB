@@ -4,6 +4,7 @@ import { ChartCard } from "@/components/chart-card";
 import { DashboardCard } from "@/components/dashboard-card";
 import { FilterBar } from "@/components/filter-bar";
 import { RankingTable } from "@/components/ranking-table";
+import { requireActiveProfile } from "@/lib/auth";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/format";
 import { parseDashboardFilters } from "@/lib/portal-filters";
 import { getOperatorPageData } from "@/services/portal-service";
@@ -15,6 +16,7 @@ interface OperatorPageProps {
 export default async function OperatorPage({
   searchParams,
 }: OperatorPageProps) {
+  await requireActiveProfile(["operador"]);
   const filters = parseDashboardFilters(await searchParams);
   const data = await getOperatorPageData(filters);
 

@@ -15,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { signInWithEmailPassword } from "@/lib/auth-client";
+import { getHomePathByRole } from "@/lib/permissions";
 import type { PortalRole } from "@/types/portal";
 
 const demoRoleOptions: Array<{ value: PortalRole; label: string }> = [
@@ -54,7 +55,7 @@ export function LoginForm({ demoMode }: LoginFormProps) {
       return;
     }
 
-    router.replace("/");
+    router.replace(getHomePathByRole(demoRole));
     router.refresh();
   }
 
@@ -69,24 +70,16 @@ export function LoginForm({ demoMode }: LoginFormProps) {
       return;
     }
 
-    const supabase = getSupabaseBrowserClient();
+    const result = await signInWithEmailPassword(email, password);
 
-    if (!supabase) {
-      setErrorMessage("Configure o Supabase para habilitar a autenticacao real.");
+    if (result.error || !result.redirectTo) {
+      setErrorMessage(
+        result.error ?? "Nao foi possivel validar o acesso ao Portal BKO.",
+      );
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      setErrorMessage(error.message);
-      return;
-    }
-
-    router.replace("/");
+    router.replace(result.redirectTo);
     router.refresh();
   }
 

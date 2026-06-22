@@ -1,6 +1,6 @@
-# Portal BKO
+# Portal BKO / COBCOBCOB
 
-Portal interno de performance para operacoes de cobranca, com dashboards financeiros, ranking operacional, importacao de arquivos e seguranca por perfil.
+Portal interno de performance para operacoes de cobranca, com autenticacao via Supabase, dashboards por perfil, importacoes de arquivos e deploy na Vercel.
 
 ## Stack
 
@@ -14,22 +14,40 @@ Portal interno de performance para operacoes de cobranca, com dashboards finance
 - Recharts
 - CSV / XLSX import
 
-## O que ja vem pronto
+## Estrutura principal
 
-- Login com Supabase Auth
-- Modo demo automatico quando o Supabase nao esta configurado
-- Dashboard geral com KPIs e graficos
-- Ranking de operadores
-- Visao por equipe
-- Visao por carteira
-- Painel do operador
-- Importacao de pagamentos, acordos, operadores, metas, carteiras e acionamentos
-- Importacao dedicada da base antiga CobWare com consolidacao de acordos e parcelas pagas
-- Area administrativa com secoes para usuarios, operadores, equipes, carteiras, credores, metas, importacoes e configuracoes
-- Migrations SQL com RLS
-- Seed com perfis, equipes, operadores, carteiras, metas, pagamentos e acordos
+- App Router e telas: [src/app](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/src/app)
+- Supabase browser client: [src/lib/supabase/client.ts](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/src/lib/supabase/client.ts)
+- Supabase server client: [src/lib/supabase/server.ts](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/src/lib/supabase/server.ts)
+- Supabase admin client: [src/lib/supabase/admin.ts](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/src/lib/supabase/admin.ts)
+- Proxy de protecao: [src/proxy.ts](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/src/proxy.ts)
+- Auth helpers: [src/lib/auth.ts](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/src/lib/auth.ts) e [src/lib/auth-client.ts](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/src/lib/auth-client.ts)
+- Servicos de dashboard: [src/services/portal-service.ts](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/src/services/portal-service.ts)
+- Migrations: [supabase/migrations](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations)
+- Guia Supabase: [supabase/README.md](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/README.md)
 
-## Rodando localmente
+## Variaveis de ambiente
+
+Crie `.env.local` a partir de `.env.example`.
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-publica
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sua-chave-publica-opcional
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-apenas-servidor
+NEXT_PUBLIC_APP_NAME=Portal BKO
+```
+
+Regras:
+
+- `NEXT_PUBLIC_SUPABASE_URL` e obrigatoria.
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` e a chave publica principal.
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` funciona como fallback se algum ambiente estiver usando esse nome.
+- `SUPABASE_SERVICE_ROLE_KEY` e opcional e deve ficar apenas no servidor.
+- Nenhuma chave deve ser fixa no codigo.
+- `.env.local` nao deve ser versionado.
+
+## Setup local
 
 ### 1. Instale dependencias
 
@@ -37,113 +55,223 @@ Portal interno de performance para operacoes de cobranca, com dashboards finance
 npm install
 ```
 
-### 2. Ambiente
+### 2. Crie `.env.local`
 
-Copie `.env.example` para `.env.local`.
+Copie `.env.example` para `.env.local` e preencha com as variaveis reais do Supabase.
 
-Se voce ainda nao configurar o Supabase, o projeto sobe em modo demonstracao usando dados ficticios locais.
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-NEXT_PUBLIC_APP_NAME=Portal BKO
-```
-
-### 3. Desenvolvimento
+### 3. Rode em desenvolvimento
 
 ```bash
 npm run dev
 ```
 
-### 4. Verificacoes
+### 4. Valide antes do deploy
 
 ```bash
-npm run check
+npm run typecheck
+npm run lint
+npm run build
 ```
 
-## Integrando com Supabase
+## Fluxo de autenticacao e rotas
 
-### Estrutura SQL
+Regras implementadas:
 
-- Migration principal: [supabase/migrations/202606220001_portal_bko_init.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220001_portal_bko_init.sql)
-- Seed: [supabase/seed/seed.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/seed/seed.sql)
+- `/login` e publica.
+- `/dashboard`, `/ranking`, `/equipes`, `/carteiras`, `/operador`, `/importacoes` e `/admin` exigem sessao.
+- Usuario autenticado acessando `/login` e redirecionado para a home do papel.
+- Usuario autenticado sem `profile` ou com `ativo = false` vai para `/acesso-negado`.
+- `/admin` exige `admin` ou `gerente`.
+- `/operador` exige `operador`.
 
-### Via Supabase CLI
+Perfis aceitos:
 
-```bash
-npm run db:push
-npm run db:reset
-```
+- `admin`
+- `gerente`
+- `supervisor`
+- `operador`
+- `financeiro`
 
-### Importacao da base antiga CobWare
+Depois do login via Supabase Auth, o projeto consulta a tabela `profiles` e so libera acesso quando o cadastro esta valido e ativo.
 
-Na tela de importacoes, escolha `Base antiga CobWare` para arquivos no layout legado com colunas como:
+## Dashboard e dados reais
 
-- `Credor`
-- `Nome Cliente`
-- `CPF/CNPJ`
-- `Contratos / Fatura`
-- `PARCELA`
-- `QTD PARC`
-- `VLR PARCELA`
-- `Valor Pago`
-- `HO Pago`
-- `VLR ACORDO`
-- `Data de Vencimento`
-- `Data Pagamento`
-- `PAGO`
-- `Status Acordo`
-- `Tipo de HO`
+O dashboard e o ranking usam dados reais do Supabase quando as variaveis publicas estao configuradas.
 
-O importador:
+Tabelas usadas:
+
+- `pagamentos`
+- `acordos`
+- `metas`
+- `operadores`
+- `equipes`
+- `carteiras`
+- `profiles`
+
+Cards principais:
+
+- Arrecadacao total do mes
+- Meta mensal
+- Percentual da meta
+- Quantidade de acordos
+- Ticket medio
+- Melhor operador
+- Melhor equipe
+- Melhor carteira
+
+Se o Supabase nao estiver configurado, o portal entra em modo demonstracao local de forma claramente identificada.
+
+## Importacoes
+
+A tela de importacoes aceita CSV e XLSX.
+
+Tipos suportados:
+
+- `pagamentos`
+- `acordos`
+- `operadores`
+- `metas`
+- `carteiras`
+- `acionamentos`
+- `cobware`
+
+O fluxo:
+
+- valida colunas obrigatorias
+- grava dados nas tabelas corretas
+- registra historico em `importacoes`
+- informa linhas importadas e linhas com erro
+- gera relatorio de erro quando houver falha
+
+Para operacoes server-side que precisem ignorar RLS, a aplicacao usa apenas `SUPABASE_SERVICE_ROLE_KEY` no servidor.
+
+## Base antiga CobWare
+
+Existe um importador dedicado para a base antiga CobWare.
+
+Ele:
 
 - consolida um acordo por chave de negociacao
 - gera pagamentos apenas para parcelas efetivamente pagas
 - preserva o credor
 - cria carteiras tecnicas no formato `CobWare • <Tipo de HO>`
-- evita reimport duplicado por `chave_externa`
+- evita duplicacao com `chave_externa`
 
-### Via SQL Editor
+## SQLs / migrations
 
-1. Execute a migration.
-2. Execute o seed.
-3. Preencha `.env.local` com as chaves do projeto.
+Arquivos prontos:
 
-## Usuarios seed
+- [supabase/migrations/202606220001_portal_bko_init.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220001_portal_bko_init.sql)
+- [supabase/migrations/202606220002_cobware_import_support.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220002_cobware_import_support.sql)
+- [supabase/seed/seed.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/seed/seed.sql)
 
-Senha padrao para os usuarios seed:
+Guia detalhado:
+
+- [supabase/README.md](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/README.md)
+
+## Como configurar o Supabase
+
+### 1. Rodar os SQLs
+
+No `Supabase > SQL Editor`, rode nesta ordem:
+
+1. `202606220001_portal_bko_init.sql`
+2. `202606220002_cobware_import_support.sql`
+3. `seed.sql` apenas se quiser dados de exemplo
+
+### 2. Criar o usuario admin
+
+1. Va em `Supabase > Authentication > Users`.
+2. Crie seu usuario manualmente.
+3. Copie o `User ID`.
+4. Va em `Supabase > Table Editor > profiles`.
+5. Crie uma linha com:
 
 ```text
-PortalBKO123!
+user_id = ID do usuario criado
+nome = seu nome
+email = seu e-mail
+perfil = admin
+ativo = true
 ```
 
-Contas principais:
+SQL exemplo:
 
-- `admin@portalbko.local`
-- `gerente@portalbko.local`
-- `financeiro@portalbko.local`
-- `supervisor.atlas@portalbko.local`
-- `supervisor.bora@portalbko.local`
-- `bianca.lima@portalbko.local`
+```sql
+insert into public.profiles (
+  user_id,
+  nome,
+  email,
+  perfil,
+  ativo
+)
+values (
+  'COLE_AQUI_O_USER_ID',
+  'Administrador',
+  'seu-email@empresa.com',
+  'admin',
+  true
+);
+```
 
-## Estrutura do projeto
+### 3. Configurar Auth no Supabase
+
+Va em:
 
 ```text
-src/
-  app/
-  components/
-  hooks/
-  lib/
-  services/
-  types/
-supabase/
-  migrations/
-  seed/
+Supabase
+Authentication
+URL Configuration
 ```
 
-## Observacoes
+Configure:
 
-- O `SUPABASE_SERVICE_ROLE_KEY` e usado apenas na API de importacao, no servidor.
-- O portal funciona em demo sem banco para acelerar validacao visual.
-- Quando o Supabase estiver configurado, Auth + RLS assumem o controle do acesso.
+```text
+Site URL = URL da Vercel
+Redirect URLs:
+https://URL-DA-VERCEL.vercel.app/*
+http://localhost:3000/*
+```
+
+## Como configurar a Vercel
+
+Va em:
+
+```text
+Vercel
+Settings
+Environment Variables
+```
+
+Cadastre:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://wdsicyculbswqqbczmwc.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_RsDdoC7xjpA2SGozBvXnMg_Wzxoc7Yr
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_RsDdoC7xjpA2SGozBvXnMg_Wzxoc7Yr
+SUPABASE_SERVICE_ROLE_KEY=COLOCAR_MANUALMENTE_SE_NECESSARIO
+```
+
+Depois de salvar:
+
+```text
+Deployments > Redeploy
+```
+
+## Scripts disponiveis
+
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+npm run typecheck
+npm run check
+```
+
+## Observacoes finais
+
+- O projeto usa `src/proxy.ts` porque no Next.js 16 essa e a forma atual de proteger rotas no lugar do antigo `middleware.ts`.
+- O client do navegador nunca usa `SUPABASE_SERVICE_ROLE_KEY`.
+- O admin client fica isolado em codigo server-side.
+- O acesso tambem e filtrado pelo banco com RLS, nao apenas pela interface.

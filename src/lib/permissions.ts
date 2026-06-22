@@ -1,5 +1,13 @@
 import type { PortalRole } from "@/types/portal";
 
+export const portalRoles: PortalRole[] = [
+  "admin",
+  "gerente",
+  "supervisor",
+  "operador",
+  "financeiro",
+];
+
 export const roleLabels: Record<PortalRole, string> = {
   admin: "Admin",
   gerente: "Gerente",
@@ -7,6 +15,10 @@ export const roleLabels: Record<PortalRole, string> = {
   operador: "Operador",
   financeiro: "Financeiro",
 };
+
+export function isPortalRole(value: string): value is PortalRole {
+  return portalRoles.includes(value as PortalRole);
+}
 
 export function hasRoleAccess(
   currentRole: PortalRole,

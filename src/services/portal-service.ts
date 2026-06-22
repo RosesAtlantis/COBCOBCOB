@@ -11,7 +11,12 @@ import {
   buildTeamPerformance,
   buildWalletPerformance,
 } from "@/lib/portal-analytics";
-import { isSupabaseConfigured } from "@/lib/env";
+import {
+  hasServiceRoleKey,
+  hasSupabaseAnonKey,
+  hasSupabasePublishableKey,
+  isSupabaseConfigured,
+} from "@/lib/env";
 import { getMockPortalDataset } from "@/lib/mock-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -348,8 +353,24 @@ export async function getAdminSectionData(
           item: "Supabase",
           status: isSupabaseConfigured() ? "Configurado" : "Pendente",
           detalhe: isSupabaseConfigured()
-            ? "Variaveis publicas presentes."
+            ? hasSupabaseAnonKey()
+              ? "Variaveis publicas presentes com ANON KEY."
+              : "Variaveis publicas presentes via PUBLISHABLE KEY."
             : "Preencha o arquivo .env.local.",
+        },
+        {
+          item: "Publishable fallback",
+          status: hasSupabasePublishableKey() ? "Disponivel" : "Nao configurado",
+          detalhe: hasSupabasePublishableKey()
+            ? "Pode substituir a ANON KEY quando necessario."
+            : "Opcional. So use se algum ambiente exigir esse nome.",
+        },
+        {
+          item: "Service role",
+          status: hasServiceRoleKey() ? "Configurado" : "Pendente",
+          detalhe: hasServiceRoleKey()
+            ? "Disponivel para importacoes server-side."
+            : "Necessario para gravar importacoes no Supabase.",
         },
         {
           item: "Modo demo",
