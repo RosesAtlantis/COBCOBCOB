@@ -47,6 +47,18 @@ export function canViewClients(currentRole: PortalRole) {
   );
 }
 
+export function canViewAgreementCentral(currentRole: PortalRole) {
+  return canViewClients(currentRole);
+}
+
+export function canViewInstallmentCentral(currentRole: PortalRole) {
+  return canViewClients(currentRole);
+}
+
+export function canViewWriteOffCentral(currentRole: PortalRole) {
+  return ["admin", "gerente", "supervisor", "financeiro"].includes(currentRole);
+}
+
 export function canCreateAgreements(currentRole: PortalRole) {
   return ["admin", "gerente", "supervisor", "operador"].includes(currentRole);
 }
@@ -59,6 +71,10 @@ export function canRegisterAgreementPayments(currentRole: PortalRole) {
   return ["admin", "gerente", "financeiro", "supervisor"].includes(
     currentRole,
   );
+}
+
+export function canReverseAgreementPayments(currentRole: PortalRole) {
+  return canRegisterAgreementPayments(currentRole);
 }
 
 export function getHomePathByRole(currentRole: PortalRole) {

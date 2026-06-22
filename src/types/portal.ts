@@ -174,6 +174,10 @@ export interface Payment {
   origem_arquivo: string | null;
   chave_externa: string | null;
   importacao_id: string | null;
+  estornado: boolean;
+  estornado_em: string | null;
+  estornado_por: string | null;
+  motivo_estorno: string | null;
   criado_em: string;
 }
 
@@ -233,6 +237,10 @@ export interface AgreementWriteOff {
   observacao: string | null;
   registrado_por: string | null;
   chave_externa: string | null;
+  estornada: boolean;
+  estornada_em: string | null;
+  estornada_por: string | null;
+  motivo_estorno: string | null;
   criado_em: string;
 }
 
@@ -528,6 +536,267 @@ export interface ClientDetailPageData {
   demoMode: boolean;
 }
 
+export interface AuditEvent {
+  id: string;
+  entidade: string;
+  entidadeId: string;
+  acao: string;
+  descricao: string | null;
+  acordoId: string | null;
+  parcelaId: string | null;
+  baixaId: string | null;
+  pagamentoId: string | null;
+  clienteId: string | null;
+  contratoId: string | null;
+  operadorId: string | null;
+  equipeId: string | null;
+  carteiraId: string | null;
+  usuarioId: string | null;
+  usuarioNome: string;
+  payload: Record<string, unknown>;
+  criadoEm: string;
+}
+
+export interface AgreementCenterFilters {
+  query?: string;
+  walletId?: string;
+  creditor?: string;
+  teamId?: string;
+  operatorId?: string;
+  status?: AgreementStatus;
+  startDate?: string;
+  endDate?: string;
+  minValue?: number;
+  maxValue?: number;
+}
+
+export interface AgreementCenterFilterOptions {
+  wallets: FilterOption[];
+  creditors: FilterOption[];
+  teams: FilterOption[];
+  operators: FilterOption[];
+  statuses: FilterOption[];
+}
+
+export interface AgreementCenterSummary {
+  ativos: number;
+  totalAcordado: number;
+  pago: number;
+  saldoEmAberto: number;
+  parcelasVencidas: number;
+  acordosQuitados: number;
+  cancelados: number;
+}
+
+export interface AgreementCenterRow {
+  id: string;
+  clientId: string | null;
+  walletId: string | null;
+  operatorId: string | null;
+  teamId: string | null;
+  cliente: string;
+  cpfCnpj: string;
+  contrato: string;
+  carteira: string;
+  credor: string;
+  operador: string;
+  equipe: string;
+  dataAcordo: string;
+  valorOriginal: number;
+  valorAcordo: number;
+  valorPago: number;
+  saldo: number;
+  parcelas: number;
+  parcelasPagas: number;
+  parcelasPendentes: number;
+  parcelasAtrasadas: number;
+  status: AgreementStatus | string;
+  formaPagamento: string | null;
+  observacao: string | null;
+  ultimoPagamentoEm: string | null;
+  ultimaAtualizacao: string;
+  parcelasDetalhe: AgreementInstallment[];
+}
+
+export interface AgreementCenterPageData {
+  profile: PortalProfile;
+  filters: AgreementCenterFilters;
+  options: AgreementCenterFilterOptions;
+  summary: AgreementCenterSummary;
+  agreements: AgreementCenterRow[];
+  canCancelAgreement: boolean;
+  canRegisterWriteOff: boolean;
+  canReverseWriteOff: boolean;
+  demoMode: boolean;
+}
+
+export interface InstallmentCenterFilters {
+  query?: string;
+  walletId?: string;
+  creditor?: string;
+  teamId?: string;
+  operatorId?: string;
+  status?: AgreementInstallmentStatus;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface InstallmentCenterFilterOptions {
+  wallets: FilterOption[];
+  creditors: FilterOption[];
+  teams: FilterOption[];
+  operators: FilterOption[];
+  statuses: FilterOption[];
+}
+
+export interface InstallmentCenterSummary {
+  pendentes: number;
+  vencidas: number;
+  pagas: number;
+  valorVencido: number;
+  valorAVencer: number;
+  recebido: number;
+}
+
+export interface InstallmentCenterRow {
+  id: string;
+  agreementId: string;
+  clientId: string | null;
+  walletId: string | null;
+  operatorId: string | null;
+  teamId: string | null;
+  cliente: string;
+  cpfCnpj: string;
+  contrato: string;
+  carteira: string;
+  credor: string;
+  operador: string;
+  equipe: string;
+  numeroParcela: number;
+  tipo: AgreementInstallmentType | string;
+  vencimento: string;
+  valorParcela: number;
+  valorPago: number;
+  saldo: number;
+  status: AgreementInstallmentStatus | string;
+  diasEmAtraso: number;
+  dataPagamento: string | null;
+  acordoStatus: AgreementStatus | string;
+  observacao: string | null;
+}
+
+export interface InstallmentCenterPageData {
+  profile: PortalProfile;
+  filters: InstallmentCenterFilters;
+  options: InstallmentCenterFilterOptions;
+  summary: InstallmentCenterSummary;
+  installments: InstallmentCenterRow[];
+  agreements: AgreementCenterRow[];
+  canRegisterWriteOff: boolean;
+  demoMode: boolean;
+}
+
+export interface WriteOffCenterFilters {
+  query?: string;
+  walletId?: string;
+  creditor?: string;
+  teamId?: string;
+  operatorId?: string;
+  paymentMethod?: string;
+  registeredBy?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface WriteOffCenterFilterOptions {
+  wallets: FilterOption[];
+  creditors: FilterOption[];
+  teams: FilterOption[];
+  operators: FilterOption[];
+  paymentMethods: FilterOption[];
+  registeredBy: FilterOption[];
+}
+
+export interface WriteOffCenterSummary {
+  recebidoNoPeriodo: number;
+  quantidadeBaixas: number;
+  ticketMedio: number;
+  baixasEstornadas: number;
+  maiorCarteira: string;
+  maiorOperador: string;
+}
+
+export interface WriteOffCenterRow {
+  id: string;
+  agreementId: string;
+  parcelId: string;
+  clientId: string | null;
+  walletId: string | null;
+  operatorId: string | null;
+  teamId: string | null;
+  cliente: string;
+  cpfCnpj: string;
+  acordo: string;
+  contrato: string;
+  numeroParcela: number;
+  carteira: string;
+  credor: string;
+  operador: string;
+  equipe: string;
+  dataPagamento: string;
+  valorPago: number;
+  formaPagamento: string | null;
+  registradoPor: string;
+  registradoPorId: string | null;
+  dataRegistro: string;
+  observacao: string | null;
+  estornada: boolean;
+  estornadaEm: string | null;
+  estornadaPor: string | null;
+  motivoEstorno: string | null;
+}
+
+export interface WriteOffCenterPageData {
+  profile: PortalProfile;
+  filters: WriteOffCenterFilters;
+  options: WriteOffCenterFilterOptions;
+  summary: WriteOffCenterSummary;
+  writeOffs: WriteOffCenterRow[];
+  canReverseWriteOff: boolean;
+  demoMode: boolean;
+}
+
+export interface AgreementDetailData {
+  id: string;
+  clientId: string | null;
+  cliente: string;
+  cpfCnpj: string;
+  contrato: string;
+  carteira: string;
+  credor: string;
+  operador: string;
+  equipe: string;
+  dataAcordo: string;
+  valorOriginal: number;
+  valorAcordo: number;
+  valorPago: number;
+  saldo: number;
+  status: AgreementStatus | string;
+  formaPagamento: string | null;
+  observacao: string | null;
+  ultimoPagamentoEm: string | null;
+  parcelasPagas: number;
+  parcelasPendentes: number;
+  parcelasAtrasadas: number;
+  parcelas: AgreementInstallment[];
+  writeOffs: WriteOffCenterRow[];
+  auditTrail: AuditEvent[];
+  canCancel: boolean;
+  canRegisterWriteOff: boolean;
+  canReverseWriteOff: boolean;
+  demoMode: boolean;
+}
+
 export interface AgreementInstallmentDraft {
   numeroParcela: number;
   tipo: AgreementInstallmentType;
@@ -566,6 +835,11 @@ export interface RegisterAgreementWriteOffInput {
 export interface CancelAgreementInput {
   acordoId: string;
   observacao?: string | null;
+}
+
+export interface ReverseAgreementWriteOffInput {
+  baixaId: string;
+  motivoEstorno?: string | null;
 }
 
 export interface AgreementOperationResult {

@@ -262,6 +262,10 @@ export interface Database {
           chave_externa: string | null;
           origem_arquivo: string | null;
           importacao_id: string | null;
+          estornado: boolean;
+          estornado_em: string | null;
+          estornado_por: string | null;
+          motivo_estorno: string | null;
           criado_em: string;
         };
         Insert: {
@@ -280,6 +284,10 @@ export interface Database {
           chave_externa?: string | null;
           origem_arquivo?: string | null;
           importacao_id?: string | null;
+          estornado?: boolean;
+          estornado_em?: string | null;
+          estornado_por?: string | null;
+          motivo_estorno?: string | null;
           criado_em?: string;
         };
         Update: Partial<Database["public"]["Tables"]["pagamentos"]["Insert"]>;
@@ -391,6 +399,10 @@ export interface Database {
           observacao: string | null;
           registrado_por: string | null;
           chave_externa: string | null;
+          estornada: boolean;
+          estornada_em: string | null;
+          estornada_por: string | null;
+          motivo_estorno: string | null;
           criado_em: string;
         };
         Insert: {
@@ -404,9 +416,55 @@ export interface Database {
           observacao?: string | null;
           registrado_por?: string | null;
           chave_externa?: string | null;
+          estornada?: boolean;
+          estornada_em?: string | null;
+          estornada_por?: string | null;
+          motivo_estorno?: string | null;
           criado_em?: string;
         };
         Update: Partial<Database["public"]["Tables"]["acordo_baixas"]["Insert"]>;
+        Relationships: [];
+      };
+      auditoria_eventos: {
+        Row: {
+          id: string;
+          entidade: string;
+          entidade_id: string;
+          acao: string;
+          descricao: string | null;
+          acordo_id: string | null;
+          parcela_id: string | null;
+          baixa_id: string | null;
+          pagamento_id: string | null;
+          cliente_id: string | null;
+          contrato_id: string | null;
+          operador_id: string | null;
+          equipe_id: string | null;
+          carteira_id: string | null;
+          usuario_id: string | null;
+          payload: Json;
+          criado_em: string;
+        };
+        Insert: {
+          id?: string;
+          entidade: string;
+          entidade_id: string;
+          acao: string;
+          descricao?: string | null;
+          acordo_id?: string | null;
+          parcela_id?: string | null;
+          baixa_id?: string | null;
+          pagamento_id?: string | null;
+          cliente_id?: string | null;
+          contrato_id?: string | null;
+          operador_id?: string | null;
+          equipe_id?: string | null;
+          carteira_id?: string | null;
+          usuario_id?: string | null;
+          payload?: Json;
+          criado_em?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["auditoria_eventos"]["Insert"]>;
         Relationships: [];
       };
       acionamentos: {
@@ -518,6 +576,13 @@ export interface Database {
         Args: {
           p_acordo_id: string;
           p_observacao?: string | null;
+        };
+        Returns: string;
+      };
+      portal_estornar_baixa: {
+        Args: {
+          p_baixa_id: string;
+          p_motivo_estorno?: string | null;
         };
         Returns: string;
       };

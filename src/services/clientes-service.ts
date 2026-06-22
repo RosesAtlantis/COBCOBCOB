@@ -52,7 +52,7 @@ import type {
 type ClientRow = Database["public"]["Tables"]["clientes"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
-interface ClientsContext {
+export interface ClientsContext {
   profile: PortalProfile;
   demoMode: boolean;
   clients: Client[];
@@ -78,7 +78,7 @@ function toRows<T>(data: { data: T[] | null }) {
   return data.data ?? [];
 }
 
-function uniqueOptions(options: FilterOption[]) {
+export function uniqueOptions(options: FilterOption[]) {
   return Array.from(
     new Map(options.map((option) => [option.value, option])).values(),
   );
@@ -355,6 +355,10 @@ function createMockClientsContext(profile: PortalProfile): ClientsContext {
         observacao: null,
         registrado_por: profile.id,
         chave_externa: null,
+        estornada: false,
+        estornada_em: null,
+        estornada_por: null,
+        motivo_estorno: null,
         criado_em: addDays(parseISO(installment.data_vencimento), -1).toISOString(),
       };
     });
@@ -379,6 +383,10 @@ function createMockClientsContext(profile: PortalProfile): ClientsContext {
       origem_arquivo: "baixa_manual",
       chave_externa: null,
       importacao_id: null,
+      estornado: false,
+      estornado_em: null,
+      estornado_por: null,
+      motivo_estorno: null,
       criado_em: addDays(parseISO(item.data_pagamento), 1).toISOString(),
     };
   });
@@ -496,7 +504,7 @@ function scopeClientsContext(context: ClientsContext, profile: PortalProfile) {
   };
 }
 
-const getClientsContext = cache(async (): Promise<ClientsContext> => {
+export const getClientsContext = cache(async (): Promise<ClientsContext> => {
   const profile = await requireActiveProfile();
 
   if (!canViewClients(profile.perfil)) {
@@ -574,7 +582,7 @@ const getClientsContext = cache(async (): Promise<ClientsContext> => {
   };
 });
 
-function buildResolvedCollections(context: ClientsContext) {
+export function buildResolvedCollections(context: ClientsContext) {
   const walletById = new Map(context.wallets.map((item) => [item.id, item]));
   const operatorById = new Map(context.operators.map((item) => [item.id, item]));
   const teamById = new Map(context.teams.map((item) => [item.id, item]));
@@ -687,6 +695,7 @@ function buildResolvedCollections(context: ClientsContext) {
     operatorById,
     teamById,
     profileById,
+    clientById,
     contractsByClient,
     walletLinksByClient,
     installmentsByAgreement,

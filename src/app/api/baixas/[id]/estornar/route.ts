@@ -2,9 +2,9 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
-  cancelarAcordo,
-  parseCancelAgreementInput,
-} from "@/services/acordos-service";
+  estornarBaixa,
+  parseReverseWriteOffInput,
+} from "@/services/baixas-service";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -14,14 +14,18 @@ export async function POST(request: Request, { params }: RouteContext) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const payload = parseCancelAgreementInput({
+    const payload = parseReverseWriteOffInput({
       ...body,
-      acordoId: id,
+      baixaId: id,
     });
-    const result = await cancelarAcordo(payload);
+    const result = await estornarBaixa(payload);
 
     if (body.clienteId) {
       revalidatePath(`/clientes/${body.clienteId}`);
+    }
+
+    if (body.acordoId) {
+      revalidatePath(`/acordos/${body.acordoId}`);
     }
 
     revalidatePath("/clientes");
@@ -36,7 +40,7 @@ export async function POST(request: Request, { params }: RouteContext) {
         message:
           error instanceof Error
             ? error.message
-            : "Nao foi possivel cancelar o acordo.",
+            : "Nao foi possivel estornar a baixa.",
       },
       { status: 400 },
     );

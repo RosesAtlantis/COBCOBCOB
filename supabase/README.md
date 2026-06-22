@@ -9,21 +9,22 @@ Este projeto ja possui os SQLs prontos em `supabase/migrations`.
 3. Rode o arquivo [migrations/202606220001_portal_bko_init.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220001_portal_bko_init.sql).
 4. Rode o arquivo [migrations/202606220002_cobware_import_support.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220002_cobware_import_support.sql).
 5. Rode o arquivo [migrations/202606220003_clientes_acordos_baixas.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220003_clientes_acordos_baixas.sql).
-6. Se quiser dados de exemplo para desenvolvimento, rode [seed/seed.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/seed/seed.sql).
-7. Va em `Authentication > URL Configuration`.
-8. Preencha `Site URL` com a URL publicada na Vercel.
-9. Adicione estas `Redirect URLs`:
+6. Rode o arquivo [migrations/202606220004_acordos_baixas_auditoria.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220004_acordos_baixas_auditoria.sql).
+7. Se quiser dados de exemplo para desenvolvimento, rode [seed/seed.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/seed/seed.sql).
+8. Va em `Authentication > URL Configuration`.
+9. Preencha `Site URL` com a URL publicada na Vercel.
+10. Adicione estas `Redirect URLs`:
 
 ```text
 https://URL-DA-VERCEL.vercel.app/*
 http://localhost:3000/*
 ```
 
-10. Va em `Authentication > Users`.
-11. Crie o seu usuario manualmente.
-12. Copie o `User ID` criado.
-13. Va em `Table Editor > profiles`.
-14. Crie uma linha manual com:
+11. Va em `Authentication > Users`.
+12. Crie o seu usuario manualmente.
+13. Copie o `User ID` criado.
+14. Va em `Table Editor > profiles`.
+15. Crie uma linha manual com:
 
 ```text
 user_id = ID do usuario criado
@@ -33,7 +34,7 @@ perfil = admin
 ativo = true
 ```
 
-15. Depois configure as variaveis do projeto na Vercel e faca `Redeploy`.
+16. Depois configure as variaveis do projeto na Vercel e faca `Redeploy`.
 
 ## SQLs que precisam ser rodados
 
@@ -42,6 +43,7 @@ Obrigatorios:
 1. [migrations/202606220001_portal_bko_init.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220001_portal_bko_init.sql)
 2. [migrations/202606220002_cobware_import_support.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220002_cobware_import_support.sql)
 3. [migrations/202606220003_clientes_acordos_baixas.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220003_clientes_acordos_baixas.sql)
+4. [migrations/202606220004_acordos_baixas_auditoria.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220004_acordos_baixas_auditoria.sql)
 
 Opcional:
 
@@ -64,6 +66,7 @@ As migrations criam e configuram:
 - `contratos`
 - `acordo_parcelas`
 - `acordo_baixas`
+- `auditoria_eventos`
 - `acionamentos`
 - `importacoes`
 
@@ -77,7 +80,8 @@ Incluem:
 - RLS
 - policies basicas
 - funcoes auxiliares de papel, equipe e operador
-- funcoes transacionais para criar acordo, gerar parcelas e registrar baixa
+- funcoes transacionais para criar acordo, gerar parcelas, registrar baixa e estornar recebimentos
+- trilha de auditoria para criacao, cancelamento, baixa, estorno e mudanca de status do acordo
 
 ## SQL exemplo para criar o admin manualmente
 

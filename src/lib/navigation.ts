@@ -1,13 +1,16 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
+  Banknote,
   BriefcaseBusiness,
   Building2,
   FileSpreadsheet,
+  FileText,
   FolderClock,
   Gauge,
   Landmark,
   Layers3,
+  ListTodo,
   Settings2,
   ShieldCheck,
   Target,
@@ -71,6 +74,30 @@ const clientsItem: NavigationItem = {
   href: "/clientes",
   icon: Users,
   description: "Cadastro operacional, acordos e baixas por cliente.",
+};
+
+const agreementsItem: NavigationItem = {
+  title: "Acordos",
+  href: "/acordos",
+  icon: FileText,
+  description: "Central de negociacoes, parcelas e status por acordo.",
+  matchPrefixes: ["/acordos"],
+};
+
+const installmentsItem: NavigationItem = {
+  title: "Parcelas",
+  href: "/parcelas",
+  icon: ListTodo,
+  description: "Fila financeira por vencimento, status e operador.",
+  matchPrefixes: ["/parcelas"],
+};
+
+const writeOffsItem: NavigationItem = {
+  title: "Baixas",
+  href: "/baixas",
+  icon: Banknote,
+  description: "Recebimentos registrados, estornos e auditoria financeira.",
+  matchPrefixes: ["/baixas"],
 };
 
 const importsItem: NavigationItem = {
@@ -151,7 +178,7 @@ const operatorNavigation: NavigationGroup[] = [
   },
   {
     title: "Cobranca",
-    items: [clientsItem],
+    items: [clientsItem, agreementsItem, installmentsItem],
   },
 ];
 
@@ -163,6 +190,10 @@ const supervisorNavigation: NavigationGroup[] = [
   {
     title: "Operacao",
     items: [clientsItem, teamsItem, walletsItem],
+  },
+  {
+    title: "Financeiro",
+    items: [agreementsItem, installmentsItem, writeOffsItem],
   },
   {
     title: "Dados",
@@ -179,6 +210,9 @@ const financeNavigation: NavigationGroup[] = [
     title: "Financeiro",
     items: [
       clientsItem,
+      agreementsItem,
+      installmentsItem,
+      writeOffsItem,
       {
         title: "Carteiras",
         href: "/carteiras",
@@ -201,6 +235,10 @@ const managementNavigation: NavigationGroup[] = [
   {
     title: "Operacao",
     items: [clientsItem, teamsItem, walletsItem],
+  },
+  {
+    title: "Financeiro",
+    items: [agreementsItem, installmentsItem, writeOffsItem],
   },
   {
     title: "Dados",

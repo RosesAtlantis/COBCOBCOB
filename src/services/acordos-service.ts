@@ -3,19 +3,41 @@ import "server-only";
 import { z } from "zod";
 
 import { getCurrentProfile, requireActiveProfile } from "@/lib/auth";
-import { isSupabaseConfigured } from "@/lib/env";
-import { generateAgreementInstallments } from "@/lib/clientes-utils";
 import {
+  deriveInstallmentStatus,
+  generateAgreementInstallments,
+  getPrimaryWalletLabel,
+  matchesClientSearch,
+  normalizeText,
+  roundCurrency,
+} from "@/lib/clientes-utils";
+import { isSupabaseConfigured } from "@/lib/env";
+import {
+  canViewAgreementCentral,
   canCancelAgreements,
   canCreateAgreements,
   canRegisterAgreementPayments,
+  canReverseAgreementPayments,
 } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { listarHistoricoAcordo } from "@/services/auditoria-service";
+import {
+  buildResolvedCollections,
+  getClientsContext,
+  uniqueOptions,
+  type ClientsContext,
+} from "@/services/clientes-service";
 import type {
+  AgreementCenterFilterOptions,
+  AgreementCenterFilters,
+  AgreementCenterPageData,
+  AgreementCenterRow,
+  AgreementDetailData,
   AgreementInstallmentDraft,
   AgreementOperationResult,
   AgreementStatus,
   CreateAgreementInput,
+  WriteOffCenterRow,
 } from "@/types/portal";
 
 const createAgreementSchema = z.object({
@@ -91,6 +113,326 @@ async function readAgreementStatus(agreementId: string) {
   }
 
   return data.status as AgreementStatus;
+}
+
+function pickLatestDate(values: Array<string | null | undefined>) {
+  return values.filter(Boolean).sort().at(-1) ?? null;
+}
+
+function buildAgreementFilterOptions(
+  context: ClientsContext,
+): AgreementCenterFilterOptions {
+  return {
+    wallets: uniqueOptions(
+      context.wallets.map((wallet) => ({
+        value: wallet.id,
+        label: wallet.nome,
+        description: wallet.credor,
+      })),
+    ),
+    creditors: uniqueOptions(
+      context.wallets.map((wallet) => ({
+        value: wallet.credor,
+        label: wallet.credor,
+      })),
+    ),
+    teams: uniqueOptions(
+      context.teams.map((team) => ({
+        value: team.id,
+        label: team.nome,
+      })),
+    ),
+    operators: uniqueOptions(
+      context.operators.map((operator) => ({
+        value: operator.id,
+        label: operator.nome,
+      })),
+    ),
+    statuses: [
+      { value: "ativo", label: "Ativo" },
+      { value: "aguardando_pagamento", label: "Aguardando pagamento" },
+      { value: "parcial", label: "Parcial" },
+      { value: "atrasado", label: "Atrasado" },
+      { value: "quitado", label: "Quitado" },
+      { value: "cancelado", label: "Cancelado" },
+      { value: "quebrado", label: "Quebrado" },
+      { value: "andamento", label: "Em andamento" },
+      { value: "formalizado", label: "Formalizado" },
+    ],
+  };
+}
+
+export function buildAgreementCenterRows(
+  context: ClientsContext,
+): AgreementCenterRow[] {
+  const resolved = buildResolvedCollections(context);
+
+  return resolved.resolvedAgreements.map((agreement) => {
+    const client = agreement.cliente_id
+      ? resolved.clientById.get(agreement.cliente_id)
+      : undefined;
+    const wallet = agreement.carteira_id
+      ? resolved.walletById.get(agreement.carteira_id)
+      : undefined;
+    const installments = [...agreement.resolvedInstallments].sort(
+      (left, right) => left.numero_parcela - right.numero_parcela,
+    );
+    const parcelasPagas = installments.filter(
+      (item) => deriveInstallmentStatus(item) === "pago",
+    ).length;
+    const parcelasPendentes = installments.filter(
+      (item) => deriveInstallmentStatus(item) === "pendente",
+    ).length;
+    const parcelasAtrasadas = installments.filter(
+      (item) => deriveInstallmentStatus(item) === "atrasado",
+    ).length;
+
+    return {
+      id: agreement.id,
+      clientId: client?.id ?? agreement.cliente_id ?? null,
+      walletId: agreement.carteira_id ?? null,
+      operatorId: agreement.operador_id ?? null,
+      teamId: agreement.equipe_id ?? null,
+      cliente: client?.nome ?? "Cliente nao vinculado",
+      cpfCnpj: client?.cpf_cnpj ?? agreement.cpf_cnpj ?? "-",
+      contrato: agreement.contrato ?? "-",
+      carteira: wallet?.nome ?? getPrimaryWalletLabel(null, wallet?.credor ?? null),
+      credor: wallet?.credor ?? "-",
+      operador: agreement.operador_id
+        ? resolved.operatorById.get(agreement.operador_id)?.nome ?? "-"
+        : "-",
+      equipe: agreement.equipe_id
+        ? resolved.teamById.get(agreement.equipe_id)?.nome ?? "-"
+        : "-",
+      dataAcordo: agreement.data_acordo,
+      valorOriginal: agreement.valor_original,
+      valorAcordo: agreement.valor_acordo,
+      valorPago: agreement.valor_pago,
+      saldo: agreement.remainingValue,
+      parcelas: installments.length,
+      parcelasPagas,
+      parcelasPendentes,
+      parcelasAtrasadas,
+      status: agreement.resolvedStatus,
+      formaPagamento: agreement.forma_pagamento,
+      observacao: agreement.observacao,
+      ultimoPagamentoEm: agreement.ultimo_pagamento_em,
+      ultimaAtualizacao:
+        pickLatestDate([
+          agreement.atualizado_em,
+          agreement.ultimo_pagamento_em,
+          ...installments.map((item) => item.atualizado_em),
+        ]) ?? agreement.atualizado_em,
+      parcelasDetalhe: installments,
+    } satisfies AgreementCenterRow;
+  });
+}
+
+function filterAgreementRows(
+  rows: AgreementCenterRow[],
+  filters: AgreementCenterFilters,
+) {
+  const normalizedQuery = normalizeText(filters.query);
+
+  return rows
+    .filter((row) => {
+      const matchesQuery =
+        matchesClientSearch(filters.query ?? "", {
+          name: row.cliente,
+          document: row.cpfCnpj,
+          contractNumbers: [row.contrato],
+        }) ||
+        (!normalizedQuery
+          ? true
+          : [row.carteira, row.credor, row.operador, row.equipe].some((value) =>
+              normalizeText(value).includes(normalizedQuery),
+            ));
+
+      return (
+        matchesQuery &&
+        (!filters.status || row.status === filters.status) &&
+        (!filters.walletId || row.walletId === filters.walletId) &&
+        (!filters.creditor ||
+          normalizeText(row.credor) === normalizeText(filters.creditor)) &&
+        (!filters.teamId || row.teamId === filters.teamId) &&
+        (!filters.operatorId || row.operatorId === filters.operatorId) &&
+        (!filters.startDate || row.dataAcordo >= filters.startDate) &&
+        (!filters.endDate || row.dataAcordo <= filters.endDate) &&
+        (typeof filters.minValue !== "number" || row.valorAcordo >= filters.minValue) &&
+        (typeof filters.maxValue !== "number" || row.valorAcordo <= filters.maxValue)
+      );
+    })
+    .sort((left, right) => right.dataAcordo.localeCompare(left.dataAcordo));
+}
+
+function buildAgreementSummary(rows: AgreementCenterRow[]) {
+  const ativos = rows.filter((row) =>
+    [
+      "ativo",
+      "aguardando_pagamento",
+      "parcial",
+      "atrasado",
+      "andamento",
+      "formalizado",
+    ].includes(row.status),
+  ).length;
+
+  return {
+    ativos,
+    totalAcordado: roundCurrency(
+      rows.reduce((total, row) => total + row.valorAcordo, 0),
+    ),
+    pago: roundCurrency(rows.reduce((total, row) => total + row.valorPago, 0)),
+    saldoEmAberto: roundCurrency(rows.reduce((total, row) => total + row.saldo, 0)),
+    parcelasVencidas: rows.reduce((total, row) => total + row.parcelasAtrasadas, 0),
+    acordosQuitados: rows.filter((row) => row.status === "quitado").length,
+    cancelados: rows.filter((row) => row.status === "cancelado").length,
+  };
+}
+
+function buildAgreementWriteOffRows(context: ClientsContext, agreementId: string) {
+  const resolved = buildResolvedCollections(context);
+  const agreement = resolved.agreementById.get(agreementId);
+
+  if (!agreement) {
+    return [] satisfies WriteOffCenterRow[];
+  }
+
+  const client = agreement.cliente_id
+    ? resolved.clientById.get(agreement.cliente_id)
+    : undefined;
+  const wallet = agreement.carteira_id
+    ? resolved.walletById.get(agreement.carteira_id)
+    : undefined;
+
+  return resolved.resolvedWriteOffs
+    .filter((writeOff) => writeOff.acordo_id === agreementId)
+    .map((writeOff) => {
+      const installment = agreement.resolvedInstallments.find(
+        (item) => item.id === writeOff.parcela_id,
+      );
+      const registeredBy = writeOff.registrado_por
+        ? resolved.profileById.get(writeOff.registrado_por)?.nome ?? "Portal BKO"
+        : "Portal BKO";
+      const reversedBy = writeOff.estornada_por
+        ? resolved.profileById.get(writeOff.estornada_por)?.nome ?? "Portal BKO"
+        : null;
+
+      return {
+        id: writeOff.id,
+        agreementId: writeOff.acordo_id,
+        parcelId: writeOff.parcela_id,
+        clientId: client?.id ?? agreement.cliente_id ?? null,
+        walletId: agreement.carteira_id ?? null,
+        operatorId: agreement.operador_id ?? null,
+        teamId: agreement.equipe_id ?? null,
+        cliente: client?.nome ?? "Cliente nao vinculado",
+        cpfCnpj: client?.cpf_cnpj ?? agreement.cpf_cnpj ?? "-",
+        acordo: agreement.id,
+        contrato: agreement.contrato ?? "-",
+        numeroParcela: installment?.numero_parcela ?? 0,
+        carteira: wallet?.nome ?? getPrimaryWalletLabel(null, wallet?.credor ?? null),
+        credor: wallet?.credor ?? "-",
+        operador: agreement.operador_id
+          ? resolved.operatorById.get(agreement.operador_id)?.nome ?? "-"
+          : "-",
+        equipe: agreement.equipe_id
+          ? resolved.teamById.get(agreement.equipe_id)?.nome ?? "-"
+          : "-",
+        dataPagamento: writeOff.data_pagamento,
+        valorPago: writeOff.valor_pago,
+        formaPagamento: writeOff.forma_pagamento,
+        registradoPor: registeredBy,
+        registradoPorId: writeOff.registrado_por,
+        dataRegistro: writeOff.criado_em,
+        observacao: writeOff.observacao,
+        estornada: writeOff.estornada,
+        estornadaEm: writeOff.estornada_em,
+        estornadaPor: reversedBy,
+        motivoEstorno: writeOff.motivo_estorno,
+      } satisfies WriteOffCenterRow;
+    })
+    .sort((left, right) => right.dataPagamento.localeCompare(left.dataPagamento));
+}
+
+export async function listarAcordos(filters: AgreementCenterFilters = {}) {
+  await requireActiveProfile(["admin", "gerente", "supervisor", "operador", "financeiro"]);
+  const context = await getClientsContext();
+
+  if (!canViewAgreementCentral(context.profile.perfil)) {
+    return [] satisfies AgreementCenterRow[];
+  }
+
+  return filterAgreementRows(buildAgreementCenterRows(context), filters);
+}
+
+export async function buscarAcordoPorId(agreementId: string) {
+  await requireActiveProfile(["admin", "gerente", "supervisor", "operador", "financeiro"]);
+
+  if (!agreementId.trim()) {
+    return null;
+  }
+
+  const context = await getClientsContext();
+  const row = buildAgreementCenterRows(context).find((agreement) => agreement.id === agreementId);
+
+  if (!row) {
+    return null;
+  }
+
+  const auditTrail = await listarHistoricoAcordo(agreementId);
+  const writeOffs = buildAgreementWriteOffRows(context, agreementId);
+
+  return {
+    id: row.id,
+    clientId: row.clientId,
+    cliente: row.cliente,
+    cpfCnpj: row.cpfCnpj,
+    contrato: row.contrato,
+    carteira: row.carteira,
+    credor: row.credor,
+    operador: row.operador,
+    equipe: row.equipe,
+    dataAcordo: row.dataAcordo,
+    valorOriginal: row.valorOriginal,
+    valorAcordo: row.valorAcordo,
+    valorPago: row.valorPago,
+    saldo: row.saldo,
+    status: row.status,
+    formaPagamento: row.formaPagamento,
+    observacao: row.observacao,
+    ultimoPagamentoEm: row.ultimoPagamentoEm,
+    parcelasPagas: row.parcelasPagas,
+    parcelasPendentes: row.parcelasPendentes,
+    parcelasAtrasadas: row.parcelasAtrasadas,
+    parcelas: row.parcelasDetalhe,
+    writeOffs,
+    auditTrail,
+    canCancel: canCancelAgreements(context.profile.perfil),
+    canRegisterWriteOff: canRegisterAgreementPayments(context.profile.perfil),
+    canReverseWriteOff: canReverseAgreementPayments(context.profile.perfil),
+    demoMode: context.demoMode,
+  } satisfies AgreementDetailData;
+}
+
+export async function getAcordosPageData(
+  filters: AgreementCenterFilters = {},
+): Promise<AgreementCenterPageData> {
+  await requireActiveProfile(["admin", "gerente", "supervisor", "operador", "financeiro"]);
+  const context = await getClientsContext();
+  const agreements = filterAgreementRows(buildAgreementCenterRows(context), filters);
+
+  return {
+    profile: context.profile,
+    filters,
+    options: buildAgreementFilterOptions(context),
+    summary: buildAgreementSummary(agreements),
+    agreements,
+    canCancelAgreement: canCancelAgreements(context.profile.perfil),
+    canRegisterWriteOff: canRegisterAgreementPayments(context.profile.perfil),
+    canReverseWriteOff: canReverseAgreementPayments(context.profile.perfil),
+    demoMode: context.demoMode,
+  };
 }
 
 export function gerarParcelasAcordo(
@@ -283,6 +625,8 @@ export async function atualizarStatusAcordo(agreementId: string) {
 
   return data as AgreementStatus;
 }
+
+export const recalcularStatusAcordo = atualizarStatusAcordo;
 
 export function parseCreateAgreementInput(payload: unknown) {
   return createAgreementSchema.parse(payload);

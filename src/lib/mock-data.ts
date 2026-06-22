@@ -358,6 +358,10 @@ for (let offset = 0; offset < 45; offset += 1) {
         origem_arquivo: `pagamentos_${format(workday, "yyyy_MM")}.csv`,
         chave_externa: null,
         importacao_id: `import-pay-${Math.max(1, Math.ceil(dayIndex / 7))}`,
+        estornado: false,
+        estornado_em: null,
+        estornado_por: null,
+        motivo_estorno: null,
         criado_em: timestampString(addDays(workday, 1)),
       });
     }

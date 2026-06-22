@@ -34,6 +34,7 @@ import type { ClientAgreementRow } from "@/types/portal";
 interface BaixaFormProps {
   clientId: string;
   agreement: ClientAgreementRow | null;
+  initialParcelId?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -41,12 +42,14 @@ interface BaixaFormProps {
 interface BaixaFormContentProps {
   clientId: string;
   agreement: ClientAgreementRow;
+  initialParcelId?: string | null;
   onOpenChange: (open: boolean) => void;
 }
 
 function BaixaFormContent({
   clientId,
   agreement,
+  initialParcelId,
   onOpenChange,
 }: BaixaFormContentProps) {
   const router = useRouter();
@@ -54,7 +57,10 @@ function BaixaFormContent({
   const availableInstallments = agreement.parcelas.filter(
     (item) => !["pago", "cancelado"].includes(item.status),
   );
-  const defaultInstallment = availableInstallments[0] ?? null;
+  const defaultInstallment =
+    availableInstallments.find((item) => item.id === initialParcelId) ??
+    availableInstallments[0] ??
+    null;
   const [parcelId, setParcelId] = useState(defaultInstallment?.id ?? "");
   const [paymentDate, setPaymentDate] = useState(
     new Date().toISOString().slice(0, 10),
@@ -244,6 +250,7 @@ function BaixaFormContent({
 export function BaixaForm({
   clientId,
   agreement,
+  initialParcelId,
   open,
   onOpenChange,
 }: BaixaFormProps) {
@@ -260,9 +267,10 @@ export function BaixaForm({
 
         {agreement ? (
           <BaixaFormContent
-            key={`${agreement.id}-${open ? "open" : "closed"}`}
+            key={`${agreement.id}-${initialParcelId ?? "all"}-${open ? "open" : "closed"}`}
             clientId={clientId}
             agreement={agreement}
+            initialParcelId={initialParcelId}
             onOpenChange={onOpenChange}
           />
         ) : null}

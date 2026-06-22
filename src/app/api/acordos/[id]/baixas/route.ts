@@ -25,6 +25,9 @@ export async function POST(request: Request, { params }: RouteContext) {
     }
 
     revalidatePath("/clientes");
+    revalidatePath("/acordos");
+    revalidatePath("/parcelas");
+    revalidatePath("/baixas");
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {

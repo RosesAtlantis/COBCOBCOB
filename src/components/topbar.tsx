@@ -29,6 +29,18 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: "Clientes",
     subtitle: "Consulta operacional, ficha do cliente, acordos e baixas.",
   },
+  "/acordos": {
+    title: "Central de acordos",
+    subtitle: "Negociacoes, parcelas, baixas e historico por acordo.",
+  },
+  "/parcelas": {
+    title: "Central de parcelas",
+    subtitle: "Acompanhamento por vencimento, status, saldo e fila financeira.",
+  },
+  "/baixas": {
+    title: "Central de baixas",
+    subtitle: "Recebimentos registrados, estornos e auditoria operacional.",
+  },
   "/operador": {
     title: "Meu desempenho",
     subtitle: "Meta, ranking e evolucao individual no periodo.",
@@ -50,6 +62,18 @@ function getCurrentPageContent(pathname: string) {
 
   if (pathname.startsWith("/clientes/")) {
     return pageTitles["/clientes"];
+  }
+
+  if (pathname.startsWith("/acordos/")) {
+    return pageTitles["/acordos"];
+  }
+
+  if (pathname.startsWith("/parcelas/")) {
+    return pageTitles["/parcelas"];
+  }
+
+  if (pathname.startsWith("/baixas/")) {
+    return pageTitles["/baixas"];
   }
 
   return pageTitles[pathname] ?? pageTitles["/dashboard"];
