@@ -66,6 +66,13 @@ const walletsItem: NavigationItem = {
   description: "Carteiras, credores e recuperacao.",
 };
 
+const clientsItem: NavigationItem = {
+  title: "Clientes",
+  href: "/clientes",
+  icon: Users,
+  description: "Cadastro operacional, acordos e baixas por cliente.",
+};
+
 const importsItem: NavigationItem = {
   title: "Importacoes",
   href: "/importacoes",
@@ -142,6 +149,10 @@ const operatorNavigation: NavigationGroup[] = [
     title: "Visao Geral",
     items: [operatorItem, rankingItem],
   },
+  {
+    title: "Cobranca",
+    items: [clientsItem],
+  },
 ];
 
 const supervisorNavigation: NavigationGroup[] = [
@@ -151,7 +162,7 @@ const supervisorNavigation: NavigationGroup[] = [
   },
   {
     title: "Operacao",
-    items: [teamsItem, walletsItem],
+    items: [clientsItem, teamsItem, walletsItem],
   },
   {
     title: "Dados",
@@ -167,6 +178,7 @@ const financeNavigation: NavigationGroup[] = [
   {
     title: "Financeiro",
     items: [
+      clientsItem,
       {
         title: "Carteiras",
         href: "/carteiras",
@@ -188,7 +200,7 @@ const managementNavigation: NavigationGroup[] = [
   },
   {
     title: "Operacao",
-    items: [teamsItem, walletsItem],
+    items: [clientsItem, teamsItem, walletsItem],
   },
   {
     title: "Dados",

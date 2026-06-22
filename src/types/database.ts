@@ -117,6 +117,106 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["carteiras"]["Insert"]>;
         Relationships: [];
       };
+      clientes: {
+        Row: {
+          id: string;
+          nome: string;
+          cpf_cnpj: string;
+          email: string | null;
+          telefone: string | null;
+          endereco: string | null;
+          cidade: string | null;
+          uf: string | null;
+          cep: string | null;
+          status: string;
+          operador_id: string | null;
+          equipe_id: string | null;
+          chave_externa: string | null;
+          criado_em: string;
+          atualizado_em: string;
+        };
+        Insert: {
+          id?: string;
+          nome: string;
+          cpf_cnpj: string;
+          email?: string | null;
+          telefone?: string | null;
+          endereco?: string | null;
+          cidade?: string | null;
+          uf?: string | null;
+          cep?: string | null;
+          status?: string;
+          operador_id?: string | null;
+          equipe_id?: string | null;
+          chave_externa?: string | null;
+          criado_em?: string;
+          atualizado_em?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["clientes"]["Insert"]>;
+        Relationships: [];
+      };
+      cliente_carteiras: {
+        Row: {
+          id: string;
+          cliente_id: string;
+          carteira_id: string;
+          credor: string;
+          ativo: boolean;
+          chave_externa: string | null;
+          criado_em: string;
+          atualizado_em: string;
+        };
+        Insert: {
+          id?: string;
+          cliente_id: string;
+          carteira_id: string;
+          credor: string;
+          ativo?: boolean;
+          chave_externa?: string | null;
+          criado_em?: string;
+          atualizado_em?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["cliente_carteiras"]["Insert"]>;
+        Relationships: [];
+      };
+      contratos: {
+        Row: {
+          id: string;
+          cliente_id: string;
+          carteira_id: string | null;
+          credor: string | null;
+          numero_contrato: string;
+          valor_original: number;
+          valor_em_aberto: number;
+          data_contrato: string | null;
+          data_vencimento: string | null;
+          status: string;
+          operador_id: string | null;
+          equipe_id: string | null;
+          chave_externa: string | null;
+          criado_em: string;
+          atualizado_em: string;
+        };
+        Insert: {
+          id?: string;
+          cliente_id: string;
+          carteira_id?: string | null;
+          credor?: string | null;
+          numero_contrato: string;
+          valor_original?: number;
+          valor_em_aberto?: number;
+          data_contrato?: string | null;
+          data_vencimento?: string | null;
+          status?: string;
+          operador_id?: string | null;
+          equipe_id?: string | null;
+          chave_externa?: string | null;
+          criado_em?: string;
+          atualizado_em?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["contratos"]["Insert"]>;
+        Relationships: [];
+      };
       metas: {
         Row: {
           id: string;
@@ -148,6 +248,9 @@ export interface Database {
       pagamentos: {
         Row: {
           id: string;
+          baixa_id: string | null;
+          acordo_id: string | null;
+          cliente_id: string | null;
           data_pagamento: string;
           operador_id: string | null;
           equipe_id: string | null;
@@ -163,6 +266,9 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          baixa_id?: string | null;
+          acordo_id?: string | null;
+          cliente_id?: string | null;
           data_pagamento: string;
           operador_id?: string | null;
           equipe_id?: string | null;
@@ -182,37 +288,125 @@ export interface Database {
       acordos: {
         Row: {
           id: string;
+          cliente_id: string | null;
+          contrato_id: string | null;
           data_acordo: string;
           operador_id: string | null;
           equipe_id: string | null;
           carteira_id: string | null;
           cpf_cnpj: string | null;
           contrato: string | null;
+          valor_original: number;
           valor_acordo: number;
           valor_entrada: number;
           quantidade_parcelas: number;
+          valor_parcela: number;
+          valor_pago: number;
+          data_vencimento_entrada: string | null;
+          primeiro_vencimento: string | null;
+          forma_pagamento: string | null;
           status: string;
+          observacao: string | null;
+          criado_por: string | null;
           chave_externa: string | null;
           importacao_id: string | null;
+          ultimo_pagamento_em: string | null;
           criado_em: string;
+          atualizado_em: string;
         };
         Insert: {
           id?: string;
+          cliente_id?: string | null;
+          contrato_id?: string | null;
           data_acordo: string;
           operador_id?: string | null;
           equipe_id?: string | null;
           carteira_id?: string | null;
           cpf_cnpj?: string | null;
           contrato?: string | null;
+          valor_original?: number;
           valor_acordo: number;
           valor_entrada?: number;
           quantidade_parcelas?: number;
+          valor_parcela?: number;
+          valor_pago?: number;
+          data_vencimento_entrada?: string | null;
+          primeiro_vencimento?: string | null;
+          forma_pagamento?: string | null;
           status?: string;
+          observacao?: string | null;
+          criado_por?: string | null;
           chave_externa?: string | null;
           importacao_id?: string | null;
+          ultimo_pagamento_em?: string | null;
           criado_em?: string;
+          atualizado_em?: string;
         };
         Update: Partial<Database["public"]["Tables"]["acordos"]["Insert"]>;
+        Relationships: [];
+      };
+      acordo_parcelas: {
+        Row: {
+          id: string;
+          acordo_id: string;
+          numero_parcela: number;
+          tipo: string;
+          data_vencimento: string;
+          valor_parcela: number;
+          valor_pago: number;
+          data_pagamento: string | null;
+          status: string;
+          observacao: string | null;
+          chave_externa: string | null;
+          criado_em: string;
+          atualizado_em: string;
+        };
+        Insert: {
+          id?: string;
+          acordo_id: string;
+          numero_parcela: number;
+          tipo?: string;
+          data_vencimento: string;
+          valor_parcela?: number;
+          valor_pago?: number;
+          data_pagamento?: string | null;
+          status?: string;
+          observacao?: string | null;
+          chave_externa?: string | null;
+          criado_em?: string;
+          atualizado_em?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["acordo_parcelas"]["Insert"]>;
+        Relationships: [];
+      };
+      acordo_baixas: {
+        Row: {
+          id: string;
+          acordo_id: string;
+          parcela_id: string;
+          cliente_id: string | null;
+          data_pagamento: string;
+          valor_pago: number;
+          forma_pagamento: string | null;
+          observacao: string | null;
+          registrado_por: string | null;
+          chave_externa: string | null;
+          criado_em: string;
+        };
+        Insert: {
+          id?: string;
+          acordo_id: string;
+          parcela_id: string;
+          cliente_id?: string | null;
+          data_pagamento: string;
+          valor_pago?: number;
+          forma_pagamento?: string | null;
+          observacao?: string | null;
+          registrado_por?: string | null;
+          chave_externa?: string | null;
+          criado_em?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["acordo_baixas"]["Insert"]>;
         Relationships: [];
       };
       acionamentos: {
@@ -279,7 +473,55 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      refresh_acordo_status: {
+        Args: { target_acordo_id: string };
+        Returns: string;
+      };
+      refresh_cliente_status: {
+        Args: { target_cliente_id: string };
+        Returns: string;
+      };
+      portal_criar_acordo: {
+        Args: {
+          p_cliente_id: string;
+          p_contrato_id?: string | null;
+          p_operador_id?: string | null;
+          p_equipe_id?: string | null;
+          p_carteira_id?: string | null;
+          p_data_acordo?: string;
+          p_valor_original?: number;
+          p_valor_acordo?: number;
+          p_valor_entrada?: number;
+          p_data_vencimento_entrada?: string | null;
+          p_quantidade_parcelas?: number;
+          p_valor_parcela?: number | null;
+          p_primeiro_vencimento?: string | null;
+          p_forma_pagamento?: string | null;
+          p_observacao?: string | null;
+          p_status?: string | null;
+        };
+        Returns: string;
+      };
+      portal_registrar_baixa: {
+        Args: {
+          p_acordo_id: string;
+          p_parcela_id: string;
+          p_data_pagamento: string;
+          p_valor_pago: number;
+          p_forma_pagamento?: string | null;
+          p_observacao?: string | null;
+        };
+        Returns: string;
+      };
+      portal_cancelar_acordo: {
+        Args: {
+          p_acordo_id: string;
+          p_observacao?: string | null;
+        };
+        Returns: string;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

@@ -25,6 +25,10 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: "Visao por carteira",
     subtitle: "Recebimento, acordos e recuperacao por carteira.",
   },
+  "/clientes": {
+    title: "Clientes",
+    subtitle: "Consulta operacional, ficha do cliente, acordos e baixas.",
+  },
   "/operador": {
     title: "Meu desempenho",
     subtitle: "Meta, ranking e evolucao individual no periodo.",
@@ -42,6 +46,10 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
 function getCurrentPageContent(pathname: string) {
   if (pathname.startsWith("/admin/")) {
     return pageTitles["/admin"];
+  }
+
+  if (pathname.startsWith("/clientes/")) {
+    return pageTitles["/clientes"];
   }
 
   return pageTitles[pathname] ?? pageTitles["/dashboard"];

@@ -41,6 +41,26 @@ export function canSeeFinancialOverview(currentRole: PortalRole) {
   );
 }
 
+export function canViewClients(currentRole: PortalRole) {
+  return ["admin", "gerente", "supervisor", "operador", "financeiro"].includes(
+    currentRole,
+  );
+}
+
+export function canCreateAgreements(currentRole: PortalRole) {
+  return ["admin", "gerente", "supervisor", "operador"].includes(currentRole);
+}
+
+export function canCancelAgreements(currentRole: PortalRole) {
+  return ["admin", "gerente", "supervisor"].includes(currentRole);
+}
+
+export function canRegisterAgreementPayments(currentRole: PortalRole) {
+  return ["admin", "gerente", "financeiro", "supervisor"].includes(
+    currentRole,
+  );
+}
+
 export function getHomePathByRole(currentRole: PortalRole) {
   return currentRole === "operador" ? "/operador" : "/dashboard";
 }

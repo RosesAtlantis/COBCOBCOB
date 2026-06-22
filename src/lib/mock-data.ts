@@ -308,6 +308,7 @@ const goals: Goal[] = operators.map((operator, index) => ({
   equipe_id: operator.equipe_id,
   carteira_id: operator.primary_wallet_id,
   valor_meta: 32000 + index * 2200,
+  chave_externa: null,
   criado_em: timestampString(startOfMonth(today)),
   atualizado_em: timestampString(today),
 }));
@@ -320,6 +321,7 @@ const previousGoals: Goal[] = operators.map((operator, index) => ({
   equipe_id: operator.equipe_id,
   carteira_id: operator.primary_wallet_id,
   valor_meta: 30000 + index * 2100,
+  chave_externa: null,
   criado_em: timestampString(startOfMonth(subMonths(today, 1))),
   atualizado_em: timestampString(subMonths(today, 1)),
 }));
@@ -342,6 +344,9 @@ for (let offset = 0; offset < 45; offset += 1) {
       const amount = 780 + operatorIndex * 145 + (dayIndex % 6) * 110;
       payments.push({
         id: `pay-${dayIndex}-${operator.id}`,
+        baixa_id: null,
+        acordo_id: null,
+        cliente_id: null,
         data_pagamento: dateString(workday),
         operador_id: operator.id,
         equipe_id: operator.equipe_id,
@@ -351,6 +356,7 @@ for (let offset = 0; offset < 45; offset += 1) {
         valor_pago: amount,
         valor_honorario: Number((amount * 0.18).toFixed(2)),
         origem_arquivo: `pagamentos_${format(workday, "yyyy_MM")}.csv`,
+        chave_externa: null,
         importacao_id: `import-pay-${Math.max(1, Math.ceil(dayIndex / 7))}`,
         criado_em: timestampString(addDays(workday, 1)),
       });
@@ -360,18 +366,31 @@ for (let offset = 0; offset < 45; offset += 1) {
       const agreementAmount = 1650 + operatorIndex * 180 + (dayIndex % 5) * 120;
       agreements.push({
         id: `agr-${dayIndex}-${operator.id}`,
+        cliente_id: null,
+        contrato_id: null,
         data_acordo: dateString(workday),
         operador_id: operator.id,
         equipe_id: operator.equipe_id,
         carteira_id: wallet.id,
         cpf_cnpj: `111.111.111-${String((operatorIndex + dayIndex) % 99).padStart(2, "0")}`,
         contrato: `AGR-${operatorIndex + 1}-${String(dayIndex).padStart(3, "0")}`,
+        valor_original: agreementAmount,
         valor_acordo: agreementAmount,
         valor_entrada: Number((agreementAmount * 0.35).toFixed(2)),
         quantidade_parcelas: 4 + (operatorIndex % 6),
+        valor_parcela: Number((agreementAmount / Math.max(1, 4 + (operatorIndex % 6))).toFixed(2)),
+        valor_pago: 0,
+        data_vencimento_entrada: null,
+        primeiro_vencimento: dateString(addDays(workday, 30)),
+        forma_pagamento: null,
         status: dayIndex % 2 === 0 ? "ativo" : "formalizado",
+        observacao: null,
+        criado_por: null,
+        chave_externa: null,
         importacao_id: `import-agr-${Math.max(1, Math.ceil(dayIndex / 8))}`,
+        ultimo_pagamento_em: null,
         criado_em: timestampString(addDays(workday, 1)),
+        atualizado_em: timestampString(addDays(workday, 1)),
       });
     }
 

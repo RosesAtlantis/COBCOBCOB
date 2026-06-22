@@ -24,6 +24,31 @@ export type AdminSectionKey =
   | "importacoes"
   | "configuracoes";
 
+export type ClientStatus =
+  | "em_cobranca"
+  | "com_acordo"
+  | "quitado"
+  | "inativo";
+
+export type AgreementStatus =
+  | "ativo"
+  | "aguardando_pagamento"
+  | "parcial"
+  | "quitado"
+  | "atrasado"
+  | "cancelado"
+  | "quebrado"
+  | "andamento"
+  | "formalizado";
+
+export type AgreementInstallmentType = "entrada" | "parcela" | "avista";
+
+export type AgreementInstallmentStatus =
+  | "pendente"
+  | "pago"
+  | "atrasado"
+  | "cancelado";
+
 export interface PortalProfile {
   id: string;
   user_id: string;
@@ -73,6 +98,53 @@ export interface Wallet {
   atualizado_em: string;
 }
 
+export interface Client {
+  id: string;
+  nome: string;
+  cpf_cnpj: string;
+  email: string | null;
+  telefone: string | null;
+  endereco: string | null;
+  cidade: string | null;
+  uf: string | null;
+  cep: string | null;
+  status: ClientStatus;
+  operador_id: string | null;
+  equipe_id: string | null;
+  chave_externa: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface ClientWalletLink {
+  id: string;
+  cliente_id: string;
+  carteira_id: string;
+  credor: string;
+  ativo: boolean;
+  chave_externa: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface Contract {
+  id: string;
+  cliente_id: string;
+  carteira_id: string | null;
+  credor: string | null;
+  numero_contrato: string;
+  valor_original: number;
+  valor_em_aberto: number;
+  data_contrato: string | null;
+  data_vencimento: string | null;
+  status: string;
+  operador_id: string | null;
+  equipe_id: string | null;
+  chave_externa: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
 export interface Goal {
   id: string;
   mes: number;
@@ -81,12 +153,16 @@ export interface Goal {
   equipe_id: string | null;
   carteira_id: string | null;
   valor_meta: number;
+  chave_externa: string | null;
   criado_em: string;
   atualizado_em: string;
 }
 
 export interface Payment {
   id: string;
+  baixa_id: string | null;
+  acordo_id: string | null;
+  cliente_id: string | null;
   data_pagamento: string;
   operador_id: string | null;
   equipe_id: string | null;
@@ -96,23 +172,67 @@ export interface Payment {
   valor_pago: number;
   valor_honorario: number;
   origem_arquivo: string | null;
+  chave_externa: string | null;
   importacao_id: string | null;
   criado_em: string;
 }
 
 export interface Agreement {
   id: string;
+  cliente_id: string | null;
+  contrato_id: string | null;
   data_acordo: string;
   operador_id: string | null;
   equipe_id: string | null;
   carteira_id: string | null;
   cpf_cnpj: string | null;
   contrato: string | null;
+  valor_original: number;
   valor_acordo: number;
   valor_entrada: number;
   quantidade_parcelas: number;
-  status: string;
+  valor_parcela: number;
+  valor_pago: number;
+  data_vencimento_entrada: string | null;
+  primeiro_vencimento: string | null;
+  forma_pagamento: string | null;
+  status: AgreementStatus | string;
+  observacao: string | null;
+  criado_por: string | null;
+  chave_externa: string | null;
   importacao_id: string | null;
+  ultimo_pagamento_em: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface AgreementInstallment {
+  id: string;
+  acordo_id: string;
+  numero_parcela: number;
+  tipo: AgreementInstallmentType | string;
+  data_vencimento: string;
+  valor_parcela: number;
+  valor_pago: number;
+  data_pagamento: string | null;
+  status: AgreementInstallmentStatus | string;
+  observacao: string | null;
+  chave_externa: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface AgreementWriteOff {
+  id: string;
+  acordo_id: string;
+  parcela_id: string;
+  cliente_id: string | null;
+  data_pagamento: string;
+  valor_pago: number;
+  forma_pagamento: string | null;
+  observacao: string | null;
+  registrado_por: string | null;
+  chave_externa: string | null;
   criado_em: string;
 }
 
@@ -296,6 +416,163 @@ export interface OperatorPageData {
   overview: OperatorOverview;
   teamRanking: OperatorRankingRow[];
   overallRanking: OperatorRankingRow[];
+  demoMode: boolean;
+}
+
+export interface ClientListFilters {
+  query?: string;
+  walletId?: string;
+  creditor?: string;
+  teamId?: string;
+  operatorId?: string;
+  status?: ClientStatus;
+}
+
+export interface ClientFilterOptions {
+  wallets: FilterOption[];
+  creditors: FilterOption[];
+  teams: FilterOption[];
+  operators: FilterOption[];
+  statuses: FilterOption[];
+}
+
+export interface ClientListRow {
+  id: string;
+  nome: string;
+  cpfCnpj: string;
+  carteira: string;
+  credor: string;
+  equipe: string;
+  operador: string;
+  contratos: number;
+  valorEmAberto: number;
+  valorEmAcordo: number;
+  valorPago: number;
+  status: ClientStatus;
+  ultimaAtualizacao: string;
+}
+
+export interface ClientListPageData {
+  profile: PortalProfile;
+  filters: ClientListFilters;
+  options: ClientFilterOptions;
+  clients: ClientListRow[];
+  demoMode: boolean;
+}
+
+export interface ClientSummaryCards {
+  valorEmAberto: number;
+  valorEmAcordo: number;
+  valorPago: number;
+  quantidadeContratos: number;
+  acordosAtivos: number;
+  ultimoPagamento: string | null;
+}
+
+export interface ClientContractRow extends Contract {
+  carteira: string;
+  equipe: string;
+  operador: string;
+  acordosAtivos: number;
+  valorPago: number;
+}
+
+export interface ClientAgreementRow extends Agreement {
+  carteira: string;
+  credor: string;
+  equipe: string;
+  operador: string;
+  contratoNumero: string;
+  valorRestante: number;
+  parcelasPagas: number;
+  parcelasPendentes: number;
+  parcelasAtrasadas: number;
+  parcelas: AgreementInstallment[];
+}
+
+export interface ClientPaymentRow {
+  id: string;
+  acordoId: string;
+  parcelaId: string;
+  numeroParcela: number;
+  contrato: string;
+  dataPagamento: string;
+  valorPago: number;
+  formaPagamento: string | null;
+  observacao: string | null;
+  registradoPor: string;
+  origem: "baixa" | "pagamento";
+}
+
+export interface ClientActionRow extends ContactAction {
+  operador: string;
+  equipe: string;
+  carteira: string;
+}
+
+export interface ClientDetailPageData {
+  profile: PortalProfile;
+  client: Client;
+  summary: ClientSummaryCards;
+  walletLinks: ClientWalletLink[];
+  contracts: ClientContractRow[];
+  agreements: ClientAgreementRow[];
+  payments: ClientPaymentRow[];
+  actions: ClientActionRow[];
+  operators: FilterOption[];
+  teams: FilterOption[];
+  wallets: FilterOption[];
+  canCreateAgreement: boolean;
+  canCancelAgreement: boolean;
+  canRegisterWriteOff: boolean;
+  demoMode: boolean;
+}
+
+export interface AgreementInstallmentDraft {
+  numeroParcela: number;
+  tipo: AgreementInstallmentType;
+  dataVencimento: string;
+  valorParcela: number;
+}
+
+export interface CreateAgreementInput {
+  clienteId: string;
+  contratoId?: string | null;
+  operadorId?: string | null;
+  equipeId?: string | null;
+  carteiraId?: string | null;
+  dataAcordo: string;
+  valorOriginal: number;
+  valorAcordo: number;
+  valorEntrada: number;
+  dataVencimentoEntrada?: string | null;
+  quantidadeParcelas: number;
+  valorParcela?: number | null;
+  primeiroVencimento?: string | null;
+  formaPagamento?: string | null;
+  observacao?: string | null;
+  status?: AgreementStatus | null;
+}
+
+export interface RegisterAgreementWriteOffInput {
+  acordoId: string;
+  parcelaId: string;
+  dataPagamento: string;
+  valorPago: number;
+  formaPagamento?: string | null;
+  observacao?: string | null;
+}
+
+export interface CancelAgreementInput {
+  acordoId: string;
+  observacao?: string | null;
+}
+
+export interface AgreementOperationResult {
+  agreementId?: string;
+  writeOffId?: string;
+  status: AgreementStatus | string;
+  message: string;
   demoMode: boolean;
 }
 
