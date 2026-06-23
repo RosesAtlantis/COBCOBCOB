@@ -88,7 +88,7 @@ export function BaixasFilters({ filters, options }: BaixasFiltersProps) {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
           <div className="space-y-2 md:col-span-2 xl:col-span-2">
             <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Busca
@@ -169,6 +169,35 @@ export function BaixasFilters({ filters, options }: BaixasFiltersProps) {
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 {options.registeredBy.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Tipo receita
+            </Label>
+            <Select
+              value={localFilters.revenueType ?? "all"}
+              onValueChange={(value) =>
+                updateFilter({
+                  revenueType:
+                    value && value !== "all"
+                      ? (value as WriteOffCenterFilters["revenueType"])
+                      : undefined,
+                })
+              }
+            >
+              <SelectTrigger className={controlClassName}>
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {options.revenueTypes?.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -273,6 +302,34 @@ export function BaixasFilters({ filters, options }: BaixasFiltersProps) {
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 {options.operators.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Estorno
+            </Label>
+            <Select
+              value={localFilters.reversedStatus ?? "todas"}
+              onValueChange={(value) =>
+                updateFilter({
+                  reversedStatus:
+                    value === "todas"
+                      ? undefined
+                      : (value as WriteOffCenterFilters["reversedStatus"]),
+                })
+              }
+            >
+              <SelectTrigger className={controlClassName}>
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                {options.reversedStatuses?.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

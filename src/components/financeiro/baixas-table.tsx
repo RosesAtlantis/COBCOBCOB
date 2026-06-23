@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getWriteOffStatusLabel, getWriteOffStatusVariant } from "@/lib/financeiro-utils";
-import { formatDocument } from "@/lib/clientes-utils";
+import { formatDocument, getRevenueTypeLabel } from "@/lib/clientes-utils";
 import { cn } from "@/lib/utils";
 import type { WriteOffCenterRow } from "@/types/portal";
 
@@ -69,6 +69,12 @@ export function BaixasTable({ rows, canReverseWriteOff }: BaixasTableProps) {
               <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Valor pago
               </TableHead>
+              <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Escritorio
+              </TableHead>
+              <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Receita
+              </TableHead>
               <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Forma
               </TableHead>
@@ -110,6 +116,12 @@ export function BaixasTable({ rows, canReverseWriteOff }: BaixasTableProps) {
                 </TableCell>
                 <TableCell className="px-4 py-3.5 text-right font-mono text-sm">
                   {formatCurrency(row.valorPago)}
+                </TableCell>
+                <TableCell className="px-4 py-3.5 text-right font-mono text-sm">
+                  {formatCurrency(row.valorEscritorio ?? 0)}
+                </TableCell>
+                <TableCell className="px-4 py-3.5 text-sm">
+                  {getRevenueTypeLabel(row.tipoReceita)}
                 </TableCell>
                 <TableCell className="px-4 py-3.5 text-sm">
                   {row.formaPagamento ?? "-"}
@@ -218,6 +230,9 @@ export function BaixasTable({ rows, canReverseWriteOff }: BaixasTableProps) {
                   <p>Parcela: {selectedWriteOff.numeroParcela || "-"}</p>
                   <p>Pagamento: {formatDate(selectedWriteOff.dataPagamento)}</p>
                   <p>Valor pago: {formatCurrency(selectedWriteOff.valorPago)}</p>
+                  <p>Honorarios: {formatCurrency(selectedWriteOff.valorHonorarios ?? 0)}</p>
+                  <p>Escritorio: {formatCurrency(selectedWriteOff.valorEscritorio ?? 0)}</p>
+                  <p>Tipo receita: {getRevenueTypeLabel(selectedWriteOff.tipoReceita)}</p>
                   <p>Forma: {selectedWriteOff.formaPagamento ?? "-"}</p>
                   <p>Registrado por: {selectedWriteOff.registradoPor}</p>
                 </div>

@@ -139,6 +139,9 @@ export function AcordosTable({
                 <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Saldo
                 </TableHead>
+                <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Honorarios
+                </TableHead>
                 <TableHead className="h-11 px-4 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Parcelas
                 </TableHead>
@@ -182,6 +185,9 @@ export function AcordosTable({
                   </TableCell>
                   <TableCell className="px-4 py-3.5 text-right font-mono text-sm">
                     {formatCurrency(row.saldo)}
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 text-right font-mono text-sm">
+                    {formatCurrency(row.valorEscritorioPrevisto ?? 0)}
                   </TableCell>
                   <TableCell className="px-4 py-3.5 text-center text-sm">
                     {formatNumber(row.parcelas)}
@@ -272,6 +278,7 @@ export function AcordosTable({
 
       <BaixaForm
         clientId={writeOffAgreement?.clientId ?? ""}
+        clientName={writeOffAgreement?.cliente ?? undefined}
         agreement={writeOffAgreement ? toClientAgreementRow(writeOffAgreement) : null}
         open={Boolean(writeOffAgreement)}
         onOpenChange={(open) => {

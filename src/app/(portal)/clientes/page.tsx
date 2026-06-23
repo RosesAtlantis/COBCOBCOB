@@ -1,7 +1,11 @@
+import Link from "next/link";
+
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ClientesFilters } from "@/components/clientes/clientes-filters";
 import { ClientesTable } from "@/components/clientes/clientes-table";
 import { parseClientFilters } from "@/lib/clientes-filters";
+import { cn } from "@/lib/utils";
 import { getClientesPageData } from "@/services/clientes-service";
 
 interface ClientesPageProps {
@@ -28,6 +32,14 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {data.canCreateCase ? (
+              <Link
+                href="/clientes/novo"
+                className={cn(buttonVariants({ variant: "outline" }), "rounded-lg")}
+              >
+                Novo caso manual
+              </Link>
+            ) : null}
             <Badge variant="secondary" className="rounded-md px-3 py-1">
               {data.clients.length} cliente(s) visivel(is)
             </Badge>

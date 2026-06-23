@@ -42,6 +42,15 @@ export type AgreementStatus =
   | "formalizado";
 
 export type AgreementInstallmentType = "entrada" | "parcela" | "avista";
+export type RevenueType = "NOVO" | "COLCHAO";
+export type RevenueTypeOrigin = "automatico" | "manual";
+export type AuditOrigin =
+  | "manual"
+  | "importacao"
+  | "sistema"
+  | "reversao"
+  | "baixa"
+  | "acordo";
 
 export type AgreementInstallmentStatus =
   | "pendente"
@@ -93,6 +102,8 @@ export interface Wallet {
   id: string;
   nome: string;
   credor: string;
+  percentual_honorarios_padrao?: number | null;
+  percentual_escritorio_padrao?: number | null;
   ativo: boolean;
   criado_em: string;
   atualizado_em: string;
@@ -108,6 +119,7 @@ export interface Client {
   cidade: string | null;
   uf: string | null;
   cep: string | null;
+  observacao?: string | null;
   status: ClientStatus;
   operador_id: string | null;
   equipe_id: string | null;
@@ -140,6 +152,9 @@ export interface Contract {
   status: string;
   operador_id: string | null;
   equipe_id: string | null;
+  observacao?: string | null;
+  origem_manual?: boolean | null;
+  importacao_id?: string | null;
   chave_externa: string | null;
   criado_em: string;
   atualizado_em: string;
@@ -171,6 +186,11 @@ export interface Payment {
   contrato: string | null;
   valor_pago: number;
   valor_honorario: number;
+  percentual_honorarios?: number | null;
+  valor_escritorio?: number | null;
+  tipo_receita?: RevenueType | string | null;
+  tipo_receita_origem?: RevenueTypeOrigin | string | null;
+  registrado_por?: string | null;
   origem_arquivo: string | null;
   chave_externa: string | null;
   importacao_id: string | null;
@@ -197,6 +217,11 @@ export interface Agreement {
   quantidade_parcelas: number;
   valor_parcela: number;
   valor_pago: number;
+  percentual_honorarios?: number | null;
+  valor_honorarios_previsto?: number | null;
+  valor_escritorio_previsto?: number | null;
+  intervalo_meses?: number | null;
+  origem_manual?: boolean | null;
   data_vencimento_entrada: string | null;
   primeiro_vencimento: string | null;
   forma_pagamento: string | null;
@@ -221,6 +246,14 @@ export interface AgreementInstallment {
   data_pagamento: string | null;
   status: AgreementInstallmentStatus | string;
   observacao: string | null;
+  operador_id?: string | null;
+  equipe_id?: string | null;
+  percentual_honorarios?: number | null;
+  valor_honorarios_previsto?: number | null;
+  valor_escritorio_previsto?: number | null;
+  tipo_receita?: RevenueType | string | null;
+  tipo_receita_origem?: RevenueTypeOrigin | string | null;
+  origem_manual?: boolean | null;
   chave_externa: string | null;
   criado_em: string;
   atualizado_em: string;
@@ -235,8 +268,16 @@ export interface AgreementWriteOff {
   valor_pago: number;
   forma_pagamento: string | null;
   observacao: string | null;
+  operador_id?: string | null;
+  equipe_id?: string | null;
+  percentual_honorarios?: number | null;
+  valor_honorarios?: number | null;
+  valor_escritorio?: number | null;
+  tipo_receita?: RevenueType | string | null;
+  tipo_receita_origem?: RevenueTypeOrigin | string | null;
   registrado_por: string | null;
   chave_externa: string | null;
+  importacao_id?: string | null;
   estornada: boolean;
   estornada_em: string | null;
   estornada_por: string | null;
@@ -269,6 +310,23 @@ export interface ImportRecord {
   linhas_erro: number;
   status: string;
   mensagem_erro: string | null;
+  revertida?: boolean;
+  revertida_em?: string | null;
+  revertida_por?: string | null;
+  motivo_reversao?: string | null;
+  total_registros_criados?: number;
+  total_registros_revertidos?: number;
+  criado_em: string;
+}
+
+export interface ImportRecordEntry {
+  id: string;
+  importacao_id: string;
+  tabela: string;
+  registro_id: string;
+  acao: string;
+  revertido: boolean;
+  revertido_em: string | null;
   criado_em: string;
 }
 
@@ -465,6 +523,7 @@ export interface ClientListPageData {
   filters: ClientListFilters;
   options: ClientFilterOptions;
   clients: ClientListRow[];
+  canCreateCase?: boolean;
   demoMode: boolean;
 }
 
@@ -527,12 +586,15 @@ export interface ClientDetailPageData {
   agreements: ClientAgreementRow[];
   payments: ClientPaymentRow[];
   actions: ClientActionRow[];
+  auditTrail: AuditEvent[];
   operators: FilterOption[];
   teams: FilterOption[];
   wallets: FilterOption[];
   canCreateAgreement: boolean;
   canCancelAgreement: boolean;
   canRegisterWriteOff: boolean;
+  canEditCase: boolean;
+  canEditContracts: boolean;
   demoMode: boolean;
 }
 
@@ -553,8 +615,38 @@ export interface AuditEvent {
   carteiraId: string | null;
   usuarioId: string | null;
   usuarioNome: string;
+  usuarioPerfil?: PortalRole | null;
+  dadosAnteriores?: Record<string, unknown>;
+  dadosNovos?: Record<string, unknown>;
   payload: Record<string, unknown>;
+  origem?: AuditOrigin | string | null;
+  importacaoId?: string | null;
   criadoEm: string;
+}
+
+export interface AuditFilters {
+  query?: string;
+  entity?: string;
+  action?: string;
+  userId?: string;
+  importId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface AuditFilterOptions {
+  entities: FilterOption[];
+  actions: FilterOption[];
+  users: FilterOption[];
+  imports: FilterOption[];
+}
+
+export interface AuditPageData {
+  profile: PortalProfile;
+  filters: AuditFilters;
+  options: AuditFilterOptions;
+  events: AuditEvent[];
+  demoMode: boolean;
 }
 
 export interface AgreementCenterFilters {
@@ -586,6 +678,8 @@ export interface AgreementCenterSummary {
   parcelasVencidas: number;
   acordosQuitados: number;
   cancelados: number;
+  honorariosPrevistos?: number;
+  valorEscritorioPrevisto?: number;
 }
 
 export interface AgreementCenterRow {
@@ -606,6 +700,9 @@ export interface AgreementCenterRow {
   valorAcordo: number;
   valorPago: number;
   saldo: number;
+  percentualHonorarios?: number | null;
+  valorHonorariosPrevisto?: number | null;
+  valorEscritorioPrevisto?: number | null;
   parcelas: number;
   parcelasPagas: number;
   parcelasPendentes: number;
@@ -637,6 +734,7 @@ export interface InstallmentCenterFilters {
   teamId?: string;
   operatorId?: string;
   status?: AgreementInstallmentStatus;
+  revenueType?: RevenueType;
   startDate?: string;
   endDate?: string;
 }
@@ -647,6 +745,7 @@ export interface InstallmentCenterFilterOptions {
   teams: FilterOption[];
   operators: FilterOption[];
   statuses: FilterOption[];
+  revenueTypes?: FilterOption[];
 }
 
 export interface InstallmentCenterSummary {
@@ -656,6 +755,8 @@ export interface InstallmentCenterSummary {
   valorVencido: number;
   valorAVencer: number;
   recebido: number;
+  novo?: number;
+  colchao?: number;
 }
 
 export interface InstallmentCenterRow {
@@ -683,6 +784,11 @@ export interface InstallmentCenterRow {
   dataPagamento: string | null;
   acordoStatus: AgreementStatus | string;
   observacao: string | null;
+  percentualHonorarios?: number | null;
+  valorHonorariosPrevisto?: number | null;
+  valorEscritorioPrevisto?: number | null;
+  tipoReceita?: RevenueType | string | null;
+  tipoReceitaOrigem?: RevenueTypeOrigin | string | null;
 }
 
 export interface InstallmentCenterPageData {
@@ -704,6 +810,8 @@ export interface WriteOffCenterFilters {
   operatorId?: string;
   paymentMethod?: string;
   registeredBy?: string;
+  revenueType?: RevenueType;
+  reversedStatus?: "ativas" | "estornadas" | "todas";
   startDate?: string;
   endDate?: string;
 }
@@ -715,6 +823,8 @@ export interface WriteOffCenterFilterOptions {
   operators: FilterOption[];
   paymentMethods: FilterOption[];
   registeredBy: FilterOption[];
+  revenueTypes?: FilterOption[];
+  reversedStatuses?: FilterOption[];
 }
 
 export interface WriteOffCenterSummary {
@@ -724,6 +834,8 @@ export interface WriteOffCenterSummary {
   baixasEstornadas: number;
   maiorCarteira: string;
   maiorOperador: string;
+  honorariosEscritorio?: number;
+  valorRepassado?: number;
 }
 
 export interface WriteOffCenterRow {
@@ -750,6 +862,11 @@ export interface WriteOffCenterRow {
   registradoPorId: string | null;
   dataRegistro: string;
   observacao: string | null;
+  percentualHonorarios?: number | null;
+  valorHonorarios?: number | null;
+  valorEscritorio?: number | null;
+  tipoReceita?: RevenueType | string | null;
+  tipoReceitaOrigem?: RevenueTypeOrigin | string | null;
   estornada: boolean;
   estornadaEm: string | null;
   estornadaPor: string | null;
@@ -781,6 +898,9 @@ export interface AgreementDetailData {
   valorAcordo: number;
   valorPago: number;
   saldo: number;
+  percentualHonorarios?: number | null;
+  valorHonorariosPrevisto?: number | null;
+  valorEscritorioPrevisto?: number | null;
   status: AgreementStatus | string;
   formaPagamento: string | null;
   observacao: string | null;
@@ -802,6 +922,10 @@ export interface AgreementInstallmentDraft {
   tipo: AgreementInstallmentType;
   dataVencimento: string;
   valorParcela: number;
+  observacao?: string | null;
+  operadorId?: string | null;
+  tipoReceita?: RevenueType | string | null;
+  tipoReceitaOrigem?: RevenueTypeOrigin | string | null;
 }
 
 export interface CreateAgreementInput {
@@ -818,9 +942,12 @@ export interface CreateAgreementInput {
   quantidadeParcelas: number;
   valorParcela?: number | null;
   primeiroVencimento?: string | null;
+  intervaloMeses?: number | null;
+  percentualHonorarios?: number | null;
   formaPagamento?: string | null;
   observacao?: string | null;
   status?: AgreementStatus | null;
+  parcelasCustomizadas?: AgreementInstallmentDraft[];
 }
 
 export interface RegisterAgreementWriteOffInput {
@@ -828,6 +955,9 @@ export interface RegisterAgreementWriteOffInput {
   parcelaId: string;
   dataPagamento: string;
   valorPago: number;
+  operadorId?: string | null;
+  percentualHonorarios?: number | null;
+  confirmarAcimaSaldo?: boolean;
   formaPagamento?: string | null;
   observacao?: string | null;
 }
@@ -848,6 +978,67 @@ export interface AgreementOperationResult {
   status: AgreementStatus | string;
   message: string;
   demoMode: boolean;
+}
+
+export interface ManualCaseInput {
+  nome: string;
+  cpfCnpj: string;
+  telefone?: string | null;
+  email?: string | null;
+  endereco?: string | null;
+  cidade?: string | null;
+  uf?: string | null;
+  cep?: string | null;
+  observacao?: string | null;
+  carteiraId: string;
+  credor?: string | null;
+  numeroContrato: string;
+  valorOriginal: number;
+  valorEmAberto: number;
+  dataContrato?: string | null;
+  dataVencimento?: string | null;
+  operadorId?: string | null;
+  equipeId?: string | null;
+}
+
+export interface ManualCaseResult {
+  clientId: string;
+  contractId: string;
+  message: string;
+  demoMode: boolean;
+}
+
+export interface UpdateClientInput {
+  clientId: string;
+  nome?: string;
+  cpfCnpj?: string;
+  telefone?: string | null;
+  email?: string | null;
+  endereco?: string | null;
+  cidade?: string | null;
+  uf?: string | null;
+  cep?: string | null;
+  observacao?: string | null;
+  status?: ClientStatus;
+  carteiraId?: string | null;
+  operadorId?: string | null;
+  equipeId?: string | null;
+}
+
+export interface UpsertContractInput {
+  contractId?: string | null;
+  clientId: string;
+  carteiraId?: string | null;
+  credor?: string | null;
+  numeroContrato: string;
+  valorOriginal: number;
+  valorEmAberto: number;
+  dataContrato?: string | null;
+  dataVencimento?: string | null;
+  status?: string | null;
+  operadorId?: string | null;
+  equipeId?: string | null;
+  observacao?: string | null;
 }
 
 export interface ImportLineError {

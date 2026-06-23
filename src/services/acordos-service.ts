@@ -20,7 +20,15 @@ import {
   canReverseAgreementPayments,
 } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { listarHistoricoAcordo } from "@/services/auditoria-service";
+import {
+  listarHistoricoAcordo,
+  registrarAuditoria,
+} from "@/services/auditoria-service";
+import {
+  calcularHonorarios,
+  classificarParcelas,
+  classificarTipoReceita,
+} from "@/services/honorarios-service";
 import {
   buildResolvedCollections,
   getClientsContext,
@@ -57,9 +65,25 @@ const createAgreementSchema = z.object({
     .min(1, "Quantidade de parcelas deve ser maior ou igual a 1."),
   valorParcela: z.coerce.number().positive().nullable().optional(),
   primeiroVencimento: z.string().nullable().optional(),
+  intervaloMeses: z.coerce.number().int().min(1).nullable().optional(),
+  percentualHonorarios: z.coerce.number().min(0).max(100).nullable().optional(),
   formaPagamento: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
   status: z.string().trim().nullable().optional(),
+  parcelasCustomizadas: z
+    .array(
+      z.object({
+        numeroParcela: z.coerce.number().int().min(1),
+        tipo: z.enum(["entrada", "parcela", "avista"]),
+        dataVencimento: z.string().min(1),
+        valorParcela: z.coerce.number().positive(),
+        observacao: z.string().trim().nullable().optional(),
+        operadorId: z.string().uuid().nullable().optional(),
+        tipoReceita: z.enum(["NOVO", "COLCHAO"]).nullable().optional(),
+        tipoReceitaOrigem: z.enum(["automatico", "manual"]).nullable().optional(),
+      }),
+    )
+    .optional(),
 });
 
 const registerWriteOffSchema = z.object({
@@ -69,6 +93,9 @@ const registerWriteOffSchema = z.object({
   valorPago: z.coerce
     .number()
     .min(0.01, "Valor pago deve ser maior que zero."),
+  operadorId: z.string().uuid().nullable().optional(),
+  percentualHonorarios: z.coerce.number().min(0).max(100).nullable().optional(),
+  confirmarAcimaSaldo: z.coerce.boolean().optional(),
   formaPagamento: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
 });
@@ -85,6 +112,45 @@ function resolveNullableString(value: string | null | undefined) {
 
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function resolveAgreementScope(
+  context: ClientsContext,
+  payload: {
+    requestedOperatorId?: string | null;
+    requestedTeamId?: string | null;
+    fallbackOperatorId?: string | null;
+    fallbackTeamId?: string | null;
+  },
+) {
+  const operator = payload.requestedOperatorId
+    ? context.operators.find((item) => item.id === payload.requestedOperatorId)
+    : null;
+  const team = payload.requestedTeamId
+    ? context.teams.find((item) => item.id === payload.requestedTeamId)
+    : null;
+
+  if (payload.requestedOperatorId && !operator) {
+    throw new Error("Operador fora do escopo permitido.");
+  }
+
+  if (payload.requestedTeamId && !team) {
+    throw new Error("Equipe fora do escopo permitido.");
+  }
+
+  return {
+    operadorId:
+      operator?.id ??
+      payload.fallbackOperatorId ??
+      context.profile.operador_id ??
+      null,
+    equipeId:
+      team?.id ??
+      operator?.equipe_id ??
+      payload.fallbackTeamId ??
+      context.profile.equipe_id ??
+      null,
+  };
 }
 
 async function getSupabaseForAgreementOperations() {
@@ -209,6 +275,9 @@ export function buildAgreementCenterRows(
       valorAcordo: agreement.valor_acordo,
       valorPago: agreement.valor_pago,
       saldo: agreement.remainingValue,
+      percentualHonorarios: agreement.percentual_honorarios ?? null,
+      valorHonorariosPrevisto: agreement.valor_honorarios_previsto ?? null,
+      valorEscritorioPrevisto: agreement.valor_escritorio_previsto ?? null,
       parcelas: installments.length,
       parcelasPagas,
       parcelasPendentes,
@@ -287,6 +356,12 @@ function buildAgreementSummary(rows: AgreementCenterRow[]) {
     parcelasVencidas: rows.reduce((total, row) => total + row.parcelasAtrasadas, 0),
     acordosQuitados: rows.filter((row) => row.status === "quitado").length,
     cancelados: rows.filter((row) => row.status === "cancelado").length,
+    honorariosPrevistos: roundCurrency(
+      rows.reduce((total, row) => total + (row.valorHonorariosPrevisto ?? 0), 0),
+    ),
+    valorEscritorioPrevisto: roundCurrency(
+      rows.reduce((total, row) => total + (row.valorEscritorioPrevisto ?? 0), 0),
+    ),
   };
 }
 
@@ -346,6 +421,11 @@ function buildAgreementWriteOffRows(context: ClientsContext, agreementId: string
         registradoPorId: writeOff.registrado_por,
         dataRegistro: writeOff.criado_em,
         observacao: writeOff.observacao,
+        percentualHonorarios: writeOff.percentual_honorarios ?? null,
+        valorHonorarios: writeOff.valor_honorarios ?? null,
+        valorEscritorio: writeOff.valor_escritorio ?? null,
+        tipoReceita: writeOff.tipo_receita ?? null,
+        tipoReceitaOrigem: writeOff.tipo_receita_origem ?? null,
         estornada: writeOff.estornada,
         estornadaEm: writeOff.estornada_em,
         estornadaPor: reversedBy,
@@ -398,6 +478,9 @@ export async function buscarAcordoPorId(agreementId: string) {
     valorAcordo: row.valorAcordo,
     valorPago: row.valorPago,
     saldo: row.saldo,
+    percentualHonorarios: row.percentualHonorarios ?? null,
+    valorHonorariosPrevisto: row.valorHonorariosPrevisto ?? null,
+    valorEscritorioPrevisto: row.valorEscritorioPrevisto ?? null,
     status: row.status,
     formaPagamento: row.formaPagamento,
     observacao: row.observacao,
@@ -444,9 +527,11 @@ export function gerarParcelasAcordo(
     | "valorParcela"
     | "dataVencimentoEntrada"
     | "primeiroVencimento"
+    | "intervaloMeses"
+    | "parcelasCustomizadas"
   >,
 ): AgreementInstallmentDraft[] {
-  return generateAgreementInstallments(input);
+  return classificarParcelas(generateAgreementInstallments(input));
 }
 
 export async function criarAcordo(rawInput: unknown): Promise<AgreementOperationResult> {
@@ -469,12 +554,52 @@ export async function criarAcordo(rawInput: unknown): Promise<AgreementOperation
     valorParcela: input.valorParcela ?? null,
     dataVencimentoEntrada: input.dataVencimentoEntrada ?? null,
     primeiroVencimento: input.primeiroVencimento ?? null,
+    intervaloMeses: input.intervaloMeses ?? 1,
+    parcelasCustomizadas: input.parcelasCustomizadas ?? [],
   });
 
   if (!generatedInstallments.length) {
     throw new Error("Nao foi possivel gerar as parcelas do acordo.");
   }
 
+  const context = await getClientsContext();
+  const client = context.clients.find((item) => item.id === input.clienteId);
+
+  if (!client) {
+    throw new Error("Cliente nao encontrado.");
+  }
+
+  const contract =
+    input.contratoId
+      ? context.contracts.find(
+          (item) => item.id === input.contratoId && item.cliente_id === client.id,
+        ) ?? null
+      : null;
+
+  const scope = resolveAgreementScope(context, {
+    requestedOperatorId: input.operadorId ?? null,
+    requestedTeamId: input.equipeId ?? null,
+    fallbackOperatorId: contract?.operador_id ?? client.operador_id,
+    fallbackTeamId: contract?.equipe_id ?? client.equipe_id,
+  });
+  const wallet =
+    (input.carteiraId
+      ? context.wallets.find((item) => item.id === input.carteiraId)
+      : null) ??
+    (contract?.carteira_id
+      ? context.wallets.find((item) => item.id === contract.carteira_id)
+      : null) ??
+    null;
+
+  if (!wallet) {
+    throw new Error("Selecione uma carteira valida para o acordo.");
+  }
+
+  const feePreview = calcularHonorarios({
+    valorBase: input.valorAcordo,
+    percentualHonorarios: input.percentualHonorarios ?? null,
+    carteira: wallet,
+  });
   const supabase = await getSupabaseForAgreementOperations();
 
   if (!supabase) {
@@ -487,32 +612,166 @@ export async function criarAcordo(rawInput: unknown): Promise<AgreementOperation
     };
   }
 
-  const { data, error } = await supabase.rpc("portal_criar_acordo", {
-    p_cliente_id: input.clienteId,
-    p_contrato_id: input.contratoId ?? null,
-    p_operador_id: input.operadorId ?? null,
-    p_equipe_id: input.equipeId ?? null,
-    p_carteira_id: input.carteiraId ?? null,
-    p_data_acordo: input.dataAcordo,
-    p_valor_original: input.valorOriginal,
-    p_valor_acordo: input.valorAcordo,
-    p_valor_entrada: input.valorEntrada,
-    p_data_vencimento_entrada: input.dataVencimentoEntrada ?? null,
-    p_quantidade_parcelas: input.quantidadeParcelas,
-    p_valor_parcela: input.valorParcela ?? null,
-    p_primeiro_vencimento: input.primeiroVencimento ?? null,
-    p_forma_pagamento: resolveNullableString(input.formaPagamento),
-    p_observacao: resolveNullableString(input.observacao),
-    p_status: resolveNullableString(input.status),
-  });
+  const { error: clientUpdateError } = await supabase
+    .from("clientes")
+    .update({
+      operador_id: scope.operadorId,
+      equipe_id: scope.equipeId,
+    })
+    .eq("id", client.id);
 
-  if (error || !data) {
+  if (clientUpdateError) {
+    throw new Error(clientUpdateError.message);
+  }
+
+  const { error: walletLinkError } = await supabase.from("cliente_carteiras").upsert(
+    {
+      cliente_id: client.id,
+      carteira_id: wallet.id,
+      credor: wallet.credor,
+      ativo: true,
+    },
+    { onConflict: "cliente_id,carteira_id" },
+  );
+
+  if (walletLinkError) {
+    throw new Error(walletLinkError.message);
+  }
+
+  if (contract) {
+    const { error: contractUpdateError } = await supabase
+      .from("contratos")
+      .update({
+        carteira_id: wallet.id,
+        credor: wallet.credor,
+        operador_id: scope.operadorId,
+        equipe_id: scope.equipeId,
+        status: roundCurrency(contract.valor_em_aberto) <= 0 ? "quitado" : "em_acordo",
+      })
+      .eq("id", contract.id);
+
+    if (contractUpdateError) {
+      throw new Error(contractUpdateError.message);
+    }
+  }
+
+  const { data: createdAgreement, error } = await supabase
+    .from("acordos")
+    .insert({
+      cliente_id: client.id,
+      contrato_id: contract?.id ?? null,
+      data_acordo: input.dataAcordo,
+      operador_id: scope.operadorId,
+      equipe_id: scope.equipeId,
+      carteira_id: wallet.id,
+      cpf_cnpj: client.cpf_cnpj,
+      contrato: contract?.numero_contrato ?? null,
+      valor_original: roundCurrency(input.valorOriginal),
+      valor_acordo: roundCurrency(input.valorAcordo),
+      valor_entrada: roundCurrency(input.valorEntrada),
+      quantidade_parcelas: input.quantidadeParcelas,
+      valor_parcela:
+        generatedInstallments.find((installment) => installment.tipo !== "entrada")
+          ?.valorParcela ?? 0,
+      valor_pago: 0,
+      percentual_honorarios: feePreview.percentualHonorarios,
+      valor_honorarios_previsto: feePreview.valorHonorarios,
+      valor_escritorio_previsto: feePreview.valorEscritorio,
+      intervalo_meses: input.intervaloMeses ?? 1,
+      data_vencimento_entrada: resolveNullableString(input.dataVencimentoEntrada),
+      primeiro_vencimento: resolveNullableString(input.primeiroVencimento),
+      forma_pagamento: resolveNullableString(input.formaPagamento),
+      observacao: resolveNullableString(input.observacao),
+      status:
+        resolveNullableString(input.status) ??
+        (generatedInstallments[0]?.tipo === "entrada" ||
+        generatedInstallments.length === 1
+          ? "aguardando_pagamento"
+          : "ativo"),
+      criado_por: profile.id,
+      origem_manual: true,
+    })
+    .select("*")
+    .single();
+
+  if (error || !createdAgreement) {
     throw new Error(error?.message ?? "Nao foi possivel cadastrar o acordo.");
   }
 
+  const installmentRows = classificarParcelas(generatedInstallments).map((installment) => {
+    const parcelFee = calcularHonorarios({
+      valorBase: installment.valorParcela,
+      percentualHonorarios: feePreview.percentualHonorarios,
+      percentualEscritorio: feePreview.percentualEscritorio,
+      carteira: wallet,
+    });
+    const revenue = classificarTipoReceita({
+      numeroParcela: installment.numeroParcela,
+      tipo: installment.tipo,
+      manualType: installment.tipoReceita ?? null,
+    });
+
+    return {
+      acordo_id: createdAgreement.id,
+      numero_parcela: installment.numeroParcela,
+      tipo: installment.tipo,
+      data_vencimento: installment.dataVencimento,
+      valor_parcela: roundCurrency(installment.valorParcela),
+      valor_pago: 0,
+      status:
+        installment.dataVencimento < new Date().toISOString().slice(0, 10)
+          ? "atrasado"
+          : "pendente",
+      observacao: resolveNullableString(installment.observacao),
+      operador_id: installment.operadorId ?? scope.operadorId,
+      equipe_id: scope.equipeId,
+      percentual_honorarios: parcelFee.percentualHonorarios,
+      valor_honorarios_previsto: parcelFee.valorHonorarios,
+      valor_escritorio_previsto: parcelFee.valorEscritorio,
+      tipo_receita: installment.tipoReceita ?? revenue.tipoReceita,
+      tipo_receita_origem:
+        installment.tipoReceitaOrigem ??
+        (installment.tipoReceita ? "manual" : revenue.tipoReceitaOrigem),
+      origem_manual: true,
+    };
+  });
+
+  const { error: installmentError } = await supabase
+    .from("acordo_parcelas")
+    .insert(installmentRows);
+
+  if (installmentError) {
+    throw new Error(installmentError.message);
+  }
+
+  await supabase.rpc("refresh_acordo_status", {
+    target_acordo_id: createdAgreement.id,
+  });
+
+  await registrarAuditoria({
+    entidade: "acordo",
+    entidadeId: createdAgreement.id,
+    acao: "acordo_criado",
+    descricao: resolveNullableString(input.observacao) ?? "Acordo criado no Portal BKO.",
+    acordoId: createdAgreement.id,
+    clienteId: client.id,
+    contratoId: contract?.id ?? null,
+    operadorId: scope.operadorId,
+    equipeId: scope.equipeId,
+    carteiraId: wallet.id,
+    usuarioId: profile.id,
+    usuarioNome: profile.nome,
+    origem: "manual",
+    dadosNovos: {
+      valorAcordo: createdAgreement.valor_acordo,
+      percentualHonorarios: createdAgreement.percentual_honorarios,
+      quantidadeParcelas: createdAgreement.quantidade_parcelas,
+    },
+  });
+
   return {
-    agreementId: data,
-    status: await readAgreementStatus(data),
+    agreementId: createdAgreement.id,
+    status: await readAgreementStatus(createdAgreement.id),
     message: "Acordo cadastrado com parcelas geradas com sucesso.",
     demoMode: false,
   };
@@ -539,22 +798,215 @@ export async function darBaixaParcela(rawInput: unknown): Promise<AgreementOpera
     };
   }
 
-  const { data, error } = await supabase.rpc("portal_registrar_baixa", {
-    p_acordo_id: input.acordoId,
-    p_parcela_id: input.parcelaId,
-    p_data_pagamento: input.dataPagamento,
-    p_valor_pago: input.valorPago,
-    p_forma_pagamento: resolveNullableString(input.formaPagamento),
-    p_observacao: resolveNullableString(input.observacao),
+  const [agreementResult, parcelResult] = await Promise.all([
+    supabase.from("acordos").select("*").eq("id", input.acordoId).single(),
+    supabase
+      .from("acordo_parcelas")
+      .select("*")
+      .eq("id", input.parcelaId)
+      .eq("acordo_id", input.acordoId)
+      .single(),
+  ]);
+
+  if (agreementResult.error || !agreementResult.data) {
+    throw new Error(agreementResult.error?.message ?? "Acordo nao encontrado.");
+  }
+
+  if (parcelResult.error || !parcelResult.data) {
+    throw new Error(parcelResult.error?.message ?? "Parcela nao encontrada.");
+  }
+
+  const agreement = agreementResult.data;
+  const parcel = parcelResult.data;
+
+  if (agreement.status === "cancelado") {
+    throw new Error("Acordos cancelados nao podem receber baixa.");
+  }
+
+  if (parcel.status === "cancelado") {
+    throw new Error("Parcelas canceladas nao podem receber baixa.");
+  }
+
+  const remainingBalance = roundCurrency(parcel.valor_parcela - parcel.valor_pago);
+
+  if (input.valorPago > remainingBalance && !input.confirmarAcimaSaldo) {
+    throw new Error("O valor pago nao pode ser maior que o saldo sem confirmacao explicita.");
+  }
+
+  const context = await getClientsContext();
+  const wallet = agreement.carteira_id
+    ? context.wallets.find((item) => item.id === agreement.carteira_id) ?? null
+    : null;
+  const resolvedOperatorId = input.operadorId ?? parcel.operador_id ?? agreement.operador_id;
+  const resolvedTeamId = parcel.equipe_id ?? agreement.equipe_id;
+  const feeCalculation = calcularHonorarios({
+    valorBase: input.valorPago,
+    percentualHonorarios:
+      input.percentualHonorarios ??
+      parcel.percentual_honorarios ??
+      agreement.percentual_honorarios ??
+      null,
+    carteira: wallet,
+  });
+  const revenue = classificarTipoReceita({
+    numeroParcela: parcel.numero_parcela,
+    tipo: parcel.tipo,
+    manualType: parcel.tipo_receita ?? null,
+  });
+  const updatedPaidAmount = roundCurrency(parcel.valor_pago + input.valorPago);
+  const nextParcelStatus =
+    updatedPaidAmount >= roundCurrency(parcel.valor_parcela)
+      ? "pago"
+      : parcel.data_vencimento < new Date().toISOString().slice(0, 10)
+        ? "atrasado"
+        : "pendente";
+
+  const { data: createdWriteOff, error: writeOffError } = await supabase
+    .from("acordo_baixas")
+    .insert({
+      acordo_id: agreement.id,
+      parcela_id: parcel.id,
+      cliente_id: agreement.cliente_id,
+      data_pagamento: input.dataPagamento,
+      valor_pago: roundCurrency(input.valorPago),
+      forma_pagamento: resolveNullableString(input.formaPagamento),
+      observacao: resolveNullableString(input.observacao),
+      operador_id: resolvedOperatorId,
+      equipe_id: resolvedTeamId,
+      percentual_honorarios: feeCalculation.percentualHonorarios,
+      valor_honorarios: feeCalculation.valorHonorarios,
+      valor_escritorio: feeCalculation.valorEscritorio,
+      tipo_receita: revenue.tipoReceita,
+      tipo_receita_origem: revenue.tipoReceitaOrigem,
+      registrado_por: profile.id,
+      importacao_id: agreement.importacao_id ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (writeOffError || !createdWriteOff) {
+    throw new Error(writeOffError?.message ?? "Nao foi possivel registrar a baixa.");
+  }
+
+  const { error: parcelUpdateError } = await supabase
+    .from("acordo_parcelas")
+    .update({
+      valor_pago: updatedPaidAmount,
+      data_pagamento: nextParcelStatus === "pago" ? input.dataPagamento : parcel.data_pagamento,
+      status: nextParcelStatus,
+      operador_id: resolvedOperatorId,
+      equipe_id: resolvedTeamId,
+      percentual_honorarios:
+        parcel.percentual_honorarios ?? feeCalculation.percentualHonorarios,
+      valor_honorarios_previsto:
+        parcel.valor_honorarios_previsto ?? feeCalculation.valorHonorarios,
+      valor_escritorio_previsto:
+        parcel.valor_escritorio_previsto ?? feeCalculation.valorEscritorio,
+      tipo_receita: parcel.tipo_receita ?? revenue.tipoReceita,
+      tipo_receita_origem: parcel.tipo_receita_origem ?? revenue.tipoReceitaOrigem,
+      observacao:
+        resolveNullableString(input.observacao) ??
+        resolveNullableString(parcel.observacao) ??
+        null,
+    })
+    .eq("id", parcel.id);
+
+  if (parcelUpdateError) {
+    throw new Error(parcelUpdateError.message);
+  }
+
+  const paymentContractLabel = agreement.contrato
+    ? `${agreement.contrato} :: parcela ${parcel.numero_parcela}`
+    : `Parcela ${parcel.numero_parcela}`;
+
+  const { data: paymentRecord, error: paymentError } = await supabase
+    .from("pagamentos")
+    .upsert(
+      {
+        baixa_id: createdWriteOff.id,
+        acordo_id: agreement.id,
+        cliente_id: agreement.cliente_id,
+        data_pagamento: input.dataPagamento,
+        operador_id: resolvedOperatorId,
+        equipe_id: resolvedTeamId,
+        carteira_id: agreement.carteira_id,
+        cpf_cnpj: agreement.cpf_cnpj,
+        contrato: paymentContractLabel,
+        valor_pago: roundCurrency(input.valorPago),
+        valor_honorario: feeCalculation.valorHonorarios,
+        percentual_honorarios: feeCalculation.percentualHonorarios,
+        valor_escritorio: feeCalculation.valorEscritorio,
+        tipo_receita: revenue.tipoReceita,
+        tipo_receita_origem: revenue.tipoReceitaOrigem,
+        registrado_por: profile.id,
+        origem_arquivo: "baixa_manual",
+      },
+      { onConflict: "baixa_id" },
+    )
+    .select("*")
+    .single();
+
+  if (paymentError || !paymentRecord) {
+    throw new Error(paymentError?.message ?? "Nao foi possivel gerar o pagamento da baixa.");
+  }
+
+  if (agreement.contrato_id) {
+    const { data: linkedContract } = await supabase
+      .from("contratos")
+      .select("valor_em_aberto")
+      .eq("id", agreement.contrato_id)
+      .maybeSingle();
+
+    await supabase
+      .from("contratos")
+      .update({
+        valor_em_aberto: Math.max(
+          roundCurrency((linkedContract?.valor_em_aberto ?? agreement.valor_original ?? 0) - input.valorPago),
+          0,
+        ),
+        status: "em_acordo",
+      })
+      .eq("id", agreement.contrato_id);
+  }
+
+  await supabase.rpc("refresh_acordo_status", {
+    target_acordo_id: agreement.id,
   });
 
-  if (error || !data) {
-    throw new Error(error?.message ?? "Nao foi possivel registrar a baixa.");
-  }
+  await registrarAuditoria({
+    entidade: "baixa",
+    entidadeId: createdWriteOff.id,
+    acao: "baixa_registrada",
+    descricao:
+      resolveNullableString(input.observacao) ??
+      `Baixa registrada para a parcela ${parcel.numero_parcela}.`,
+    acordoId: agreement.id,
+    parcelaId: parcel.id,
+    baixaId: createdWriteOff.id,
+    pagamentoId: paymentRecord.id,
+    clienteId: agreement.cliente_id,
+    contratoId: agreement.contrato_id,
+    operadorId: resolvedOperatorId,
+    equipeId: resolvedTeamId,
+    carteiraId: agreement.carteira_id,
+    usuarioId: profile.id,
+    usuarioNome: profile.nome,
+    origem: "baixa",
+    dadosAnteriores: {
+      valorPago: parcel.valor_pago,
+      status: parcel.status,
+    },
+    dadosNovos: {
+      valorPago: updatedPaidAmount,
+      status: nextParcelStatus,
+      valorHonorarios: feeCalculation.valorHonorarios,
+      tipoReceita: revenue.tipoReceita,
+    },
+  });
 
   return {
     agreementId: input.acordoId,
-    writeOffId: data,
+    writeOffId: createdWriteOff.id,
     status: await readAgreementStatus(input.acordoId),
     message: "Baixa registrada com sucesso.",
     demoMode: false,
@@ -627,6 +1079,91 @@ export async function atualizarStatusAcordo(agreementId: string) {
 }
 
 export const recalcularStatusAcordo = atualizarStatusAcordo;
+export const gerarParcelas = gerarParcelasAcordo;
+export const criarAcordoParcelado = criarAcordo;
+
+export async function alterarOperadorParcela(params: {
+  parcelaId: string;
+  operadorId?: string | null;
+  equipeId?: string | null;
+}) {
+  const profile = await requireActiveProfile(["admin", "gerente", "supervisor"]);
+  const context = await getClientsContext();
+  const parcel = context.installments.find((item) => item.id === params.parcelaId);
+
+  if (!parcel) {
+    throw new Error("Parcela nao encontrada.");
+  }
+
+  const agreement = context.agreements.find((item) => item.id === parcel.acordo_id);
+  const scope = resolveAgreementScope(context, {
+    requestedOperatorId: params.operadorId ?? null,
+    requestedTeamId: params.equipeId ?? null,
+    fallbackOperatorId: agreement?.operador_id ?? null,
+    fallbackTeamId: agreement?.equipe_id ?? null,
+  });
+
+  if (!isSupabaseConfigured()) {
+    return {
+      parcelId: parcel.id,
+      message: "Modo demonstracao: operador da parcela validado sem persistencia.",
+      demoMode: true,
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return {
+      parcelId: parcel.id,
+      message: "Modo demonstracao: operador da parcela validado sem persistencia.",
+      demoMode: true,
+    };
+  }
+
+  const { error } = await supabase
+    .from("acordo_parcelas")
+    .update({
+      operador_id: scope.operadorId,
+      equipe_id: scope.equipeId,
+    })
+    .eq("id", parcel.id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await registrarAuditoria({
+    entidade: "parcela",
+    entidadeId: parcel.id,
+    acao: "parcela_operador_alterado",
+    descricao: "Operador responsavel da parcela alterado manualmente.",
+    acordoId: agreement?.id ?? parcel.acordo_id,
+    parcelaId: parcel.id,
+    clienteId: agreement?.cliente_id ?? null,
+    contratoId: agreement?.contrato_id ?? null,
+    operadorId: scope.operadorId,
+    equipeId: scope.equipeId,
+    carteiraId: agreement?.carteira_id ?? null,
+    usuarioId: profile.id,
+    usuarioNome: profile.nome,
+    origem: "manual",
+    dadosAnteriores: {
+      operadorId: parcel.operador_id ?? null,
+      equipeId: parcel.equipe_id ?? null,
+    },
+    dadosNovos: {
+      operadorId: scope.operadorId,
+      equipeId: scope.equipeId,
+    },
+  });
+
+  return {
+    parcelId: parcel.id,
+    message: "Operador da parcela atualizado com sucesso.",
+    demoMode: false,
+  };
+}
 
 export function parseCreateAgreementInput(payload: unknown) {
   return createAgreementSchema.parse(payload);

@@ -28,6 +28,7 @@ import {
   getAgreementStatusLabel,
   getAgreementStatusVariant,
   formatDocument,
+  getRevenueTypeLabel,
 } from "@/lib/clientes-utils";
 import { getAuditActionLabel, getWriteOffStatusLabel, getWriteOffStatusVariant } from "@/lib/financeiro-utils";
 import { cn } from "@/lib/utils";
@@ -164,7 +165,7 @@ export function AgreementDetailsDialog({
                 </div>
               </section>
 
-              <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-6">
+              <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-8">
                 <div className="dashboard-surface p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     Valor acordo
@@ -205,6 +206,22 @@ export function AgreementDetailsDialog({
                     {data.ultimoPagamentoEm ? formatDate(data.ultimoPagamentoEm) : "-"}
                   </p>
                 </div>
+                <div className="dashboard-surface p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Honorarios previstos
+                  </p>
+                  <p className="mt-2 text-xl font-semibold">
+                    {formatCurrency(data.valorHonorariosPrevisto ?? 0)}
+                  </p>
+                </div>
+                <div className="dashboard-surface p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Escritorio previsto
+                  </p>
+                  <p className="mt-2 text-xl font-semibold">
+                    {formatCurrency(data.valorEscritorioPrevisto ?? 0)}
+                  </p>
+                </div>
               </section>
 
               <section className="space-y-3">
@@ -240,6 +257,12 @@ export function AgreementDetailsDialog({
                             <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                               Valor pago
                             </TableHead>
+                            <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                              Escritorio
+                            </TableHead>
+                            <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                              Receita
+                            </TableHead>
                             <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                               Forma
                             </TableHead>
@@ -262,6 +285,12 @@ export function AgreementDetailsDialog({
                               </TableCell>
                               <TableCell className="px-4 py-3 text-right font-mono text-sm">
                                 {formatCurrency(writeOff.valorPago)}
+                              </TableCell>
+                              <TableCell className="px-4 py-3 text-right font-mono text-sm">
+                                {formatCurrency(writeOff.valorEscritorio ?? 0)}
+                              </TableCell>
+                              <TableCell className="px-4 py-3 text-sm">
+                                {getRevenueTypeLabel(writeOff.tipoReceita)}
                               </TableCell>
                               <TableCell className="px-4 py-3 text-sm">
                                 {writeOff.formaPagamento ?? "-"}

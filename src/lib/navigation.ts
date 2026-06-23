@@ -8,6 +8,7 @@ import {
   FileText,
   FolderClock,
   Gauge,
+  History,
   Landmark,
   Layers3,
   ListTodo,
@@ -76,6 +77,14 @@ const clientsItem: NavigationItem = {
   description: "Cadastro operacional, acordos e baixas por cliente.",
 };
 
+const newClientItem: NavigationItem = {
+  title: "Novo caso",
+  href: "/clientes/novo",
+  icon: UserCog,
+  description: "Abertura manual de cliente e contrato com auditoria.",
+  matchPrefixes: ["/clientes/novo"],
+};
+
 const agreementsItem: NavigationItem = {
   title: "Acordos",
   href: "/acordos",
@@ -105,6 +114,14 @@ const importsItem: NavigationItem = {
   href: "/importacoes",
   icon: FileSpreadsheet,
   description: "Entrada de arquivos e validacoes.",
+};
+
+const auditItem: NavigationItem = {
+  title: "Auditoria",
+  href: "/auditoria",
+  icon: History,
+  description: "Historico transacional de cadastros, baixas e importacoes.",
+  matchPrefixes: ["/auditoria"],
 };
 
 const adminHomeItem: NavigationItem = {
@@ -188,8 +205,8 @@ const supervisorNavigation: NavigationGroup[] = [
     items: [dashboardItem, rankingItem],
   },
   {
-    title: "Operacao",
-    items: [clientsItem, teamsItem, walletsItem],
+    title: "Cobranca",
+    items: [clientsItem, newClientItem, teamsItem, walletsItem],
   },
   {
     title: "Financeiro",
@@ -197,7 +214,7 @@ const supervisorNavigation: NavigationGroup[] = [
   },
   {
     title: "Dados",
-    items: [importsItem],
+    items: [importsItem, auditItem],
   },
 ];
 
@@ -223,7 +240,7 @@ const financeNavigation: NavigationGroup[] = [
   },
   {
     title: "Dados",
-    items: [importsItem],
+    items: [importsItem, auditItem],
   },
 ];
 
@@ -233,8 +250,8 @@ const managementNavigation: NavigationGroup[] = [
     items: [dashboardItem, rankingItem],
   },
   {
-    title: "Operacao",
-    items: [clientsItem, teamsItem, walletsItem],
+    title: "Cobranca",
+    items: [clientsItem, newClientItem, teamsItem, walletsItem],
   },
   {
     title: "Financeiro",
@@ -242,7 +259,7 @@ const managementNavigation: NavigationGroup[] = [
   },
   {
     title: "Dados",
-    items: [importsItem],
+    items: [importsItem, auditItem],
   },
   {
     title: "Administracao",

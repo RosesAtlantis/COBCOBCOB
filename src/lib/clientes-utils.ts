@@ -9,6 +9,8 @@ import type {
   AgreementStatus,
   ClientStatus,
   CreateAgreementInput,
+  RevenueType,
+  RevenueTypeOrigin,
 } from "@/types/portal";
 
 function onlyDigits(value: string) {
@@ -216,6 +218,8 @@ export function generateAgreementInstallments(
     | "valorParcela"
     | "dataVencimentoEntrada"
     | "primeiroVencimento"
+    | "intervaloMeses"
+    | "parcelasCustomizadas"
   >,
 ) {
   const drafts: AgreementInstallmentDraft[] = [];
@@ -223,6 +227,7 @@ export function generateAgreementInstallments(
   const total = roundCurrency(input.valorAcordo);
   const balance = roundCurrency(total - entry);
   const quantity = Math.max(1, Math.trunc(input.quantidadeParcelas || 1));
+  const intervalMonths = Math.max(1, Math.trunc(input.intervaloMeses || 1));
 
   if (entry > 0 && input.dataVencimentoEntrada) {
     drafts.push({
@@ -230,11 +235,46 @@ export function generateAgreementInstallments(
       tipo: balance === 0 && quantity === 1 ? "avista" : "entrada",
       dataVencimento: input.dataVencimentoEntrada,
       valorParcela: entry,
+      tipoReceita: "NOVO",
+      tipoReceitaOrigem: "automatico",
     });
   }
 
   if (balance <= 0 || !input.primeiroVencimento) {
     return drafts;
+  }
+
+  const customInstallments =
+    input.parcelasCustomizadas?.filter(
+      (installment) =>
+        installment?.dataVencimento &&
+        Number.isFinite(installment.valorParcela) &&
+        installment.valorParcela > 0,
+    ) ?? [];
+
+  if (customInstallments.length) {
+    return [
+      ...drafts,
+      ...customInstallments.map((installment, index) => {
+        const generatedType =
+          quantity === 1 && entry === 0 && index === 0
+            ? "avista"
+            : (installment.tipo ?? "parcela");
+
+        return {
+          numeroParcela: drafts.length + index + 1,
+          tipo: generatedType,
+          dataVencimento: installment.dataVencimento,
+          valorParcela: roundCurrency(installment.valorParcela),
+          observacao: installment.observacao ?? null,
+          operadorId: installment.operadorId ?? null,
+          tipoReceita: installment.tipoReceita ?? (index === 0 ? "NOVO" : "COLCHAO"),
+          tipoReceitaOrigem:
+            installment.tipoReceitaOrigem ??
+            (installment.tipoReceita ? "manual" : "automatico"),
+        } satisfies AgreementInstallmentDraft;
+      }),
+    ];
   }
 
   const base = roundCurrency(
@@ -254,8 +294,15 @@ export function generateAgreementInstallments(
     drafts.push({
       numeroParcela: drafts.length + 1,
       tipo: quantity === 1 && entry === 0 ? "avista" : "parcela",
-      dataVencimento: addMonths(firstDate, index).toISOString().slice(0, 10),
+      dataVencimento: addMonths(firstDate, index * intervalMonths).toISOString().slice(0, 10),
       valorParcela: generatedValue,
+      tipoReceita:
+        quantity === 1 && entry === 0
+          ? "NOVO"
+          : index === 0
+            ? "NOVO"
+            : "COLCHAO",
+      tipoReceitaOrigem: "automatico",
     });
   }
 
@@ -278,7 +325,7 @@ export function getPrimaryWalletLabel(
     return walletName;
   }
 
-  return `${walletName} • ${creditorName}`;
+  return `${walletName} - ${creditorName}`;
 }
 
 export function matchesClientSearch(
@@ -316,4 +363,26 @@ export function resolveAgreementTypeLabel(type: AgreementInstallmentType | strin
   };
 
   return labels[type] ?? type;
+}
+
+export function getRevenueTypeLabel(type: RevenueType | string | null | undefined) {
+  if (!type) {
+    return "-";
+  }
+
+  return type === "NOVO" ? "Novo" : type === "COLCHAO" ? "Colchao" : type;
+}
+
+export function getRevenueTypeOriginLabel(
+  origin: RevenueTypeOrigin | string | null | undefined,
+) {
+  if (!origin) {
+    return "-";
+  }
+
+  return origin === "automatico"
+    ? "Automatico"
+    : origin === "manual"
+      ? "Manual"
+      : origin;
 }

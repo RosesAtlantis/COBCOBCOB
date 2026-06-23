@@ -106,6 +106,15 @@ function buildWriteOffFilterOptions(
         label: profile.nome,
       })),
     ),
+    revenueTypes: [
+      { value: "NOVO", label: "Novo" },
+      { value: "COLCHAO", label: "Colchao" },
+    ],
+    reversedStatuses: [
+      { value: "ativas", label: "Ativas" },
+      { value: "estornadas", label: "Estornadas" },
+      { value: "todas", label: "Todas" },
+    ],
   };
 }
 
@@ -113,11 +122,11 @@ function buildWriteOffRows(context: ClientsContext): WriteOffCenterRow[] {
   const resolved = buildResolvedCollections(context);
 
   return resolved.resolvedWriteOffs
-    .map((writeOff) => {
+    .flatMap((writeOff) => {
       const agreement = resolved.agreementById.get(writeOff.acordo_id);
 
       if (!agreement) {
-        return null;
+        return [];
       }
 
       const client = agreement.cliente_id
@@ -136,7 +145,7 @@ function buildWriteOffRows(context: ClientsContext): WriteOffCenterRow[] {
         ? resolved.profileById.get(writeOff.estornada_por)?.nome ?? "Portal BKO"
         : null;
 
-      return {
+      const row: WriteOffCenterRow = {
         id: writeOff.id,
         agreementId: writeOff.acordo_id,
         parcelId: writeOff.parcela_id,
@@ -164,13 +173,19 @@ function buildWriteOffRows(context: ClientsContext): WriteOffCenterRow[] {
         registradoPorId: writeOff.registrado_por,
         dataRegistro: writeOff.criado_em,
         observacao: writeOff.observacao,
+        percentualHonorarios: writeOff.percentual_honorarios ?? null,
+        valorHonorarios: writeOff.valor_honorarios ?? null,
+        valorEscritorio: writeOff.valor_escritorio ?? null,
+        tipoReceita: writeOff.tipo_receita ?? null,
+        tipoReceitaOrigem: writeOff.tipo_receita_origem ?? null,
         estornada: writeOff.estornada,
         estornadaEm: writeOff.estornada_em,
         estornadaPor: reversedBy,
         motivoEstorno: writeOff.motivo_estorno,
-      } satisfies WriteOffCenterRow;
+      };
+
+      return [row];
     })
-    .filter((row): row is WriteOffCenterRow => Boolean(row))
     .sort((left, right) => right.dataPagamento.localeCompare(left.dataPagamento));
 }
 
@@ -204,6 +219,11 @@ function filterWriteOffRows(
         (!filters.paymentMethod ||
           normalizeText(row.formaPagamento) === normalizeText(filters.paymentMethod)) &&
         (!filters.registeredBy || row.registradoPorId === filters.registeredBy) &&
+        (!filters.revenueType || row.tipoReceita === filters.revenueType) &&
+        (!filters.reversedStatus ||
+          filters.reversedStatus === "todas" ||
+          (filters.reversedStatus === "ativas" && !row.estornada) ||
+          (filters.reversedStatus === "estornadas" && row.estornada)) &&
         (!filters.startDate || row.dataPagamento >= filters.startDate) &&
         (!filters.endDate || row.dataPagamento <= filters.endDate)
       );
@@ -238,6 +258,15 @@ function buildWriteOffSummary(rows: WriteOffCenterRow[]): WriteOffCenterSummary 
     baixasEstornadas: rows.filter((row) => row.estornada).length,
     maiorCarteira: resolveTopLabel(rows, "carteira"),
     maiorOperador: resolveTopLabel(rows, "operador"),
+    honorariosEscritorio: roundCurrency(
+      activeRows.reduce((total, row) => total + (row.valorEscritorio ?? 0), 0),
+    ),
+    valorRepassado: roundCurrency(
+      activeRows.reduce(
+        (total, row) => total + Math.max(row.valorPago - (row.valorEscritorio ?? 0), 0),
+        0,
+      ),
+    ),
   };
 }
 

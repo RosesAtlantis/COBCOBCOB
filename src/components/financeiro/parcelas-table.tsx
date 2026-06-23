@@ -20,6 +20,7 @@ import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { toClientAgreementRow } from "@/lib/financeiro-adapters";
 import {
   formatDocument,
+  getRevenueTypeLabel,
   getInstallmentStatusLabel,
   getInstallmentStatusVariant,
   resolveAgreementTypeLabel,
@@ -86,6 +87,9 @@ export function ParcelasCentralTable({
               <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Saldo
               </TableHead>
+              <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Receita
+              </TableHead>
               <TableHead className="h-11 px-4 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Dias atraso
               </TableHead>
@@ -136,6 +140,9 @@ export function ParcelasCentralTable({
                   </TableCell>
                   <TableCell className="px-4 py-3.5 text-right font-mono text-sm">
                     {formatCurrency(row.saldo)}
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 text-sm">
+                    {getRevenueTypeLabel(row.tipoReceita)}
                   </TableCell>
                   <TableCell className="px-4 py-3.5 text-center text-sm">
                     {row.diasEmAtraso > 0 ? formatNumber(row.diasEmAtraso) : "-"}
@@ -208,6 +215,7 @@ export function ParcelasCentralTable({
 
       <BaixaForm
         clientId={writeOffTarget?.clientId ?? ""}
+        clientName={writeOffTarget?.agreement.cliente ?? undefined}
         agreement={writeOffTarget ? toClientAgreementRow(writeOffTarget.agreement) : null}
         initialParcelId={writeOffTarget?.parcelId ?? null}
         open={Boolean(writeOffTarget)}

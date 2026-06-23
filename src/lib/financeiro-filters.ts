@@ -115,6 +115,10 @@ export function parseInstallmentCenterFilters(searchParams: SearchParamsLike) {
         searchParams,
         "status",
       ) as AgreementInstallmentStatus | undefined) || undefined,
+    revenueType:
+      (readSearchParam(searchParams, "tipoReceita") as
+        | InstallmentCenterFilters["revenueType"]
+        | undefined) || undefined,
     startDate: readSearchParam(searchParams, "inicio") || undefined,
     endDate: readSearchParam(searchParams, "fim") || undefined,
   };
@@ -151,6 +155,10 @@ export function createInstallmentCenterSearchParams(
     params.set("status", filters.status);
   }
 
+  if (filters.revenueType) {
+    params.set("tipoReceita", filters.revenueType);
+  }
+
   if (filters.startDate) {
     params.set("inicio", filters.startDate);
   }
@@ -171,6 +179,14 @@ export function parseWriteOffCenterFilters(searchParams: SearchParamsLike) {
     operatorId: readSearchParam(searchParams, "operador") || undefined,
     paymentMethod: readSearchParam(searchParams, "forma") || undefined,
     registeredBy: readSearchParam(searchParams, "registradoPor") || undefined,
+    revenueType:
+      (readSearchParam(searchParams, "tipoReceita") as
+        | WriteOffCenterFilters["revenueType"]
+        | undefined) || undefined,
+    reversedStatus:
+      (readSearchParam(searchParams, "estorno") as
+        | WriteOffCenterFilters["reversedStatus"]
+        | undefined) || undefined,
     startDate: readSearchParam(searchParams, "inicio") || undefined,
     endDate: readSearchParam(searchParams, "fim") || undefined,
   };
@@ -207,6 +223,14 @@ export function createWriteOffCenterSearchParams(filters: WriteOffCenterFilters)
 
   if (filters.registeredBy) {
     params.set("registradoPor", filters.registeredBy);
+  }
+
+  if (filters.revenueType) {
+    params.set("tipoReceita", filters.revenueType);
+  }
+
+  if (filters.reversedStatus) {
+    params.set("estorno", filters.reversedStatus);
   }
 
   if (filters.startDate) {

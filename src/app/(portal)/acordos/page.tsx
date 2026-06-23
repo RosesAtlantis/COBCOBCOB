@@ -42,7 +42,7 @@ export default async function AcordosPage({ searchParams }: AcordosPageProps) {
         </div>
       </section>
 
-      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-7">
+      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-9">
         <CentralSummaryCard
           label="Ativos"
           value={formatNumber(data.summary.ativos)}
@@ -70,6 +70,14 @@ export default async function AcordosPage({ searchParams }: AcordosPageProps) {
         <CentralSummaryCard
           label="Cancelados"
           value={formatNumber(data.summary.cancelados)}
+        />
+        <CentralSummaryCard
+          label="Honorarios previstos"
+          value={formatCurrency(data.summary.honorariosPrevistos ?? 0)}
+        />
+        <CentralSummaryCard
+          label="Escritorio previsto"
+          value={formatCurrency(data.summary.valorEscritorioPrevisto ?? 0)}
         />
       </section>
 

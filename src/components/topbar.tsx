@@ -49,6 +49,10 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: "Importacoes",
     subtitle: "Carga de arquivos, validacoes e auditoria.",
   },
+  "/auditoria": {
+    title: "Auditoria",
+    subtitle: "Historico completo de alteracoes, baixas, acordos e importacoes.",
+  },
   "/admin": {
     title: "Administracao",
     subtitle: "Cadastros mestres, perfis e configuracoes do portal.",
@@ -74,6 +78,10 @@ function getCurrentPageContent(pathname: string) {
 
   if (pathname.startsWith("/baixas/")) {
     return pageTitles["/baixas"];
+  }
+
+  if (pathname.startsWith("/auditoria")) {
+    return pageTitles["/auditoria"];
   }
 
   return pageTitles[pathname] ?? pageTitles["/dashboard"];

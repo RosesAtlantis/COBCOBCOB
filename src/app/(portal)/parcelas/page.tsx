@@ -42,7 +42,7 @@ export default async function ParcelasPage({ searchParams }: ParcelasPageProps) 
         </div>
       </section>
 
-      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-6">
+      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-8">
         <CentralSummaryCard
           label="Pendentes"
           value={formatNumber(data.summary.pendentes)}
@@ -66,6 +66,14 @@ export default async function ParcelasPage({ searchParams }: ParcelasPageProps) 
         <CentralSummaryCard
           label="Recebido"
           value={formatCurrency(data.summary.recebido)}
+        />
+        <CentralSummaryCard
+          label="Receita novo"
+          value={formatNumber(data.summary.novo ?? 0)}
+        />
+        <CentralSummaryCard
+          label="Receita colchao"
+          value={formatNumber(data.summary.colchao ?? 0)}
         />
       </section>
 

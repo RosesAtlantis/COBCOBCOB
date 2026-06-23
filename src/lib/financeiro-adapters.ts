@@ -24,6 +24,11 @@ export function toClientAgreementRow(row: AgreementCenterRow): ClientAgreementRo
     quantidade_parcelas: row.parcelas,
     valor_parcela: primeiraParcela?.valor_parcela ?? 0,
     valor_pago: row.valorPago,
+    percentual_honorarios: row.percentualHonorarios ?? null,
+    valor_honorarios_previsto: row.valorHonorariosPrevisto ?? null,
+    valor_escritorio_previsto: row.valorEscritorioPrevisto ?? null,
+    intervalo_meses: 1,
+    origem_manual: true,
     data_vencimento_entrada:
       row.parcelasDetalhe.find((installment) => installment.tipo === "entrada")
         ?.data_vencimento ?? null,

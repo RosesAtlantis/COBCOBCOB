@@ -59,6 +59,10 @@ function buildInstallmentFilterOptions(
       { value: "pago", label: "Pago" },
       { value: "cancelado", label: "Cancelado" },
     ],
+    revenueTypes: [
+      { value: "NOVO", label: "Novo" },
+      { value: "COLCHAO", label: "Colchao" },
+    ],
   };
 }
 
@@ -104,6 +108,11 @@ function buildInstallmentRows(context: ClientsContext): InstallmentCenterRow[] {
         dataPagamento: installment.data_pagamento,
         acordoStatus: agreement.status,
         observacao: installment.observacao,
+        percentualHonorarios: installment.percentual_honorarios ?? null,
+        valorHonorariosPrevisto: installment.valor_honorarios_previsto ?? null,
+        valorEscritorioPrevisto: installment.valor_escritorio_previsto ?? null,
+        tipoReceita: installment.tipo_receita ?? null,
+        tipoReceitaOrigem: installment.tipo_receita_origem ?? null,
       } satisfies InstallmentCenterRow;
     }),
   );
@@ -137,6 +146,7 @@ function filterInstallmentRows(
         (!filters.teamId || row.teamId === filters.teamId) &&
         (!filters.operatorId || row.operatorId === filters.operatorId) &&
         (!filters.status || row.status === filters.status) &&
+        (!filters.revenueType || row.tipoReceita === filters.revenueType) &&
         (!filters.startDate || row.vencimento >= filters.startDate) &&
         (!filters.endDate || row.vencimento <= filters.endDate)
       );
@@ -164,6 +174,8 @@ function buildInstallmentSummary(rows: InstallmentCenterRow[]): InstallmentCente
         .reduce((total, row) => total + row.saldo, 0),
     ),
     recebido: roundCurrency(rows.reduce((total, row) => total + row.valorPago, 0)),
+    novo: rows.filter((row) => row.tipoReceita === "NOVO").length,
+    colchao: rows.filter((row) => row.tipoReceita === "COLCHAO").length,
   };
 }
 

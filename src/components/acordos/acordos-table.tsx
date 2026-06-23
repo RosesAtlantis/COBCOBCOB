@@ -33,6 +33,7 @@ import type { ClientAgreementRow } from "@/types/portal";
 
 interface AcordosTableProps {
   clientId: string;
+  clientName: string;
   agreements: ClientAgreementRow[];
   canCancel: boolean;
   canRegisterWriteOff: boolean;
@@ -40,6 +41,7 @@ interface AcordosTableProps {
 
 export function AcordosTable({
   clientId,
+  clientName,
   agreements,
   canCancel,
   canRegisterWriteOff,
@@ -153,7 +155,7 @@ export function AcordosTable({
                     <div>
                       <p className="font-medium">{agreement.contratoNumero}</p>
                       <p className="text-xs text-muted-foreground">
-                        {agreement.operador} • {agreement.equipe}
+                        {agreement.operador} - {agreement.equipe}
                       </p>
                     </div>
                   </TableCell>
@@ -236,6 +238,7 @@ export function AcordosTable({
 
       <BaixaForm
         clientId={clientId}
+        clientName={clientName}
         agreement={writeOffAgreement}
         open={Boolean(writeOffAgreement)}
         onOpenChange={(open) => {

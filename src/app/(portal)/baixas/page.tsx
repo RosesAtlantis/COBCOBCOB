@@ -42,7 +42,7 @@ export default async function BaixasPage({ searchParams }: BaixasPageProps) {
         </div>
       </section>
 
-      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-6">
+      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-8">
         <CentralSummaryCard
           label="Recebido no periodo"
           value={formatCurrency(data.summary.recebidoNoPeriodo)}
@@ -58,6 +58,14 @@ export default async function BaixasPage({ searchParams }: BaixasPageProps) {
         <CentralSummaryCard
           label="Baixas estornadas"
           value={formatNumber(data.summary.baixasEstornadas)}
+        />
+        <CentralSummaryCard
+          label="Honorarios escritorio"
+          value={formatCurrency(data.summary.honorariosEscritorio ?? 0)}
+        />
+        <CentralSummaryCard
+          label="Valor repassado"
+          value={formatCurrency(data.summary.valorRepassado ?? 0)}
         />
         <CentralSummaryCard
           label="Maior carteira"

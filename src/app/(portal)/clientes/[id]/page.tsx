@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AcordoForm } from "@/components/acordos/acordo-form";
 import { AcordosTable } from "@/components/acordos/acordos-table";
 import { ClienteForm } from "@/components/clientes/cliente-form";
+import { ContractsManager } from "@/components/clientes/contracts-manager";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -136,6 +137,7 @@ export default async function ClienteDetailPage({
           <TabsTrigger value="baixas">Pagamentos/Baixas</TabsTrigger>
           <TabsTrigger value="acionamentos">Acionamentos</TabsTrigger>
           <TabsTrigger value="cadastro">Dados cadastrais</TabsTrigger>
+          <TabsTrigger value="historico">Historico</TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumo" className="space-y-6">
@@ -183,7 +185,7 @@ export default async function ClienteDetailPage({
                         <div>
                           <p className="font-medium">{agreement.contratoNumero}</p>
                           <p className="text-sm text-muted-foreground">
-                            {agreement.carteira} • {agreement.operador}
+                            {agreement.carteira} - {agreement.operador}
                           </p>
                         </div>
                         <Badge variant={getAgreementStatusVariant(agreement.status)}>
@@ -213,44 +215,13 @@ export default async function ClienteDetailPage({
         </TabsContent>
 
         <TabsContent value="contratos" className="space-y-3">
-          <div>
-            <h2 className="text-lg font-semibold">Contratos vinculados</h2>
-            <p className="text-sm text-muted-foreground">
-              Base contratual que sustenta a cobranca e os acordos deste cliente.
-            </p>
-          </div>
-          <DataTable
-            rows={data.contracts}
-            columns={[
-              { key: "numero_contrato", header: "Contrato" },
-              { key: "carteira", header: "Carteira" },
-              { key: "credor", header: "Credor" },
-              {
-                key: "valor_original",
-                header: "Valor original",
-                align: "right",
-                render: (row) => formatCurrency(row.valor_original),
-              },
-              {
-                key: "valor_em_aberto",
-                header: "Em aberto",
-                align: "right",
-                render: (row) => formatCurrency(row.valor_em_aberto),
-              },
-              {
-                key: "acordosAtivos",
-                header: "Acordos ativos",
-                align: "right",
-                render: (row) => formatNumber(row.acordosAtivos),
-              },
-              {
-                key: "valorPago",
-                header: "Pago",
-                align: "right",
-                render: (row) => formatCurrency(row.valorPago),
-              },
-              { key: "status", header: "Status" },
-            ]}
+          <ContractsManager
+            clientId={data.client.id}
+            contracts={data.contracts}
+            wallets={data.wallets}
+            operators={data.operators}
+            teams={data.teams}
+            canEdit={data.canEditContracts}
           />
         </TabsContent>
 
@@ -263,6 +234,7 @@ export default async function ClienteDetailPage({
           </div>
           <AcordosTable
             clientId={data.client.id}
+            clientName={data.client.nome}
             agreements={data.agreements}
             canCancel={data.canCancelAgreement}
             canRegisterWriteOff={data.canRegisterWriteOff}
@@ -342,6 +314,34 @@ export default async function ClienteDetailPage({
             teamName={teamName}
             primaryWallet={primaryWallet}
             primaryCreditor={primaryCreditor}
+            operators={data.operators}
+            teams={data.teams}
+            wallets={data.wallets}
+            canEdit={data.canEditCase}
+          />
+        </TabsContent>
+
+        <TabsContent value="historico" className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">Historico</h2>
+            <p className="text-sm text-muted-foreground">
+              Trilha de auditoria do cliente, contratos, acordos, baixas e alteracoes operacionais.
+            </p>
+          </div>
+          <DataTable
+            rows={data.auditTrail}
+            columns={[
+              {
+                key: "criadoEm",
+                header: "Data",
+                render: (row) => formatDate(row.criadoEm),
+              },
+              { key: "entidade", header: "Entidade" },
+              { key: "acao", header: "Acao" },
+              { key: "descricao", header: "Descricao" },
+              { key: "usuarioNome", header: "Usuario" },
+              { key: "origem", header: "Origem" },
+            ]}
           />
         </TabsContent>
       </Tabs>

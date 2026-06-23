@@ -2,13 +2,17 @@ import "server-only";
 
 import { cache } from "react";
 import { addDays, parseISO, subDays } from "date-fns";
+import { z } from "zod";
 
 import { requireActiveProfile } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getMockPortalDataset } from "@/lib/mock-data";
 import {
   canCancelAgreements,
+  canCreateCases,
   canCreateAgreements,
+  canEditCases,
+  canEditContracts,
   canRegisterAgreementPayments,
   canViewClients,
 } from "@/lib/permissions";
@@ -42,15 +46,73 @@ import type {
   ContactAction,
   Contract,
   FilterOption,
+  ManualCaseInput,
+  ManualCaseResult,
   Operator,
   Payment,
   PortalProfile,
   Team,
+  UpdateClientInput,
+  UpsertContractInput,
   Wallet,
 } from "@/types/portal";
 
 type ClientRow = Database["public"]["Tables"]["clientes"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+
+const manualCaseSchema = z.object({
+  nome: z.string().trim().min(3, "Informe o nome do cliente."),
+  cpfCnpj: z.string().trim().min(11, "Informe o CPF/CNPJ."),
+  telefone: z.string().trim().nullable().optional(),
+  email: z.string().trim().email("E-mail invalido.").nullable().optional().or(z.literal("")),
+  endereco: z.string().trim().nullable().optional(),
+  cidade: z.string().trim().nullable().optional(),
+  uf: z.string().trim().max(2, "UF invalida.").nullable().optional(),
+  cep: z.string().trim().nullable().optional(),
+  observacao: z.string().trim().nullable().optional(),
+  carteiraId: z.string().uuid("Carteira invalida."),
+  credor: z.string().trim().nullable().optional(),
+  numeroContrato: z.string().trim().min(1, "Numero do contrato obrigatorio."),
+  valorOriginal: z.coerce.number().min(0, "Valor original invalido."),
+  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
+  dataContrato: z.string().trim().nullable().optional(),
+  dataVencimento: z.string().trim().nullable().optional(),
+  operadorId: z.string().uuid().nullable().optional(),
+  equipeId: z.string().uuid().nullable().optional(),
+});
+
+const updateClientSchema = z.object({
+  clientId: z.string().uuid("Cliente invalido."),
+  nome: z.string().trim().min(3).optional(),
+  cpfCnpj: z.string().trim().min(11).optional(),
+  telefone: z.string().trim().nullable().optional(),
+  email: z.string().trim().nullable().optional(),
+  endereco: z.string().trim().nullable().optional(),
+  cidade: z.string().trim().nullable().optional(),
+  uf: z.string().trim().max(2).nullable().optional(),
+  cep: z.string().trim().nullable().optional(),
+  observacao: z.string().trim().nullable().optional(),
+  status: z.enum(["em_cobranca", "com_acordo", "quitado", "inativo"]).optional(),
+  carteiraId: z.string().uuid().nullable().optional(),
+  operadorId: z.string().uuid().nullable().optional(),
+  equipeId: z.string().uuid().nullable().optional(),
+});
+
+const contractSchema = z.object({
+  contractId: z.string().uuid().nullable().optional(),
+  clientId: z.string().uuid("Cliente invalido."),
+  carteiraId: z.string().uuid().nullable().optional(),
+  credor: z.string().trim().nullable().optional(),
+  numeroContrato: z.string().trim().min(1, "Numero do contrato obrigatorio."),
+  valorOriginal: z.coerce.number().min(0, "Valor original invalido."),
+  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
+  dataContrato: z.string().trim().nullable().optional(),
+  dataVencimento: z.string().trim().nullable().optional(),
+  status: z.string().trim().nullable().optional(),
+  operadorId: z.string().uuid().nullable().optional(),
+  equipeId: z.string().uuid().nullable().optional(),
+  observacao: z.string().trim().nullable().optional(),
+});
 
 export interface ClientsContext {
   profile: PortalProfile;
@@ -82,6 +144,57 @@ export function uniqueOptions(options: FilterOption[]) {
   return Array.from(
     new Map(options.map((option) => [option.value, option])).values(),
   );
+}
+
+function resolveNullableString(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function resolveScopedAssignment(
+  context: ClientsContext,
+  payload: {
+    requestedOperatorId?: string | null;
+    requestedTeamId?: string | null;
+    fallbackOperatorId?: string | null;
+    fallbackTeamId?: string | null;
+  },
+) {
+  const requestedOperator = payload.requestedOperatorId
+    ? context.operators.find((operator) => operator.id === payload.requestedOperatorId)
+    : null;
+  const requestedTeam = payload.requestedTeamId
+    ? context.teams.find((team) => team.id === payload.requestedTeamId)
+    : null;
+
+  if (payload.requestedOperatorId && !requestedOperator) {
+    throw new Error("Operador fora do escopo permitido para este perfil.");
+  }
+
+  if (payload.requestedTeamId && !requestedTeam) {
+    throw new Error("Equipe fora do escopo permitido para este perfil.");
+  }
+
+  const resolvedOperatorId =
+    requestedOperator?.id ??
+    payload.fallbackOperatorId ??
+    context.profile.operador_id ??
+    null;
+  const resolvedTeamId =
+    requestedTeam?.id ??
+    requestedOperator?.equipe_id ??
+    payload.fallbackTeamId ??
+    context.profile.equipe_id ??
+    null;
+
+  return {
+    operadorId: resolvedOperatorId,
+    equipeId: resolvedTeamId,
+  };
 }
 
 function mapProfileRows(rows: ProfileRow[]) {
@@ -1011,6 +1124,7 @@ export async function getClientesPageData(
     filters,
     options: buildClientFilterOptions(context),
     clients: buildClientListRows(context, filters),
+    canCreateCase: canCreateCases(context.profile.perfil),
     demoMode: context.demoMode,
   };
 }
@@ -1029,6 +1143,8 @@ export async function getClienteDetailPageData(
   const contracts = await listarContratosCliente(clientId);
   const agreements = await listarAcordosCliente(clientId);
   const payments = await listarBaixasCliente(clientId);
+  const { listarHistoricoCliente } = await import("@/services/auditoria-service");
+  const auditTrail = await listarHistoricoCliente(clientId);
   const actions = (resolved.actionsByClient.get(clientId) ?? [])
     .map(({ row }) => ({
       ...row,
@@ -1071,6 +1187,7 @@ export async function getClienteDetailPageData(
     agreements,
     payments,
     actions,
+    auditTrail,
     operators: uniqueOptions(
       context.operators.map((operator) => ({
         value: operator.id,
@@ -1093,6 +1210,493 @@ export async function getClienteDetailPageData(
     canCreateAgreement: canCreateAgreements(context.profile.perfil),
     canCancelAgreement: canCancelAgreements(context.profile.perfil),
     canRegisterWriteOff: canRegisterAgreementPayments(context.profile.perfil),
+    canEditCase: canEditCases(context.profile.perfil),
+    canEditContracts: canEditContracts(context.profile.perfil),
     demoMode: context.demoMode,
   };
+}
+
+export async function getNovoClientePageData() {
+  const context = await getClientsContext();
+
+  return {
+    profile: context.profile,
+    operators: uniqueOptions(
+      context.operators.map((operator) => ({
+        value: operator.id,
+        label: operator.nome,
+      })),
+    ),
+    teams: uniqueOptions(
+      context.teams.map((team) => ({
+        value: team.id,
+        label: team.nome,
+      })),
+    ),
+    wallets: uniqueOptions(
+      context.wallets.map((wallet) => ({
+        value: wallet.id,
+        label: wallet.nome,
+        description: wallet.credor,
+      })),
+    ),
+    demoMode: context.demoMode,
+  };
+}
+
+export async function criarCasoManual(
+  rawInput: ManualCaseInput,
+): Promise<ManualCaseResult> {
+  const profile = await requireActiveProfile(["admin", "gerente", "supervisor"]);
+  const input = manualCaseSchema.parse(rawInput);
+  const context = await getClientsContext();
+  const wallet = context.wallets.find((item) => item.id === input.carteiraId);
+
+  if (!wallet) {
+    throw new Error("Carteira nao encontrada para o escopo atual.");
+  }
+
+  const scope = resolveScopedAssignment(context, {
+    requestedOperatorId: input.operadorId ?? null,
+    requestedTeamId: input.equipeId ?? null,
+  });
+
+  if (!isSupabaseConfigured()) {
+    return {
+      clientId: `demo-client-${Date.now()}`,
+      contractId: `demo-contract-${Date.now()}`,
+      message: "Modo demonstracao: caso manual validado sem persistencia no banco.",
+      demoMode: true,
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return {
+      clientId: `demo-client-${Date.now()}`,
+      contractId: `demo-contract-${Date.now()}`,
+      message: "Modo demonstracao: caso manual validado sem persistencia no banco.",
+      demoMode: true,
+    };
+  }
+
+  const { data: client, error: clientError } = await supabase
+    .from("clientes")
+    .insert({
+      nome: input.nome,
+      cpf_cnpj: normalizeDocument(input.cpfCnpj),
+      telefone: resolveNullableString(input.telefone),
+      email: resolveNullableString(input.email),
+      endereco: resolveNullableString(input.endereco),
+      cidade: resolveNullableString(input.cidade),
+      uf: resolveNullableString(input.uf)?.toUpperCase() ?? null,
+      cep: resolveNullableString(input.cep),
+      observacao: resolveNullableString(input.observacao),
+      status: "em_cobranca",
+      operador_id: scope.operadorId,
+      equipe_id: scope.equipeId,
+    })
+    .select("*")
+    .single();
+
+  if (clientError || !client) {
+    throw new Error(clientError?.message ?? "Nao foi possivel criar o cliente.");
+  }
+
+  const { error: walletLinkError } = await supabase.from("cliente_carteiras").upsert(
+    {
+      cliente_id: client.id,
+      carteira_id: wallet.id,
+      credor: wallet.credor,
+      ativo: true,
+    },
+    {
+      onConflict: "cliente_id,carteira_id",
+    },
+  );
+
+  if (walletLinkError) {
+    throw new Error(walletLinkError.message);
+  }
+
+  const { data: contract, error: contractError } = await supabase
+    .from("contratos")
+    .insert({
+      cliente_id: client.id,
+      carteira_id: wallet.id,
+      credor: input.credor ?? wallet.credor,
+      numero_contrato: input.numeroContrato,
+      valor_original: roundCurrency(input.valorOriginal),
+      valor_em_aberto: roundCurrency(input.valorEmAberto),
+      data_contrato: resolveNullableString(input.dataContrato),
+      data_vencimento: resolveNullableString(input.dataVencimento),
+      status: roundCurrency(input.valorEmAberto) <= 0 ? "quitado" : "aberto",
+      operador_id: scope.operadorId,
+      equipe_id: scope.equipeId,
+      observacao: resolveNullableString(input.observacao),
+      origem_manual: true,
+    })
+    .select("*")
+    .single();
+
+  if (contractError || !contract) {
+    throw new Error(contractError?.message ?? "Nao foi possivel criar o contrato.");
+  }
+
+  const { registrarAuditoria } = await import("@/services/auditoria-service");
+
+  await registrarAuditoria({
+    entidade: "cliente",
+    entidadeId: client.id,
+    acao: "cliente_criado",
+    descricao: "Cliente criado manualmente no Portal BKO.",
+    clienteId: client.id,
+    operadorId: client.operador_id,
+    equipeId: client.equipe_id,
+    carteiraId: wallet.id,
+    usuarioId: profile.id,
+    usuarioNome: profile.nome,
+    origem: "manual",
+    dadosNovos: {
+      nome: client.nome,
+      cpfCnpj: client.cpf_cnpj,
+      carteira: wallet.nome,
+    },
+  });
+
+  await registrarAuditoria({
+    entidade: "contrato",
+    entidadeId: contract.id,
+    acao: "contrato_criado",
+    descricao: "Contrato inicial criado junto com o caso manual.",
+    clienteId: client.id,
+    contratoId: contract.id,
+    operadorId: contract.operador_id,
+    equipeId: contract.equipe_id,
+    carteiraId: contract.carteira_id,
+    usuarioId: profile.id,
+    usuarioNome: profile.nome,
+    origem: "manual",
+    dadosNovos: {
+      numeroContrato: contract.numero_contrato,
+      valorOriginal: contract.valor_original,
+      valorEmAberto: contract.valor_em_aberto,
+    },
+  });
+
+  return {
+    clientId: client.id,
+    contractId: contract.id,
+    message: "Caso manual criado com sucesso.",
+    demoMode: false,
+  };
+}
+
+export async function atualizarCliente(rawInput: UpdateClientInput) {
+  const profile = await requireActiveProfile(["admin", "gerente", "supervisor"]);
+  const input = updateClientSchema.parse(rawInput);
+  const context = await getClientsContext();
+  const existing = context.clients.find((client) => client.id === input.clientId);
+
+  if (!existing) {
+    throw new Error("Cliente nao encontrado.");
+  }
+
+  const scope = resolveScopedAssignment(context, {
+    requestedOperatorId: input.operadorId ?? null,
+    requestedTeamId: input.equipeId ?? null,
+    fallbackOperatorId: existing.operador_id,
+    fallbackTeamId: existing.equipe_id,
+  });
+
+  if (!isSupabaseConfigured()) {
+    return {
+      clientId: existing.id,
+      message: "Modo demonstracao: dados do cliente validados sem persistencia.",
+      demoMode: true,
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return {
+      clientId: existing.id,
+      message: "Modo demonstracao: dados do cliente validados sem persistencia.",
+      demoMode: true,
+    };
+  }
+
+  const updatePayload = {
+    nome: input.nome?.trim() ?? existing.nome,
+    cpf_cnpj: input.cpfCnpj ? normalizeDocument(input.cpfCnpj) : existing.cpf_cnpj,
+    telefone:
+      input.telefone !== undefined ? resolveNullableString(input.telefone) : existing.telefone,
+    email: input.email !== undefined ? resolveNullableString(input.email) : existing.email,
+    endereco:
+      input.endereco !== undefined
+        ? resolveNullableString(input.endereco)
+        : existing.endereco,
+    cidade: input.cidade !== undefined ? resolveNullableString(input.cidade) : existing.cidade,
+    uf:
+      input.uf !== undefined
+        ? resolveNullableString(input.uf)?.toUpperCase() ?? null
+        : existing.uf,
+    cep: input.cep !== undefined ? resolveNullableString(input.cep) : existing.cep,
+    observacao:
+      input.observacao !== undefined
+        ? resolveNullableString(input.observacao)
+        : existing.observacao ?? null,
+    status: input.status ?? existing.status,
+    operador_id: scope.operadorId,
+    equipe_id: scope.equipeId,
+  };
+
+  const { data: updated, error } = await supabase
+    .from("clientes")
+    .update(updatePayload)
+    .eq("id", existing.id)
+    .select("*")
+    .single();
+
+  if (error || !updated) {
+    throw new Error(error?.message ?? "Nao foi possivel atualizar o cliente.");
+  }
+
+  if (input.carteiraId) {
+    const wallet = context.wallets.find((item) => item.id === input.carteiraId);
+
+    if (!wallet) {
+      throw new Error("Carteira nao encontrada.");
+    }
+
+    await supabase
+      .from("cliente_carteiras")
+      .update({ ativo: false })
+      .eq("cliente_id", existing.id);
+
+    const { error: walletLinkError } = await supabase.from("cliente_carteiras").upsert(
+      {
+        cliente_id: existing.id,
+        carteira_id: wallet.id,
+        credor: wallet.credor,
+        ativo: true,
+      },
+      { onConflict: "cliente_id,carteira_id" },
+    );
+
+    if (walletLinkError) {
+      throw new Error(walletLinkError.message);
+    }
+  }
+
+  const { registrarAuditoria } = await import("@/services/auditoria-service");
+
+  await registrarAuditoria({
+    entidade: "cliente",
+    entidadeId: existing.id,
+    acao: "cliente_atualizado",
+    descricao: "Dados cadastrais do cliente atualizados manualmente.",
+    clienteId: existing.id,
+    operadorId: updated.operador_id,
+    equipeId: updated.equipe_id,
+    usuarioId: profile.id,
+    usuarioNome: profile.nome,
+    origem: "manual",
+    dadosAnteriores: {
+      nome: existing.nome,
+      cpfCnpj: existing.cpf_cnpj,
+      status: existing.status,
+      operadorId: existing.operador_id,
+      equipeId: existing.equipe_id,
+    },
+    dadosNovos: {
+      nome: updated.nome,
+      cpfCnpj: updated.cpf_cnpj,
+      status: updated.status,
+      operadorId: updated.operador_id,
+      equipeId: updated.equipe_id,
+    },
+  });
+
+  return {
+    clientId: updated.id,
+    message: "Cliente atualizado com sucesso.",
+    demoMode: false,
+  };
+}
+
+export async function criarContrato(rawInput: UpsertContractInput) {
+  return atualizarOuCriarContrato(rawInput, "criar");
+}
+
+export async function atualizarContrato(rawInput: UpsertContractInput) {
+  return atualizarOuCriarContrato(rawInput, "atualizar");
+}
+
+async function atualizarOuCriarContrato(
+  rawInput: UpsertContractInput,
+  mode: "criar" | "atualizar",
+) {
+  const profile = await requireActiveProfile(["admin", "gerente", "supervisor"]);
+  const input = contractSchema.parse(rawInput);
+  const context = await getClientsContext();
+  const client = context.clients.find((row) => row.id === input.clientId);
+
+  if (!client) {
+    throw new Error("Cliente nao encontrado para o contrato.");
+  }
+
+  const existing = input.contractId
+    ? context.contracts.find((row) => row.id === input.contractId)
+    : null;
+
+  if (mode === "atualizar" && !existing) {
+    throw new Error("Contrato nao encontrado.");
+  }
+
+  const scope = resolveScopedAssignment(context, {
+    requestedOperatorId: input.operadorId ?? null,
+    requestedTeamId: input.equipeId ?? null,
+    fallbackOperatorId: existing?.operador_id ?? client.operador_id,
+    fallbackTeamId: existing?.equipe_id ?? client.equipe_id,
+  });
+  const wallet = input.carteiraId
+    ? context.wallets.find((item) => item.id === input.carteiraId)
+    : existing?.carteira_id
+      ? context.wallets.find((item) => item.id === existing.carteira_id)
+      : null;
+
+  if (input.carteiraId && !wallet) {
+    throw new Error("Carteira nao encontrada.");
+  }
+
+  if (!isSupabaseConfigured()) {
+    return {
+      contractId: existing?.id ?? `demo-contract-${Date.now()}`,
+      clientId: client.id,
+      message:
+        mode === "criar"
+          ? "Modo demonstracao: contrato validado sem persistencia."
+          : "Modo demonstracao: atualizacao do contrato validada sem persistencia.",
+      demoMode: true,
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return {
+      contractId: existing?.id ?? `demo-contract-${Date.now()}`,
+      clientId: client.id,
+      message:
+        mode === "criar"
+          ? "Modo demonstracao: contrato validado sem persistencia."
+          : "Modo demonstracao: atualizacao do contrato validada sem persistencia.",
+      demoMode: true,
+    };
+  }
+
+  const payload = {
+    cliente_id: client.id,
+    carteira_id: wallet?.id ?? existing?.carteira_id ?? null,
+    credor: input.credor ?? wallet?.credor ?? existing?.credor ?? null,
+    numero_contrato: input.numeroContrato,
+    valor_original: roundCurrency(input.valorOriginal),
+    valor_em_aberto: roundCurrency(input.valorEmAberto),
+    data_contrato: resolveNullableString(input.dataContrato),
+    data_vencimento: resolveNullableString(input.dataVencimento),
+    status:
+      resolveNullableString(input.status) ??
+      (roundCurrency(input.valorEmAberto) <= 0 ? "quitado" : "aberto"),
+    operador_id: scope.operadorId,
+    equipe_id: scope.equipeId,
+    observacao: resolveNullableString(input.observacao),
+    origem_manual: true,
+  };
+
+  const query =
+    mode === "criar"
+      ? supabase.from("contratos").insert(payload)
+      : supabase.from("contratos").update(payload).eq("id", existing?.id ?? "");
+
+  const { data: contract, error } = await query.select("*").single();
+
+  if (error || !contract) {
+    throw new Error(
+      error?.message ??
+        (mode === "criar"
+          ? "Nao foi possivel criar o contrato."
+          : "Nao foi possivel atualizar o contrato."),
+    );
+  }
+
+  const { registrarAuditoria } = await import("@/services/auditoria-service");
+
+  await registrarAuditoria({
+    entidade: "contrato",
+    entidadeId: contract.id,
+    acao: mode === "criar" ? "contrato_criado" : "contrato_atualizado",
+    descricao:
+      mode === "criar"
+        ? "Contrato criado manualmente na ficha do cliente."
+        : "Contrato atualizado manualmente na ficha do cliente.",
+    clienteId: client.id,
+    contratoId: contract.id,
+    operadorId: contract.operador_id,
+    equipeId: contract.equipe_id,
+    carteiraId: contract.carteira_id,
+    usuarioId: profile.id,
+    usuarioNome: profile.nome,
+    origem: "manual",
+    dadosAnteriores: existing
+      ? {
+          numeroContrato: existing.numero_contrato,
+          valorOriginal: existing.valor_original,
+          valorEmAberto: existing.valor_em_aberto,
+          status: existing.status,
+        }
+      : {},
+    dadosNovos: {
+      numeroContrato: contract.numero_contrato,
+      valorOriginal: contract.valor_original,
+      valorEmAberto: contract.valor_em_aberto,
+      status: contract.status,
+    },
+  });
+
+  return {
+    contractId: contract.id,
+    clientId: client.id,
+    message:
+      mode === "criar"
+        ? "Contrato criado com sucesso."
+        : "Contrato atualizado com sucesso.",
+    demoMode: false,
+  };
+}
+
+export async function vincularOperador(params: {
+  clientId: string;
+  operadorId?: string | null;
+  equipeId?: string | null;
+}) {
+  return atualizarCliente({
+    clientId: params.clientId,
+    operadorId: params.operadorId ?? null,
+    equipeId: params.equipeId ?? null,
+  });
+}
+
+export function parseManualCaseInput(payload: unknown) {
+  return manualCaseSchema.parse(payload);
+}
+
+export function parseUpdateClientInput(payload: unknown) {
+  return updateClientSchema.parse(payload);
+}
+
+export function parseUpsertContractInput(payload: unknown) {
+  return contractSchema.parse(payload);
 }

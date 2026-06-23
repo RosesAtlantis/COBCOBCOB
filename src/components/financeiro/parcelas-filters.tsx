@@ -88,7 +88,7 @@ export function ParcelasFilters({ filters, options }: ParcelasFiltersProps) {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
           <div className="space-y-2 md:col-span-2 xl:col-span-2">
             <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Busca
@@ -250,6 +250,35 @@ export function ParcelasFilters({ filters, options }: ParcelasFiltersProps) {
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 {options.statuses.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Tipo receita
+            </Label>
+            <Select
+              value={localFilters.revenueType ?? "all"}
+              onValueChange={(value) =>
+                updateFilter({
+                  revenueType:
+                    value === "all"
+                      ? undefined
+                      : (value as InstallmentCenterFilters["revenueType"]),
+                })
+              }
+            >
+              <SelectTrigger className={controlClassName}>
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {options.revenueTypes?.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

@@ -7,12 +7,14 @@ import * as XLSX from "xlsx";
 import { getCurrentProfile } from "@/lib/auth";
 import { normalizeDocument, roundCurrency } from "@/lib/clientes-utils";
 import { isSupabaseConfigured } from "@/lib/env";
-import { canImport } from "@/lib/permissions";
+import { canImport, canReverseImports } from "@/lib/permissions";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 import type {
   ImportLineError,
   ImportProcessResult,
+  ImportRecordEntry,
   ImportType,
   PortalProfile,
 } from "@/types/portal";
@@ -37,6 +39,8 @@ type InstallmentInsert =
 type WriteOffInsert = Database["public"]["Tables"]["acordo_baixas"]["Insert"];
 type GoalInsert = Database["public"]["Tables"]["metas"]["Insert"];
 type ActionInsert = Database["public"]["Tables"]["acionamentos"]["Insert"];
+type ImportRegistryInsert =
+  Database["public"]["Tables"]["importacao_registros"]["Insert"];
 
 interface CobwareAgreementDraft {
   externalKey: string;
@@ -1141,6 +1145,9 @@ async function createImportRecord(
       nome_arquivo: fileName,
       usuario_id: profile.user_id,
       status: "processando",
+      revertida: false,
+      total_registros_criados: 0,
+      total_registros_revertidos: 0,
     })
     .select("id")
     .single();
@@ -1161,6 +1168,8 @@ async function finalizeImportRecord(
     errorRows: number;
     status: string;
     message?: string | null;
+    createdRecords?: number;
+    revertedRecords?: number;
   },
 ) {
   await admin
@@ -1171,8 +1180,42 @@ async function finalizeImportRecord(
       linhas_erro: payload.errorRows,
       status: payload.status,
       mensagem_erro: payload.message ?? null,
+      total_registros_criados: payload.createdRecords ?? payload.importedRows,
+      total_registros_revertidos: payload.revertedRecords ?? 0,
     })
     .eq("id", importId);
+}
+
+async function recordImportRows(
+  admin: AdminClient,
+  importId: string,
+  tableName: string,
+  recordIds: string[],
+  action = "upsert",
+) {
+  const uniqueIds = Array.from(new Set(recordIds.filter(Boolean)));
+
+  if (!uniqueIds.length) {
+    return;
+  }
+
+  for (const chunk of chunkArray(uniqueIds, 500)) {
+    const payload: ImportRegistryInsert[] = chunk.map((recordId) => ({
+      importacao_id: importId,
+      tabela: tableName,
+      registro_id: recordId,
+      acao: action,
+      revertido: false,
+    }));
+
+    const { error } = await admin.from("importacao_registros").upsert(payload, {
+      onConflict: "importacao_id,tabela,registro_id",
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
 }
 
 async function upsertClientBatch(admin: AdminClient, rows: ClientInsert[]) {
@@ -1400,6 +1443,27 @@ async function fetchWriteOffsByExternalKeys(admin: AdminClient, externalKeys: st
   return map;
 }
 
+async function fetchPaymentsByExternalKeys(admin: AdminClient, externalKeys: string[]) {
+  const map = new Map<string, Database["public"]["Tables"]["pagamentos"]["Row"]>();
+  const uniqueKeys = Array.from(new Set(externalKeys.filter(Boolean)));
+
+  for (const chunk of chunkArray(uniqueKeys, 500)) {
+    const { data, error } = await admin.from("pagamentos").select("*").in("chave_externa", chunk);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    for (const row of data ?? []) {
+      if (row.chave_externa) {
+        map.set(row.chave_externa, row);
+      }
+    }
+  }
+
+  return map;
+}
+
 async function processCobwareImport(
   profile: PortalProfile,
   file: File,
@@ -1467,6 +1531,12 @@ async function processCobwareImport(
       admin,
       analysis.clients.map((client) => client.cpfCnpj),
     );
+    await recordImportRows(
+      admin,
+      importId,
+      "clientes",
+      Array.from(clientMap.values()).map((client) => client.id),
+    );
 
     const contractRows: ContractInsert[] = analysis.contracts.map((contract) => {
       const client = clientMap.get(contract.cpfCnpj);
@@ -1507,6 +1577,12 @@ async function processCobwareImport(
       admin,
       contractRows.map((contract) => contract.cliente_id),
     );
+    await recordImportRows(
+      admin,
+      importId,
+      "contratos",
+      Array.from(contractMap.values()).map((contract) => contract.id),
+    );
 
     const clientWalletRows: ClientWalletInsert[] = [];
 
@@ -1530,6 +1606,12 @@ async function processCobwareImport(
     }
 
     await upsertClientWalletBatch(admin, clientWalletRows);
+    await recordImportRows(
+      admin,
+      importId,
+      "cliente_carteiras",
+      clientWalletRows.map((row) => `${row.cliente_id}:${row.carteira_id}`),
+    );
 
     const agreementRows: AgreementInsert[] = analysis.agreements.map((agreement) => {
       const client = clientMap.get(agreement.cpfCnpj);
@@ -1582,6 +1664,12 @@ async function processCobwareImport(
       admin,
       analysis.agreements.map((agreement) => agreement.externalKey),
     );
+    await recordImportRows(
+      admin,
+      importId,
+      "acordos",
+      Array.from(agreementMap.values()).map((agreement) => agreement.id),
+    );
 
     const installmentRows: InstallmentInsert[] = analysis.installments.map((installment) => {
       const agreement = agreementMap.get(installment.agreementExternalKey);
@@ -1609,6 +1697,12 @@ async function processCobwareImport(
     const installmentMap = await fetchInstallmentsByExternalKeys(
       admin,
       analysis.installments.map((installment) => installment.externalKey),
+    );
+    await recordImportRows(
+      admin,
+      importId,
+      "acordo_parcelas",
+      Array.from(installmentMap.values()).map((installment) => installment.id),
     );
 
     const writeOffRows: WriteOffInsert[] = analysis.writeOffs.map((writeOff) => {
@@ -1638,6 +1732,12 @@ async function processCobwareImport(
       admin,
       analysis.writeOffs.map((writeOff) => writeOff.externalKey),
     );
+    await recordImportRows(
+      admin,
+      importId,
+      "acordo_baixas",
+      Array.from(writeOffMap.values()).map((writeOff) => writeOff.id),
+    );
 
     const paymentRows: PaymentInsert[] = analysis.payments.map((payment) => {
       const agreement = agreementMap.get(payment.agreementExternalKey);
@@ -1666,6 +1766,16 @@ async function processCobwareImport(
     });
 
     await upsertPaymentBatch(admin, paymentRows);
+    const paymentMap = await fetchPaymentsByExternalKeys(
+      admin,
+      analysis.payments.map((payment) => payment.externalKey),
+    );
+    await recordImportRows(
+      admin,
+      importId,
+      "pagamentos",
+      Array.from(paymentMap.values()).map((payment) => payment.id),
+    );
 
     const status =
       analysis.errors.length === 0
@@ -1685,6 +1795,14 @@ async function processCobwareImport(
             ? "concluido_com_ressalvas"
             : "erro",
       message: analysis.errors.length ? warning : `Importacao CobWare concluida: ${warning}.`,
+      createdRecords:
+        clientMap.size +
+        contractMap.size +
+        agreementMap.size +
+        installmentMap.size +
+        writeOffMap.size +
+        paymentMap.size +
+        clientWalletRows.length,
     });
 
     return {
@@ -1801,6 +1919,7 @@ export async function processImport(
   const walletCache = new Map<string, string>();
   const errors: ImportLineError[] = [];
   let importedRows = 0;
+  let createdRecordCount = 0;
   const importId = await createImportRecord(admin, type, file.name, profile);
 
   try {
@@ -1847,7 +1966,7 @@ export async function processImport(
             paidValue.toFixed(2),
           ]);
 
-          const { error } = await admin.from("pagamentos").upsert(
+          const { data, error } = await admin.from("pagamentos").upsert(
             {
               data_pagamento: paymentDate,
               operador_id: operatorId,
@@ -1864,10 +1983,15 @@ export async function processImport(
             {
               onConflict: "chave_externa",
             },
-          );
+          ).select("id").single();
 
           if (error) {
             throw new Error(error.message);
+          }
+
+          if (data?.id) {
+            await recordImportRows(admin, importId, "pagamentos", [data.id]);
+            createdRecordCount += 1;
           }
         }
 
@@ -1913,7 +2037,7 @@ export async function processImport(
             Number.isFinite(parcels) ? parcels : 1,
           ]);
 
-          const { error } = await admin.from("acordos").upsert(
+          const { data, error } = await admin.from("acordos").upsert(
             {
               data_acordo: agreementDate,
               operador_id: operatorId,
@@ -1931,10 +2055,15 @@ export async function processImport(
             {
               onConflict: "chave_externa",
             },
-          );
+          ).select("id").single();
 
           if (error) {
             throw new Error(error.message);
+          }
+
+          if (data?.id) {
+            await recordImportRows(admin, importId, "acordos", [data.id]);
+            createdRecordCount += 1;
           }
         }
 
@@ -1948,7 +2077,15 @@ export async function processImport(
           }
 
           const teamId = await ensureTeam(admin, teamCache, teamName);
-          await ensureOperator(admin, operatorCache, operatorName, email, teamId);
+          const operatorId = await ensureOperator(
+            admin,
+            operatorCache,
+            operatorName,
+            email,
+            teamId,
+          );
+          await recordImportRows(admin, importId, "operadores", [operatorId]);
+          createdRecordCount += 1;
         }
 
         if (type === "metas") {
@@ -1991,7 +2128,7 @@ export async function processImport(
             walletId,
           ]);
 
-          const { error } = await admin.from("metas").upsert(
+          const { data, error } = await admin.from("metas").upsert(
             {
               mes: month,
               ano: year,
@@ -2004,10 +2141,15 @@ export async function processImport(
             {
               onConflict: "chave_externa",
             },
-          );
+          ).select("id").single();
 
           if (error) {
             throw new Error(error.message);
+          }
+
+          if (data?.id) {
+            await recordImportRows(admin, importId, "metas", [data.id]);
+            createdRecordCount += 1;
           }
         }
 
@@ -2019,13 +2161,15 @@ export async function processImport(
             throw new Error("Carteira e credor sao obrigatorios.");
           }
 
-          await ensureWallet(
+          const walletId = await ensureWallet(
             admin,
             walletCache,
             creditorCache,
             walletName,
             creditorName,
           );
+          await recordImportRows(admin, importId, "carteiras", [walletId]);
+          createdRecordCount += 1;
         }
 
         if (type === "acionamentos") {
@@ -2062,7 +2206,7 @@ export async function processImport(
             event,
           ]);
 
-          const { error } = await admin.from("acionamentos").upsert(
+          const { data, error } = await admin.from("acionamentos").upsert(
             {
               data_acionamento: actionDate,
               operador_id: operatorId,
@@ -2079,10 +2223,15 @@ export async function processImport(
             {
               onConflict: "chave_externa",
             },
-          );
+          ).select("id").single();
 
           if (error) {
             throw new Error(error.message);
+          }
+
+          if (data?.id) {
+            await recordImportRows(admin, importId, "acionamentos", [data.id]);
+            createdRecordCount += 1;
           }
         }
 
@@ -2113,6 +2262,7 @@ export async function processImport(
       errorRows: errors.length,
       status: dbStatus,
       message: errors.length ? `${errors.length} linha(s) apresentaram erro.` : null,
+      createdRecords: createdRecordCount,
     });
 
     return {
@@ -2133,10 +2283,344 @@ export async function processImport(
       errorRows: rows.length - importedRows,
       status: "erro",
       message: error instanceof Error ? error.message : "Falha geral na importacao.",
+      createdRecords: createdRecordCount,
     });
 
     throw error;
   }
+}
+
+function appendReversalReason(value: string | null | undefined, reason: string) {
+  const current = value?.trim();
+  const note = `Importacao revertida: ${reason}`;
+
+  return current ? `${current}\n${note}` : note;
+}
+
+export async function listarRegistrosImportacao(importacaoId: string) {
+  const profile = await getImportRequestProfile();
+
+  if (!importacaoId.trim()) {
+    return [] satisfies ImportRecordEntry[];
+  }
+
+  if (!isSupabaseConfigured()) {
+    return [] satisfies ImportRecordEntry[];
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return [] satisfies ImportRecordEntry[];
+  }
+
+  const { data, error } = await supabase
+    .from("importacao_registros")
+    .select("*")
+    .eq("importacao_id", importacaoId)
+    .order("criado_em", { ascending: false });
+
+  if (error || !data) {
+    if (canReverseImports(profile.perfil)) {
+      return [] satisfies ImportRecordEntry[];
+    }
+
+    throw new Error(error?.message ?? "Nao foi possivel consultar os registros da importacao.");
+  }
+
+  return data as ImportRecordEntry[];
+}
+
+export async function reverterImportacao(importacaoId: string, motivo: string) {
+  const profile = await getImportRequestProfile();
+
+  if (!canReverseImports(profile.perfil)) {
+    throw new Error("Seu perfil nao pode reverter importacoes.");
+  }
+
+  if (!motivo.trim()) {
+    throw new Error("Informe o motivo da reversao da importacao.");
+  }
+
+  if (!isSupabaseConfigured()) {
+    return {
+      importId: importacaoId,
+      revertedRecords: 0,
+      demoMode: true,
+      message: "Modo demonstracao: reversao validada sem persistencia.",
+    };
+  }
+
+  const admin = getSupabaseAdminClient();
+
+  if (!admin) {
+    throw new Error(
+      "Configure o SUPABASE_SERVICE_ROLE_KEY para habilitar a reversao de importacoes.",
+    );
+  }
+
+  const { data: importRecord, error: importError } = await admin
+    .from("importacoes")
+    .select("*")
+    .eq("id", importacaoId)
+    .single();
+
+  if (importError || !importRecord) {
+    throw new Error(importError?.message ?? "Importacao nao encontrada.");
+  }
+
+  if (importRecord.revertida) {
+    throw new Error("Esta importacao ja foi revertida anteriormente.");
+  }
+
+  const { data: registryRows, error: registryError } = await admin
+    .from("importacao_registros")
+    .select("*")
+    .eq("importacao_id", importacaoId);
+
+  if (registryError) {
+    throw new Error(registryError.message);
+  }
+
+  const rows = registryRows ?? [];
+  const grouped = new Map<string, string[]>();
+
+  for (const row of rows) {
+    const current = grouped.get(row.tabela) ?? [];
+    current.push(row.registro_id);
+    grouped.set(row.tabela, current);
+  }
+
+  const now = new Date().toISOString();
+  let revertedRecords = 0;
+
+  const paymentIds = grouped.get("pagamentos") ?? [];
+  if (paymentIds.length) {
+    const { error } = await admin
+      .from("pagamentos")
+      .update({
+        estornado: true,
+        estornado_em: now,
+        estornado_por: profile.id,
+        motivo_estorno: motivo,
+      })
+      .in("id", paymentIds)
+      .eq("estornado", false);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revertedRecords += paymentIds.length;
+  }
+
+  const writeOffIds = grouped.get("acordo_baixas") ?? [];
+  let relatedAgreementIds: string[] = [];
+  let relatedParcelIds: string[] = [];
+
+  if (writeOffIds.length) {
+    const { data: writeOffRows, error: writeOffReadError } = await admin
+      .from("acordo_baixas")
+      .select("id,acordo_id,parcela_id")
+      .in("id", writeOffIds);
+
+    if (writeOffReadError) {
+      throw new Error(writeOffReadError.message);
+    }
+
+    relatedAgreementIds = (writeOffRows ?? []).map((row) => row.acordo_id);
+    relatedParcelIds = (writeOffRows ?? []).map((row) => row.parcela_id);
+
+    const { error } = await admin
+      .from("acordo_baixas")
+      .update({
+        estornada: true,
+        estornada_em: now,
+        estornada_por: profile.id,
+        motivo_estorno: motivo,
+      })
+      .in("id", writeOffIds)
+      .eq("estornada", false);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revertedRecords += writeOffIds.length;
+  }
+
+  const actionIds = grouped.get("acionamentos") ?? [];
+  if (actionIds.length) {
+    await admin.from("acionamentos").delete().in("id", actionIds);
+    revertedRecords += actionIds.length;
+  }
+
+  const agreementIds = Array.from(
+    new Set([...(grouped.get("acordos") ?? []), ...relatedAgreementIds].filter(Boolean)),
+  );
+
+  if (agreementIds.length) {
+    const { data: agreements } = await admin
+      .from("acordos")
+      .select("id,observacao")
+      .in("id", agreementIds);
+
+    for (const agreement of agreements ?? []) {
+      await admin
+        .from("acordos")
+        .update({
+          status: "cancelado",
+          observacao: appendReversalReason(agreement.observacao, motivo),
+        })
+        .eq("id", agreement.id);
+    }
+
+    revertedRecords += agreementIds.length;
+  }
+
+  const contractIds = grouped.get("contratos") ?? [];
+  if (contractIds.length) {
+    const { data: contracts } = await admin
+      .from("contratos")
+      .select("id,observacao")
+      .in("id", contractIds);
+
+    for (const contract of contracts ?? []) {
+      await admin
+        .from("contratos")
+        .update({
+          status: "inativo",
+          observacao: appendReversalReason(contract.observacao, motivo),
+        })
+        .eq("id", contract.id);
+    }
+
+    revertedRecords += contractIds.length;
+  }
+
+  const parcelIds = Array.from(
+    new Set([...(grouped.get("acordo_parcelas") ?? []), ...relatedParcelIds].filter(Boolean)),
+  );
+
+  for (const parcelId of parcelIds) {
+    const [{ data: parcel }, { data: activeWriteOffs }] = await Promise.all([
+      admin
+        .from("acordo_parcelas")
+        .select("id,valor_parcela,data_vencimento,status")
+        .eq("id", parcelId)
+        .maybeSingle(),
+      admin
+        .from("acordo_baixas")
+        .select("valor_pago,data_pagamento")
+        .eq("parcela_id", parcelId)
+        .eq("estornada", false),
+    ]);
+
+    if (!parcel) {
+      continue;
+    }
+
+    const paidAmount = roundCurrency(
+      (activeWriteOffs ?? []).reduce((total, item) => total + item.valor_pago, 0),
+    );
+    const latestPaymentDate =
+      (activeWriteOffs ?? [])
+        .map((item) => item.data_pagamento)
+        .filter(Boolean)
+        .sort()
+        .at(-1) ?? null;
+    const status =
+      paidAmount >= roundCurrency(parcel.valor_parcela)
+        ? "pago"
+        : parcel.data_vencimento < now.slice(0, 10)
+          ? "atrasado"
+          : "pendente";
+
+    await admin
+      .from("acordo_parcelas")
+      .update({
+        valor_pago: paidAmount,
+        data_pagamento: status === "pago" ? latestPaymentDate : null,
+        status,
+      })
+      .eq("id", parcelId);
+  }
+
+  for (const agreementId of agreementIds) {
+    await admin.rpc("refresh_acordo_status", {
+      target_acordo_id: agreementId,
+    });
+  }
+
+  const clientIds = grouped.get("clientes") ?? [];
+  if (clientIds.length) {
+    for (const clientId of clientIds) {
+      await admin.rpc("refresh_cliente_status", {
+        target_cliente_id: clientId,
+      });
+    }
+  }
+
+  const clientWalletCompositeIds = grouped.get("cliente_carteiras") ?? [];
+  for (const compositeId of clientWalletCompositeIds) {
+    const [clientId, walletId] = compositeId.split(":");
+
+    if (!clientId || !walletId) {
+      continue;
+    }
+
+    await admin
+      .from("cliente_carteiras")
+      .update({ ativo: false })
+      .eq("cliente_id", clientId)
+      .eq("carteira_id", walletId);
+  }
+
+  await admin
+    .from("importacao_registros")
+    .update({
+      revertido: true,
+      revertido_em: now,
+    })
+    .eq("importacao_id", importacaoId);
+
+  const { error: importUpdateError } = await admin
+    .from("importacoes")
+    .update({
+      revertida: true,
+      revertida_em: now,
+      revertida_por: profile.id,
+      motivo_reversao: motivo,
+      total_registros_revertidos: revertedRecords,
+    })
+    .eq("id", importacaoId);
+
+  if (importUpdateError) {
+    throw new Error(importUpdateError.message);
+  }
+
+  const { registrarAuditoria } = await import("@/services/auditoria-service");
+  await registrarAuditoria({
+    entidade: "importacao",
+    entidadeId: importacaoId,
+    acao: "importacao_revertida",
+    descricao: `Importacao revertida: ${motivo}`,
+    usuarioId: profile.id,
+    usuarioNome: profile.nome,
+    origem: "reversao",
+    importacaoId,
+    dadosNovos: {
+      revertida: true,
+      totalRegistrosRevertidos: revertedRecords,
+    },
+  });
+
+  return {
+    importId: importacaoId,
+    revertedRecords,
+    demoMode: false,
+    message: "Importacao revertida com sucesso.",
+  };
 }
 
 export async function getImportRequestProfile() {
