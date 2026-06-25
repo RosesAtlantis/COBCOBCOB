@@ -8,6 +8,7 @@ import { canManageGoals } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { registrarAuditoriaSegura } from "@/services/auditoria-service";
 import {
+  entityIdSchema,
   filterByQuery,
   formatMutationError,
 } from "@/services/cadastros-utils";
@@ -23,10 +24,10 @@ const goalSchema = z
     mes: z.coerce.number().int().min(1, "Mes invalido.").max(12, "Mes invalido."),
     ano: z.coerce.number().int().min(2020, "Ano invalido.").max(2100, "Ano invalido."),
     valorMeta: z.coerce.number().positive("Informe o valor da meta."),
-    operadorId: z.string().uuid().nullable().optional(),
-    equipeId: z.string().uuid().nullable().optional(),
-    carteiraId: z.string().uuid().nullable().optional(),
-    credorId: z.string().uuid().nullable().optional(),
+    operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
+    equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
+    carteiraId: entityIdSchema("Carteira invalida.").nullable().optional(),
+    credorId: entityIdSchema("Credor invalido.").nullable().optional(),
     ativo: z.boolean().optional(),
   })
   .refine(
@@ -39,11 +40,11 @@ const goalSchema = z
   );
 
 const updateGoalSchema = goalSchema.extend({
-  id: z.string().uuid("Meta invalida."),
+  id: entityIdSchema("Meta invalida."),
 });
 
 const goalStatusSchema = z.object({
-  id: z.string().uuid("Meta invalida."),
+  id: entityIdSchema("Meta invalida."),
   ativo: z.boolean(),
 });
 

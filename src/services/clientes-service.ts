@@ -14,11 +14,13 @@ import {
   canEditCases,
   canEditContracts,
   canManageCreditors,
+  canManageWallets,
   canEditInstallmentRevenueType,
   canRegisterAgreementPayments,
   canViewClients,
 } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { entityIdSchema } from "@/services/cadastros-utils";
 import {
   deriveAgreementStatus,
   deriveInstallmentStatus,
@@ -69,7 +71,7 @@ const manualCaseSchema = z.object({
   nome: z.string().trim().min(3, "Informe o nome do cliente."),
   cpfCnpj: z.string().trim().min(11, "Informe o CPF/CNPJ."),
   credor: z.string().trim().nullable().optional(),
-  credorId: z.string().uuid().nullable().optional(),
+  credorId: entityIdSchema("Credor invalido.").nullable().optional(),
   telefone: z.string().trim().nullable().optional(),
   email: z.string().trim().email("E-mail invalido.").nullable().optional().or(z.literal("")),
   endereco: z.string().trim().nullable().optional(),
@@ -78,18 +80,18 @@ const manualCaseSchema = z.object({
   cep: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
   status: z.enum(["em_cobranca", "com_acordo", "quitado", "inativo"]).nullable().optional(),
-  carteiraId: z.string().uuid("Carteira invalida."),
+  carteiraId: entityIdSchema("Carteira invalida."),
   numeroContrato: z.string().trim().nullable().optional().or(z.literal("")),
   valorOriginal: z.coerce.number().min(0, "Valor original invalido.").nullable().optional(),
   valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido.").nullable().optional(),
   dataContrato: z.string().trim().nullable().optional(),
   dataVencimento: z.string().trim().nullable().optional(),
-  operadorId: z.string().uuid().nullable().optional(),
-  equipeId: z.string().uuid().nullable().optional(),
+  operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
+  equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
 });
 
 const updateClientSchema = z.object({
-  clientId: z.string().uuid("Cliente invalido."),
+  clientId: entityIdSchema("Cliente invalido."),
   nome: z.string().trim().min(3).optional(),
   cpfCnpj: z.string().trim().min(11).optional(),
   telefone: z.string().trim().nullable().optional(),
@@ -100,25 +102,25 @@ const updateClientSchema = z.object({
   cep: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
   status: z.enum(["em_cobranca", "com_acordo", "quitado", "inativo"]).optional(),
-  carteiraId: z.string().uuid().nullable().optional(),
-  operadorId: z.string().uuid().nullable().optional(),
-  equipeId: z.string().uuid().nullable().optional(),
+  carteiraId: entityIdSchema("Carteira invalida.").nullable().optional(),
+  operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
+  equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
 });
 
 const contractSchema = z.object({
-  contractId: z.string().uuid().nullable().optional(),
-  clientId: z.string().uuid("Cliente invalido."),
-  carteiraId: z.string().uuid().nullable().optional(),
+  contractId: entityIdSchema("Contrato invalido.").nullable().optional(),
+  clientId: entityIdSchema("Cliente invalido."),
+  carteiraId: entityIdSchema("Carteira invalida.").nullable().optional(),
   credor: z.string().trim().nullable().optional(),
-  credorId: z.string().uuid().nullable().optional(),
+  credorId: entityIdSchema("Credor invalido.").nullable().optional(),
   numeroContrato: z.string().trim().min(1, "Numero do contrato obrigatorio."),
   valorOriginal: z.coerce.number().min(0, "Valor original invalido."),
   valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
   dataContrato: z.string().trim().nullable().optional(),
   dataVencimento: z.string().trim().nullable().optional(),
   status: z.string().trim().nullable().optional(),
-  operadorId: z.string().uuid().nullable().optional(),
-  equipeId: z.string().uuid().nullable().optional(),
+  operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
+  equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
 });
 
@@ -144,6 +146,27 @@ export interface ClientsContext {
 interface ResolvedAction {
   row: ContactAction;
   clientId: string | null;
+}
+
+const demoRuntimeState = {
+  clients: [] as Client[],
+  walletLinks: [] as ClientWalletLink[],
+  contracts: [] as Contract[],
+  agreements: [] as Agreement[],
+  installments: [] as AgreementInstallment[],
+  writeOffs: [] as AgreementWriteOff[],
+  payments: [] as Payment[],
+  actions: [] as ContactAction[],
+};
+
+function upsertDemoItems<T extends { id: string }>(items: T[], nextItem: T) {
+  const filtered = items.filter((item) => item.id !== nextItem.id);
+  filtered.unshift(nextItem);
+  return filtered;
+}
+
+function mergeById<T extends { id: string }>(base: T[], runtime: T[]) {
+  return Array.from(new Map([...base, ...runtime].map((item) => [item.id, item])).values());
 }
 
 function toRows<T>(data: { data: T[] | null }) {
@@ -357,7 +380,7 @@ function createMockClientsContext(profile: PortalProfile): ClientsContext {
   const base = getMockPortalDataset();
   const operators = base.operators.slice(0, 6);
   const teams = base.teams;
-  const wallets = base.wallets.slice(0, 4);
+  const wallets = base.wallets;
   const today = new Date();
 
   const clients: Client[] = Array.from({ length: 8 }, (_, index) => {
@@ -617,17 +640,26 @@ function createMockClientsContext(profile: PortalProfile): ClientsContext {
     criado_em: subDays(today, index + 2).toISOString(),
   }));
 
+  const mergedClients = mergeById(clients, demoRuntimeState.clients);
+  const mergedWalletLinks = mergeById(walletLinks, demoRuntimeState.walletLinks);
+  const mergedContracts = mergeById(contracts, demoRuntimeState.contracts);
+  const mergedAgreements = mergeById(agreements, demoRuntimeState.agreements);
+  const mergedInstallments = mergeById(installments, demoRuntimeState.installments);
+  const mergedWriteOffs = mergeById(writeOffs, demoRuntimeState.writeOffs);
+  const mergedPayments = mergeById(payments, demoRuntimeState.payments);
+  const mergedActions = mergeById(actions, demoRuntimeState.actions);
+
   const context: ClientsContext = {
     profile,
     demoMode: true,
-    clients,
-    walletLinks,
-    contracts,
-    agreements,
-    installments,
-    writeOffs,
-    payments,
-    actions,
+    clients: mergedClients,
+    walletLinks: mergedWalletLinks,
+    contracts: mergedContracts,
+    agreements: mergedAgreements,
+    installments: mergedInstallments,
+    writeOffs: mergedWriteOffs,
+    payments: mergedPayments,
+    actions: mergedActions,
     operators,
     teams,
     creditors: base.creditors,
@@ -1496,6 +1528,7 @@ export async function getClienteDetailPageData(
     canEditCase: canEditCases(context.profile.perfil),
     canEditContracts: canEditContracts(context.profile.perfil),
     canManageCreditors: canManageCreditors(context.profile.perfil),
+    canManageWallets: canManageWallets(context.profile.perfil),
     canEditInstallmentRevenueType: canEditInstallmentRevenueType(
       context.profile.perfil,
     ),
@@ -1538,6 +1571,7 @@ export async function getNovoClientePageData() {
       })),
     ),
     canManageCreditors: canManageCreditors(context.profile.perfil),
+    canManageWallets: canManageWallets(context.profile.perfil),
     demoMode: context.demoMode,
   };
 }
@@ -1600,11 +1634,86 @@ export async function criarCasoManualSimplificado(
   });
 
   if (!isSupabaseConfigured()) {
+    const now = new Date().toISOString();
+    const clientId = `demo-client-${Date.now()}`;
+    const contractId = shouldCreateInitialContract ? `demo-contract-${Date.now()}` : null;
+    const resolvedStatus =
+      input.status ??
+      ((resolveNullableNumber(input.valorEmAberto) ?? 0) <= 0 && shouldCreateInitialContract
+        ? "quitado"
+        : "em_cobranca");
+    const createdClient: Client = {
+      id: clientId,
+      nome: input.nome.trim(),
+      cpf_cnpj: normalizedDocument,
+      email: resolveNullableString(input.email),
+      telefone: resolveNullableString(input.telefone),
+      endereco: resolveNullableString(input.endereco),
+      cidade: resolveNullableString(input.cidade),
+      uf: resolveNullableString(input.uf)?.toUpperCase() ?? null,
+      cep: resolveNullableString(input.cep),
+      observacao: resolveNullableString(input.observacao),
+      status: resolvedStatus,
+      operador_id: scope.operadorId,
+      equipe_id: scope.equipeId,
+      chave_externa: null,
+      criado_em: now,
+      atualizado_em: now,
+    };
+    const createdWalletLink: ClientWalletLink = {
+      id: `client-wallet-${clientId}`,
+      cliente_id: clientId,
+      carteira_id: wallet.id,
+      credor: selectedCreditor.creditorName ?? wallet.credor,
+      credor_id: selectedCreditor.creditorId,
+      ativo: true,
+      chave_externa: null,
+      criado_em: now,
+      atualizado_em: now,
+    };
+
+    demoRuntimeState.clients = upsertDemoItems(demoRuntimeState.clients, createdClient);
+    demoRuntimeState.walletLinks = upsertDemoItems(
+      demoRuntimeState.walletLinks,
+      createdWalletLink,
+    );
+
+    if (shouldCreateInitialContract && contractId) {
+      const createdContract: Contract = {
+        id: contractId,
+        cliente_id: clientId,
+        carteira_id: wallet.id,
+        credor: selectedCreditor.creditorName ?? wallet.credor,
+        credor_id: selectedCreditor.creditorId,
+        numero_contrato: resolveNullableString(input.numeroContrato) ?? `CTR-${Date.now()}`,
+        valor_original: resolveNullableNumber(input.valorOriginal) ?? 0,
+        valor_em_aberto:
+          resolveNullableNumber(input.valorEmAberto) ??
+          resolveNullableNumber(input.valorOriginal) ??
+          0,
+        data_contrato: resolveNullableString(input.dataContrato),
+        data_vencimento: resolveNullableString(input.dataVencimento),
+        status:
+          resolveNullableString(input.status) ??
+          ((resolveNullableNumber(input.valorEmAberto) ?? 0) <= 0 ? "quitado" : "aberto"),
+        operador_id: scope.operadorId,
+        equipe_id: scope.equipeId,
+        chave_externa: null,
+        criado_em: now,
+        atualizado_em: now,
+      };
+
+      demoRuntimeState.contracts = upsertDemoItems(
+        demoRuntimeState.contracts,
+        createdContract,
+      );
+    }
+
     return {
-      clientId: `demo-client-${Date.now()}`,
-      contractId: shouldCreateInitialContract ? `demo-contract-${Date.now()}` : null,
+      clientId,
+      contractId,
       message:
-        "Modo demonstracao: caso manual simplificado validado sem persistencia no banco.",
+        "Modo demonstracao: caso cadastrado localmente para validacao do fluxo.",
       demoMode: true,
     };
   }
@@ -1958,13 +2067,38 @@ async function atualizarOuCriarContrato(
   });
 
   if (!isSupabaseConfigured()) {
+    const now = new Date().toISOString();
+    const contractId = existing?.id ?? `demo-contract-${Date.now()}`;
+    const nextContract: Contract = {
+      id: contractId,
+      cliente_id: client.id,
+      carteira_id: wallet?.id ?? existing?.carteira_id ?? null,
+      credor: selectedCreditor.creditorName ?? wallet?.credor ?? existing?.credor ?? null,
+      credor_id: selectedCreditor.creditorId ?? existing?.credor_id ?? null,
+      numero_contrato: input.numeroContrato,
+      valor_original: roundCurrency(input.valorOriginal),
+      valor_em_aberto: roundCurrency(input.valorEmAberto),
+      data_contrato: resolveNullableString(input.dataContrato),
+      data_vencimento: resolveNullableString(input.dataVencimento),
+      status:
+        resolveNullableString(input.status) ??
+        (roundCurrency(input.valorEmAberto) <= 0 ? "quitado" : "aberto"),
+      operador_id: scope.operadorId,
+      equipe_id: scope.equipeId,
+      chave_externa: null,
+      criado_em: existing?.criado_em ?? now,
+      atualizado_em: now,
+    };
+
+    demoRuntimeState.contracts = upsertDemoItems(demoRuntimeState.contracts, nextContract);
+
     return {
-      contractId: existing?.id ?? `demo-contract-${Date.now()}`,
+      contractId,
       clientId: client.id,
       message:
         mode === "criar"
-          ? "Modo demonstracao: contrato validado sem persistencia."
-          : "Modo demonstracao: atualizacao do contrato validada sem persistencia.",
+          ? "Modo demonstracao: contrato cadastrado localmente."
+          : "Modo demonstracao: contrato atualizado localmente.",
       demoMode: true,
     };
   }

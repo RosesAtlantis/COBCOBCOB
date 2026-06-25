@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Edit3, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 
+import { QuickCreateCarteiraModal } from "@/components/carteiras/quick-create-carteira-modal";
 import { EmptyState } from "@/components/empty-state";
 import { QuickCreateCredorModal } from "@/components/credores/quick-create-credor-modal";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ interface ContractsManagerProps {
   preferredWalletId?: string | null;
   canEdit: boolean;
   canManageCreditors?: boolean;
+  canManageWallets?: boolean;
 }
 
 function buildInitialForm(
@@ -124,28 +126,31 @@ export function ContractsManager({
   preferredWalletId,
   canEdit,
   canManageCreditors = false,
+  canManageWallets = false,
 }: ContractsManagerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedContract, setSelectedContract] = useState<ClientContractRow | null>(null);
   const [open, setOpen] = useState(false);
   const [quickCreditorOpen, setQuickCreditorOpen] = useState(false);
+  const [quickWalletOpen, setQuickWalletOpen] = useState(false);
   const [creditorOptions, setCreditorOptions] = useState(creditors);
+  const [walletOptions, setWalletOptions] = useState(wallets);
   const sortedCreditors = useMemo(
     () => [...creditorOptions].sort((left, right) => left.label.localeCompare(right.label)),
     [creditorOptions],
   );
   const [form, setForm] = useState(() =>
-    buildInitialForm(
-      null,
-      preferredWalletId,
-      resolveCreditorIdFromWallet(preferredWalletId, wallets, creditors),
-    ),
+      buildInitialForm(
+        null,
+        preferredWalletId,
+        resolveCreditorIdFromWallet(preferredWalletId, walletOptions, creditorOptions),
+      ),
   );
 
   const selectedWallet = useMemo(
-    () => wallets.find((wallet) => wallet.value === form.carteiraId) ?? null,
-    [form.carteiraId, wallets],
+    () => walletOptions.find((wallet) => wallet.value === form.carteiraId) ?? null,
+    [form.carteiraId, walletOptions],
   );
 
   const selectedCreditor = useMemo(
@@ -159,7 +164,7 @@ export function ContractsManager({
       buildInitialForm(
         null,
         preferredWalletId,
-        resolveCreditorIdFromWallet(preferredWalletId, wallets, creditorOptions),
+        resolveCreditorIdFromWallet(preferredWalletId, walletOptions, creditorOptions),
       ),
     );
     setOpen(true);
@@ -188,7 +193,7 @@ export function ContractsManager({
     const nextWalletId = !value || value === "none" ? "" : value;
     const nextCreditorId = resolveCreditorIdFromWallet(
       nextWalletId,
-      wallets,
+      walletOptions,
       creditorOptions,
     );
     const nextCreditor =
@@ -375,14 +380,27 @@ export function ContractsManager({
                 />
               </div>
               <div className="space-y-2">
-                <Label>Carteira *</Label>
+                <div className="flex items-center justify-between gap-3">
+                  <Label>Carteira *</Label>
+                  {canManageWallets ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-auto rounded-lg px-2 py-1 text-xs"
+                      onClick={() => setQuickWalletOpen(true)}
+                    >
+                      <Plus className="size-3.5" />
+                      Nova carteira
+                    </Button>
+                  ) : null}
+                </div>
                 <Select value={form.carteiraId || "none"} onValueChange={handleWalletChange}>
                   <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Selecione</SelectItem>
-                    {wallets.map((wallet) => (
+                    {walletOptions.map((wallet) => (
                       <SelectItem key={wallet.value} value={wallet.value}>
                         {wallet.label}
                       </SelectItem>
@@ -582,6 +600,32 @@ export function ContractsManager({
               ...current,
               credorId: creditor.id,
               credor: creditor.nome,
+            }));
+          }}
+        />
+      ) : null}
+
+      {canManageWallets ? (
+        <QuickCreateCarteiraModal
+          open={quickWalletOpen}
+          onOpenChange={setQuickWalletOpen}
+          creditors={creditorOptions}
+          canQuickCreateCreditor={canManageCreditors}
+          onCreated={(wallet) => {
+            setWalletOptions((current) => {
+              const next = current.filter((option) => option.value !== wallet.id);
+              next.push({
+                value: wallet.id,
+                label: wallet.nome,
+                description: wallet.creditorName ?? undefined,
+              });
+              return next.sort((left, right) => left.label.localeCompare(right.label));
+            });
+            setForm((current) => ({
+              ...current,
+              carteiraId: wallet.id,
+              credorId: wallet.creditorId ?? current.credorId,
+              credor: wallet.creditorName ?? current.credor,
             }));
           }}
         />

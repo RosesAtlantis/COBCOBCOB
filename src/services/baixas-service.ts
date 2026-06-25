@@ -15,6 +15,7 @@ import {
   canViewWriteOffCentral,
 } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { entityIdSchema } from "@/services/cadastros-utils";
 import { getClientsContext, uniqueOptions, buildResolvedCollections, type ClientsContext } from "@/services/clientes-service";
 import { criarContratoDuranteBaixa } from "@/services/contratos-service";
 import { darBaixaParcela, parseWriteOffInput } from "@/services/acordos-service";
@@ -28,7 +29,7 @@ import type {
 } from "@/types/portal";
 
 const reverseWriteOffSchema = z.object({
-  baixaId: z.string().uuid("Baixa invalida."),
+  baixaId: entityIdSchema("Baixa invalida."),
   motivoEstorno: z.string().trim().nullable().optional(),
 });
 

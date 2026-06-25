@@ -9,6 +9,7 @@ import { canManageTeams } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { registrarAuditoriaSegura } from "@/services/auditoria-service";
 import {
+  entityIdSchema,
   filterByQuery,
   formatMutationError,
 } from "@/services/cadastros-utils";
@@ -21,16 +22,16 @@ import type {
 
 const teamSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome da equipe."),
-  supervisorId: z.string().uuid().nullable().optional(),
+  supervisorId: entityIdSchema("Supervisor invalido.").nullable().optional(),
   ativo: z.boolean().optional(),
 });
 
 const updateTeamSchema = teamSchema.extend({
-  id: z.string().uuid("Equipe invalida."),
+  id: entityIdSchema("Equipe invalida."),
 });
 
 const teamStatusSchema = z.object({
-  id: z.string().uuid("Equipe invalida."),
+  id: entityIdSchema("Equipe invalida."),
   ativo: z.boolean(),
 });
 

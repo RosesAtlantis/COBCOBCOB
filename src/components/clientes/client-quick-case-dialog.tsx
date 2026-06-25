@@ -28,6 +28,7 @@ interface ClientQuickCaseDialogProps {
   creditors: FilterOption[];
   walletCreditors: WalletCreditorMap[];
   canManageCreditors?: boolean;
+  canManageWallets?: boolean;
 }
 
 export function ClientQuickCaseDialog({
@@ -37,6 +38,7 @@ export function ClientQuickCaseDialog({
   creditors,
   walletCreditors,
   canManageCreditors = false,
+  canManageWallets = false,
 }: ClientQuickCaseDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -62,6 +64,7 @@ export function ClientQuickCaseDialog({
           creditors={creditors}
           walletCreditors={walletCreditors}
           canManageCreditors={canManageCreditors}
+          canManageWallets={canManageWallets}
           onCancelled={() => setOpen(false)}
           onCreated={(result, action) => {
             if (action === "open") {

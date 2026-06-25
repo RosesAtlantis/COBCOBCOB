@@ -1,3 +1,4 @@
+import { CadastroHeader } from "@/components/cadastros/cadastro-header";
 import { CentralSummaryCard } from "@/components/financeiro/central-summary-card";
 import { ParcelasFilters } from "@/components/financeiro/parcelas-filters";
 import { ParcelasCentralTable } from "@/components/financeiro/parcelas-table";
@@ -16,31 +17,23 @@ export default async function ParcelasPage({ searchParams }: ParcelasPageProps) 
 
   return (
     <div className="space-y-6">
-      <section className="dashboard-surface p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Financeiro
-            </p>
-            <h1 className="text-2xl font-semibold tracking-tight">Central de parcelas</h1>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Fila financeira por vencimento com saldo, atraso, contexto do acordo e
-              atalho direto para baixa operacional.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
+      <CadastroHeader
+        eyebrow="Operacao"
+        title="Parcelas"
+        description="Fila financeira por vencimento com saldo, atraso e atalho para baixa."
+        actions={
+          <>
             <Badge variant="secondary" className="rounded-md px-3 py-1">
-              {data.installments.length} parcela(s) visivel(is)
+              {data.installments.length} parcela(s)
             </Badge>
             {data.demoMode ? (
               <Badge variant="outline" className="rounded-md px-3 py-1">
                 Demo
               </Badge>
             ) : null}
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
 
       <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-8">
         <CentralSummaryCard

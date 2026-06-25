@@ -8,6 +8,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { canCreateCases, canEditContracts } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { registrarAuditoriaSegura } from "@/services/auditoria-service";
+import { entityIdSchema } from "@/services/cadastros-utils";
 import {
   buildResolvedCollections,
   criarContrato as criarContratoCliente,
@@ -24,18 +25,18 @@ import type {
 type ContractRow = Database["public"]["Tables"]["contratos"]["Row"];
 
 const flowContractSchema = z.object({
-  clientId: z.string().uuid("Cliente invalido."),
-  agreementId: z.string().uuid().nullable().optional(),
+  clientId: entityIdSchema("Cliente invalido."),
+  agreementId: entityIdSchema("Acordo invalido.").nullable().optional(),
   numeroContrato: z.string().trim().min(1, "Numero do contrato obrigatorio."),
-  carteiraId: z.string().uuid("Carteira invalida."),
+  carteiraId: entityIdSchema("Carteira invalida."),
   credor: z.string().trim().nullable().optional(),
-  credorId: z.string().uuid().nullable().optional(),
+  credorId: entityIdSchema("Credor invalido.").nullable().optional(),
   valorOriginal: z.coerce.number().min(0, "Valor original invalido.").nullable().optional(),
   valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
   dataContrato: z.string().trim().nullable().optional(),
   dataVencimento: z.string().trim().nullable().optional(),
-  operadorId: z.string().uuid().nullable().optional(),
-  equipeId: z.string().uuid().nullable().optional(),
+  operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
+  equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
   status: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
   origemFluxo: z.enum(["acordo", "baixa"]),

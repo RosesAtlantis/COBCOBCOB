@@ -4,15 +4,11 @@ import {
   Banknote,
   Building2,
   FileSpreadsheet,
-  FileText,
-  FolderClock,
   Gauge,
   History,
   Landmark,
   Layers3,
   ListTodo,
-  Settings2,
-  ShieldCheck,
   Target,
   Trophy,
   UserCog,
@@ -25,7 +21,6 @@ export interface NavigationItem {
   title: string;
   href: string;
   icon: LucideIcon;
-  description: string;
   matchPrefixes?: string[];
 }
 
@@ -38,65 +33,49 @@ const dashboardItem: NavigationItem = {
   title: "Dashboard",
   href: "/dashboard",
   icon: Gauge,
-  description: "KPIs consolidados da operacao.",
 };
 
 const rankingItem: NavigationItem = {
   title: "Ranking",
   href: "/ranking",
   icon: Trophy,
-  description: "Comparativo de performance por operador.",
 };
 
 const operatorItem: NavigationItem = {
   title: "Meu desempenho",
   href: "/operador",
   icon: BarChart3,
-  description: "Visao individual com meta e evolucao.",
 };
 
 const teamsItem: NavigationItem = {
   title: "Equipes",
   href: "/equipes",
   icon: Building2,
-  description: "Cadastro manual de equipes, supervisao e status.",
 };
 
 const walletsItem: NavigationItem = {
   title: "Carteiras",
   href: "/carteiras",
   icon: Layers3,
-  description: "Cadastro manual de carteiras e vinculo com credores.",
 };
 
 const clientsItem: NavigationItem = {
   title: "Clientes",
   href: "/clientes",
   icon: Users,
-  description: "Cadastro operacional, acordos e baixas por cliente.",
 };
 
 const newClientItem: NavigationItem = {
   title: "Novo caso",
   href: "/clientes/novo",
   icon: UserCog,
-  description: "Abertura manual de cliente e contrato com auditoria.",
   matchPrefixes: ["/clientes/novo"],
-};
-
-const contractsItem: NavigationItem = {
-  title: "Contratos",
-  href: "/contratos",
-  icon: FileText,
-  description: "Consulta dos contratos e atalho para cadastro manual.",
-  matchPrefixes: ["/contratos"],
 };
 
 const agreementsItem: NavigationItem = {
   title: "Acordos",
   href: "/acordos",
-  icon: FileText,
-  description: "Central de negociacoes, parcelas e status por acordo.",
+  icon: ListTodo,
   matchPrefixes: ["/acordos"],
 };
 
@@ -104,7 +83,6 @@ const installmentsItem: NavigationItem = {
   title: "Parcelas",
   href: "/parcelas",
   icon: ListTodo,
-  description: "Fila financeira por vencimento, status e operador.",
   matchPrefixes: ["/parcelas"],
 };
 
@@ -112,7 +90,6 @@ const writeOffsItem: NavigationItem = {
   title: "Baixas",
   href: "/baixas",
   icon: Banknote,
-  description: "Recebimentos registrados, estornos e auditoria financeira.",
   matchPrefixes: ["/baixas"],
 };
 
@@ -120,37 +97,26 @@ const importsItem: NavigationItem = {
   title: "Importacoes",
   href: "/importacoes",
   icon: FileSpreadsheet,
-  description: "Entrada de arquivos e validacoes.",
 };
 
 const auditItem: NavigationItem = {
   title: "Auditoria",
   href: "/auditoria",
   icon: History,
-  description: "Historico transacional de cadastros, baixas e importacoes.",
   matchPrefixes: ["/auditoria"],
-};
-
-const adminHomeItem: NavigationItem = {
-  title: "Painel administrativo",
-  href: "/admin",
-  icon: ShieldCheck,
-  description: "Governanca e cadastros do portal.",
-  matchPrefixes: ["/admin"],
 };
 
 const adminUsersItem: NavigationItem = {
   title: "Usuarios",
   href: "/admin/usuarios",
   icon: Users,
-  description: "Perfis autenticados e papeis.",
+  matchPrefixes: ["/admin/usuarios"],
 };
 
 const adminOperatorsItem: NavigationItem = {
   title: "Operadores",
   href: "/operadores",
   icon: UserCog,
-  description: "Base operacional e vinculacoes.",
   matchPrefixes: ["/operadores"],
 };
 
@@ -158,7 +124,6 @@ const creditorsItem: NavigationItem = {
   title: "Credores",
   href: "/credores",
   icon: Landmark,
-  description: "Cadastro mestre de credores e vinculo com carteiras.",
   matchPrefixes: ["/credores"],
 };
 
@@ -166,22 +131,7 @@ const adminGoalsItem: NavigationItem = {
   title: "Metas",
   href: "/metas",
   icon: Target,
-  description: "Metas mensais e direcionadores.",
   matchPrefixes: ["/metas"],
-};
-
-const adminImportsItem: NavigationItem = {
-  title: "Historico de importacoes",
-  href: "/admin/importacoes",
-  icon: FolderClock,
-  description: "Cargas realizadas e auditoria.",
-};
-
-const adminSettingsItem: NavigationItem = {
-  title: "Configuracoes",
-  href: "/admin/configuracoes",
-  icon: Settings2,
-  description: "Checklist tecnico e ambiente.",
 };
 
 function cloneItem(item: NavigationItem): NavigationItem {
@@ -204,7 +154,7 @@ const operatorNavigation: NavigationGroup[] = [
     items: [operatorItem, rankingItem],
   },
   {
-    title: "Cobranca",
+    title: "Operacao",
     items: [clientsItem, agreementsItem, installmentsItem],
   },
 ];
@@ -215,19 +165,12 @@ const supervisorNavigation: NavigationGroup[] = [
     items: [dashboardItem, rankingItem],
   },
   {
-    title: "Cobranca",
-    items: [
-      clientsItem,
-      newClientItem,
-      contractsItem,
-      agreementsItem,
-      installmentsItem,
-      writeOffsItem,
-    ],
+    title: "Operacao",
+    items: [clientsItem, agreementsItem, installmentsItem, writeOffsItem],
   },
   {
     title: "Cadastros",
-    items: [walletsItem, adminOperatorsItem, teamsItem],
+    items: [newClientItem, walletsItem, adminOperatorsItem, teamsItem],
   },
   {
     title: "Dados",
@@ -241,7 +184,7 @@ const financeNavigation: NavigationGroup[] = [
     items: [dashboardItem, rankingItem],
   },
   {
-    title: "Financeiro",
+    title: "Operacao",
     items: [clientsItem, agreementsItem, installmentsItem, writeOffsItem],
   },
   {
@@ -260,19 +203,13 @@ const managementNavigation: NavigationGroup[] = [
     items: [dashboardItem, rankingItem],
   },
   {
-    title: "Cobranca",
-    items: [
-      clientsItem,
-      newClientItem,
-      contractsItem,
-      agreementsItem,
-      installmentsItem,
-      writeOffsItem,
-    ],
+    title: "Operacao",
+    items: [clientsItem, agreementsItem, installmentsItem, writeOffsItem],
   },
   {
     title: "Cadastros",
     items: [
+      newClientItem,
       creditorsItem,
       walletsItem,
       adminOperatorsItem,
@@ -285,14 +222,8 @@ const managementNavigation: NavigationGroup[] = [
     items: [importsItem, auditItem],
   },
   {
-    title: "Administracao",
-    items: [
-      adminHomeItem,
-      adminUsersItem,
-      adminGoalsItem,
-      adminImportsItem,
-      adminSettingsItem,
-    ],
+    title: "Sistema",
+    items: [adminUsersItem],
   },
 ];
 

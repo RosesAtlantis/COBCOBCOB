@@ -1,5 +1,6 @@
 import { AcordosFilters } from "@/components/financeiro/acordos-filters";
 import { AcordosTable } from "@/components/financeiro/acordos-table";
+import { CadastroHeader } from "@/components/cadastros/cadastro-header";
 import { CentralSummaryCard } from "@/components/financeiro/central-summary-card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatNumber } from "@/lib/format";
@@ -16,31 +17,23 @@ export default async function AcordosPage({ searchParams }: AcordosPageProps) {
 
   return (
     <div className="space-y-6">
-      <section className="dashboard-surface p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Financeiro
-            </p>
-            <h1 className="text-2xl font-semibold tracking-tight">Central de acordos</h1>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Negociacoes por cliente, contrato, operador e carteira com baixa,
-              cancelamento e historico no mesmo fluxo operacional.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
+      <CadastroHeader
+        eyebrow="Operacao"
+        title="Acordos"
+        description="Negociacoes por cliente, contrato, operador e carteira."
+        actions={
+          <>
             <Badge variant="secondary" className="rounded-md px-3 py-1">
-              {data.agreements.length} acordo(s) visivel(is)
+              {data.agreements.length} acordo(s)
             </Badge>
             {data.demoMode ? (
               <Badge variant="outline" className="rounded-md px-3 py-1">
                 Demo
               </Badge>
             ) : null}
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
 
       <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-9">
         <CentralSummaryCard

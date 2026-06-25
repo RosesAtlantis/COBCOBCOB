@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CadastroHeader } from "@/components/cadastros/cadastro-header";
 import { ClientQuickCaseDialog } from "@/components/clientes/client-quick-case-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,20 +26,12 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
 
   return (
     <div className="space-y-6">
-      <section className="dashboard-surface p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Operacao
-            </p>
-            <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Consulta e gestao de clientes em cobranca com contrato, acordo,
-              baixa financeira e historico operacional no mesmo fluxo.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
+      <CadastroHeader
+        eyebrow="Operacao"
+        title="Clientes"
+        description="Consulta e gestao de casos em cobranca."
+        actions={
+          <>
             {data.canCreateCase ? (
               <>
                 <ClientQuickCaseDialog
@@ -48,26 +41,27 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                   creditors={quickCaseData.creditors}
                   walletCreditors={quickCaseData.walletCreditors}
                   canManageCreditors={quickCaseData.canManageCreditors}
+                  canManageWallets={quickCaseData.canManageWallets}
                 />
                 <Link
                   href="/clientes/novo"
                   className={cn(buttonVariants({ variant: "outline" }), "rounded-lg")}
                 >
-                  Abrir formulario completo
+                  Formulario completo
                 </Link>
               </>
             ) : null}
             <Badge variant="secondary" className="rounded-md px-3 py-1">
-              {data.clients.length} cliente(s) visivel(is)
+              {data.clients.length} cliente(s)
             </Badge>
             {data.demoMode ? (
               <Badge variant="outline" className="rounded-md px-3 py-1">
                 Demo
               </Badge>
             ) : null}
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
 
       <ClientesFilters filters={data.filters} options={data.options} />
       <ClientesTable rows={data.clients} />

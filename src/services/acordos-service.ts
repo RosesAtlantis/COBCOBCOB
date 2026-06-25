@@ -24,6 +24,7 @@ import {
   listarHistoricoAcordo,
   registrarAuditoria,
 } from "@/services/auditoria-service";
+import { entityIdSchema } from "@/services/cadastros-utils";
 import {
   criarContratoDuranteAcordo,
   criarContratoDuranteBaixa,
@@ -56,25 +57,25 @@ import type {
 
 const flowContractSchema = z.object({
   numeroContrato: z.string().trim().min(1, "Numero do contrato obrigatorio."),
-  carteiraId: z.string().uuid("Carteira invalida."),
+  carteiraId: entityIdSchema("Carteira invalida."),
   credor: z.string().trim().nullable().optional(),
-  credorId: z.string().uuid().nullable().optional(),
+  credorId: entityIdSchema("Credor invalido.").nullable().optional(),
   valorOriginal: z.coerce.number().min(0, "Valor original invalido.").nullable().optional(),
   valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
   dataContrato: z.string().trim().nullable().optional(),
   dataVencimento: z.string().trim().nullable().optional(),
-  operadorId: z.string().uuid().nullable().optional(),
-  equipeId: z.string().uuid().nullable().optional(),
+  operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
+  equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
   status: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
 });
 
 const createAgreementSchema = z.object({
-  clienteId: z.string().uuid("Cliente invalido."),
-  contratoId: z.string().uuid().nullable().optional(),
-  operadorId: z.string().uuid().nullable().optional(),
-  equipeId: z.string().uuid().nullable().optional(),
-  carteiraId: z.string().uuid().nullable().optional(),
+  clienteId: entityIdSchema("Cliente invalido."),
+  contratoId: entityIdSchema("Contrato invalido.").nullable().optional(),
+  operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
+  equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
+  carteiraId: entityIdSchema("Carteira invalida.").nullable().optional(),
   dataAcordo: z.string().min(1, "Data do acordo obrigatoria."),
   valorOriginal: z.coerce.number().min(0, "Valor original invalido."),
   valorAcordo: z.coerce.number().positive("Valor do acordo obrigatorio."),
@@ -101,7 +102,7 @@ const createAgreementSchema = z.object({
         dataVencimento: z.string().min(1),
         valorParcela: z.coerce.number().positive(),
         observacao: z.string().trim().nullable().optional(),
-        operadorId: z.string().uuid().nullable().optional(),
+        operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
         tipoReceita: z.enum(["NOVO", "COLCHAO"]).nullable().optional(),
         tipoReceitaOrigem: z.enum(["automatico", "manual"]).nullable().optional(),
       }),
@@ -110,13 +111,13 @@ const createAgreementSchema = z.object({
 });
 
 const registerWriteOffSchema = z.object({
-  acordoId: z.string().uuid("Acordo invalido."),
-  parcelaId: z.string().uuid("Parcela invalida."),
+  acordoId: entityIdSchema("Acordo invalido."),
+  parcelaId: entityIdSchema("Parcela invalida."),
   dataPagamento: z.string().min(1, "Data de pagamento obrigatoria."),
   valorPago: z.coerce
     .number()
     .min(0.01, "Valor pago deve ser maior que zero."),
-  operadorId: z.string().uuid().nullable().optional(),
+  operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
   percentualHonorarios: z.coerce.number().min(0).max(100).nullable().optional(),
   confirmarAcimaSaldo: z.coerce.boolean().optional(),
   formaPagamento: z.string().trim().nullable().optional(),
@@ -126,12 +127,12 @@ const registerWriteOffSchema = z.object({
 });
 
 const cancelAgreementSchema = z.object({
-  acordoId: z.string().uuid("Acordo invalido."),
+  acordoId: entityIdSchema("Acordo invalido."),
   observacao: z.string().trim().nullable().optional(),
 });
 
 const updateInstallmentRevenueTypeSchema = z.object({
-  parcelaId: z.string().uuid("Parcela invalida."),
+  parcelaId: entityIdSchema("Parcela invalida."),
   tipoReceita: z.enum(["NOVO", "COLCHAO"]),
 });
 

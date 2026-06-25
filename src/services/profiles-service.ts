@@ -14,6 +14,7 @@ import {
   type CreateAuditEventInput,
 } from "@/services/auditoria-service";
 import {
+  entityIdSchema,
   filterByQuery,
   formatMutationError,
 } from "@/services/cadastros-utils";
@@ -34,23 +35,23 @@ const roleSchema = z.enum([
 ]);
 
 const createProfileSchema = z.object({
-  userId: z.string().uuid("Usuario autenticado invalido."),
+  userId: entityIdSchema("Usuario autenticado invalido."),
   nome: z.string().trim().min(2, "Informe o nome do usuario."),
   email: z.string().trim().email("E-mail invalido."),
   perfil: roleSchema,
-  operadorId: z.string().uuid().nullable().optional(),
-  equipeId: z.string().uuid().nullable().optional(),
+  operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
+  equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
   ativo: z.boolean().optional(),
 });
 
 const updateProfileSchema = createProfileSchema
   .omit({ userId: true })
   .extend({
-    id: z.string().uuid("Perfil invalido."),
+    id: entityIdSchema("Perfil invalido."),
   });
 
 const profileStatusSchema = z.object({
-  id: z.string().uuid("Perfil invalido."),
+  id: entityIdSchema("Perfil invalido."),
   ativo: z.boolean(),
 });
 

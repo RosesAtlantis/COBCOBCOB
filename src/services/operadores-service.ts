@@ -10,6 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { registrarAuditoriaSegura } from "@/services/auditoria-service";
 import {
+  entityIdSchema,
   filterByQuery,
   formatMutationError,
   resolveNullableString,
@@ -30,17 +31,17 @@ const operatorSchema = z.object({
     .nullable()
     .optional()
     .or(z.literal("")),
-  equipeId: z.string().uuid().nullable().optional(),
-  profileId: z.string().uuid().nullable().optional(),
+  equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
+  profileId: entityIdSchema("Perfil invalido.").nullable().optional(),
   ativo: z.boolean().optional(),
 });
 
 const updateOperatorSchema = operatorSchema.extend({
-  id: z.string().uuid("Operador invalido."),
+  id: entityIdSchema("Operador invalido."),
 });
 
 const operatorStatusSchema = z.object({
-  id: z.string().uuid("Operador invalido."),
+  id: entityIdSchema("Operador invalido."),
   ativo: z.boolean(),
 });
 

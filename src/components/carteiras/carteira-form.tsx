@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Loader2, Plus, Save } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { QuickCreateCredorModal } from "@/components/credores/quick-create-credor-modal";
@@ -38,11 +38,18 @@ export interface CarteiraFormValue {
 
 interface CarteiraFormDialogProps {
   canQuickCreateCreditor?: boolean;
+  compact?: boolean;
   creditors: FilterOption[];
   initialValue?: CarteiraFormValue | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onSaved?: (wallet: { id: string; nome: string }) => void;
+  onSaved?: (wallet: {
+    id: string;
+    nome: string;
+    codigo?: string | null;
+    creditorId?: string | null;
+    creditorName?: string | null;
+  }) => void;
   triggerLabel?: string;
   triggerVariant?: "default" | "outline" | "secondary" | "ghost";
 }
@@ -68,6 +75,7 @@ function buildFormValue(initialValue?: CarteiraFormValue | null): CarteiraFormVa
 
 export function CarteiraFormDialog({
   canQuickCreateCreditor = false,
+  compact = false,
   creditors,
   initialValue,
   open,
@@ -81,6 +89,7 @@ export function CarteiraFormDialog({
   const [quickCreditorOpen, setQuickCreditorOpen] = useState(false);
   const [form, setForm] = useState<CarteiraFormValue>(() => buildFormValue(initialValue));
   const [creditorOptions, setCreditorOptions] = useState(creditors);
+  const [showMoreInfo, setShowMoreInfo] = useState(false);
 
   const isControlled = typeof open === "boolean";
   const dialogOpen = isControlled ? open : internalOpen;
@@ -93,6 +102,7 @@ export function CarteiraFormDialog({
   function handleOpenChange(nextOpen: boolean) {
     setForm(buildFormValue(initialValue));
     setCreditorOptions(creditors);
+    setShowMoreInfo(Boolean(initialValue?.codigo || initialValue?.descricao));
 
     if (!isControlled) {
       setInternalOpen(nextOpen);
@@ -150,6 +160,9 @@ export function CarteiraFormDialog({
         onSaved?.({
           id: payload.walletId,
           nome: form.nome,
+          codigo: form.codigo || null,
+          creditorId: selectedCreditor?.value ?? null,
+          creditorName: selectedCreditor?.label ?? null,
         });
         handleOpenChange(false);
       })();
@@ -166,17 +179,18 @@ export function CarteiraFormDialog({
           </DialogTrigger>
         ) : null}
 
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className={compact ? "sm:max-w-md" : "sm:max-w-2xl"}>
           <DialogHeader>
             <DialogTitle>{form.id ? "Editar carteira" : "Nova carteira"}</DialogTitle>
             <DialogDescription>
-              Cadastre a carteira com nome obrigatorio, vinculo opcional de credor e
-              status operacional.
+              {compact
+                ? "Cadastre a carteira sem sair do fluxo atual."
+                : "Cadastre a carteira com nome obrigatorio, vinculo opcional de credor e status operacional."}
             </DialogDescription>
           </DialogHeader>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className={compact ? "grid gap-4" : "grid gap-4 md:grid-cols-2"}>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="wallet-name">Nome da carteira *</Label>
                 <Input
@@ -184,16 +198,6 @@ export function CarteiraFormDialog({
                   required
                   value={form.nome}
                   onChange={(event) => updateField("nome", event.target.value)}
-                  className="h-11 rounded-lg"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="wallet-code">Codigo</Label>
-                <Input
-                  id="wallet-code"
-                  value={form.codigo ?? ""}
-                  onChange={(event) => updateField("codigo", event.target.value)}
                   className="h-11 rounded-lg"
                 />
               </div>
@@ -240,31 +244,83 @@ export function CarteiraFormDialog({
                 </Select>
               </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="wallet-description">Descricao</Label>
-                <Textarea
-                  id="wallet-description"
-                  value={form.descricao ?? ""}
-                  onChange={(event) => updateField("descricao", event.target.value)}
-                  className="min-h-24 rounded-lg"
-                />
-              </div>
+              {compact ? (
+                <div className="rounded-lg border border-border/70 bg-muted/15">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left"
+                    onClick={() => setShowMoreInfo((current) => !current)}
+                  >
+                    <span className="text-sm font-medium">Mais informacoes</span>
+                    {showMoreInfo ? (
+                      <ChevronUp className="size-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="size-4 text-muted-foreground" />
+                    )}
+                  </button>
+                  {showMoreInfo ? (
+                    <div className="grid gap-4 border-t border-border/70 px-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="wallet-code">Codigo</Label>
+                        <Input
+                          id="wallet-code"
+                          value={form.codigo ?? ""}
+                          onChange={(event) => updateField("codigo", event.target.value)}
+                          className="h-11 rounded-lg"
+                        />
+                      </div>
 
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={form.ativo ? "ativo" : "inativo"}
-                  onValueChange={(value) => updateField("ativo", value === "ativo")}
-                >
-                  <SelectTrigger className="h-11 rounded-lg">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ativo">Ativa</SelectItem>
-                    <SelectItem value="inativo">Inativa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="wallet-description">Descricao</Label>
+                        <Textarea
+                          id="wallet-description"
+                          value={form.descricao ?? ""}
+                          onChange={(event) => updateField("descricao", event.target.value)}
+                          className="min-h-24 rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="wallet-code">Codigo</Label>
+                    <Input
+                      id="wallet-code"
+                      value={form.codigo ?? ""}
+                      onChange={(event) => updateField("codigo", event.target.value)}
+                      className="h-11 rounded-lg"
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="wallet-description">Descricao</Label>
+                    <Textarea
+                      id="wallet-description"
+                      value={form.descricao ?? ""}
+                      onChange={(event) => updateField("descricao", event.target.value)}
+                      className="min-h-24 rounded-lg"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select
+                      value={form.ativo ? "ativo" : "inativo"}
+                      onValueChange={(value) => updateField("ativo", value === "ativo")}
+                    >
+                      <SelectTrigger className="h-11 rounded-lg">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ativo">Ativa</SelectItem>
+                        <SelectItem value="inativo">Inativa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
             </div>
 
             <DialogFooter>

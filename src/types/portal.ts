@@ -856,6 +856,7 @@ export interface ClientDetailPageData {
   canEditCase: boolean;
   canEditContracts: boolean;
   canManageCreditors: boolean;
+  canManageWallets: boolean;
   canEditInstallmentRevenueType: boolean;
   demoMode: boolean;
 }

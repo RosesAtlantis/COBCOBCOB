@@ -28,7 +28,7 @@ export function ClientesFilters({ filters, options }: ClientesFiltersProps) {
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [localFilters, setLocalFilters] = useState<ClientListFilters>(filters);
-  const controlClassName = "h-10 rounded-lg border-border/70 bg-background shadow-none";
+  const controlClassName = "h-11 rounded-lg border-border/70 bg-background shadow-none";
 
   function updateFilter(next: Partial<ClientListFilters>) {
     setLocalFilters((current) => ({ ...current, ...next }));
@@ -56,12 +56,11 @@ export function ClientesFilters({ filters, options }: ClientesFiltersProps) {
       <CardContent className="space-y-4 p-4 sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold">Filtros operacionais</p>
-            <p className="text-sm text-muted-foreground">
-              Pesquise por nome, CPF/CNPJ ou contrato e refine a fila por carteira,
-              credor, equipe e operador.
-            </p>
-          </div>
+              <p className="text-sm font-semibold">Filtros operacionais</p>
+              <p className="text-sm text-muted-foreground">
+                Pesquise por nome, CPF/CNPJ ou contrato e refine a fila pelos filtros principais.
+              </p>
+            </div>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"

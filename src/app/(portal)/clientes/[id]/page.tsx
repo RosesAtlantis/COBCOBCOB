@@ -98,7 +98,10 @@ export default async function ClienteDetailPage({
             operators={data.operators}
             teams={data.teams}
             wallets={data.wallets}
+            creditors={data.creditors}
             canCreate={data.canCreateAgreement}
+            canManageCreditors={data.canManageCreditors}
+            canManageWallets={data.canManageWallets}
           />
         </div>
       </section>
@@ -226,6 +229,7 @@ export default async function ClienteDetailPage({
             preferredWalletId={data.walletLinks.find((item) => item.ativo)?.carteira_id ?? data.walletLinks[0]?.carteira_id ?? null}
             canEdit={data.canEditContracts}
             canManageCreditors={data.canManageCreditors}
+            canManageWallets={data.canManageWallets}
           />
         </TabsContent>
 

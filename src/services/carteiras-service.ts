@@ -5,10 +5,12 @@ import { z } from "zod";
 import { requireActiveProfile } from "@/lib/auth";
 import { normalizeText } from "@/lib/clientes-utils";
 import { isSupabaseConfigured } from "@/lib/env";
+import { getMockPortalDataset } from "@/lib/mock-data";
 import { canManageWallets } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { registrarAuditoriaSegura } from "@/services/auditoria-service";
 import {
+  entityIdSchema,
   filterByQuery,
   formatMutationError,
   resolveNullableString,
@@ -22,7 +24,7 @@ import type {
 
 const walletSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome da carteira."),
-  credorId: z.string().uuid().nullable().optional(),
+  credorId: entityIdSchema("Credor invalido.").nullable().optional(),
   credor: z.string().trim().nullable().optional(),
   codigo: z.string().trim().nullable().optional(),
   descricao: z.string().trim().nullable().optional(),
@@ -30,11 +32,11 @@ const walletSchema = z.object({
 });
 
 const updateWalletSchema = walletSchema.extend({
-  id: z.string().uuid("Carteira invalida."),
+  id: entityIdSchema("Carteira invalida."),
 });
 
 const walletStatusSchema = z.object({
-  id: z.string().uuid("Carteira invalida."),
+  id: entityIdSchema("Carteira invalida."),
   ativo: z.boolean(),
 });
 
@@ -198,9 +200,25 @@ export async function criarCarteira(rawInput: unknown) {
   }
 
   if (!isSupabaseConfigured()) {
+    const now = new Date().toISOString();
+    const mock = getMockPortalDataset();
+    const walletId = `demo-wallet-${Date.now()}`;
+
+    mock.wallets.unshift({
+      id: walletId,
+      nome: input.nome.trim(),
+      credor: resolvedCreditor.creditorName ?? "",
+      codigo: resolveNullableString(input.codigo),
+      descricao: resolveNullableString(input.descricao),
+      credor_id: resolvedCreditor.creditorId,
+      ativo: input.ativo ?? true,
+      criado_em: now,
+      atualizado_em: now,
+    });
+
     return {
-      walletId: `demo-wallet-${Date.now()}`,
-      message: "Modo demonstracao: carteira validada sem persistencia.",
+      walletId,
+      message: "Modo demonstracao: carteira cadastrada localmente.",
       demoMode: true,
     };
   }
@@ -291,9 +309,23 @@ export async function atualizarCarteira(rawInput: unknown) {
   }
 
   if (!isSupabaseConfigured()) {
+    const now = new Date().toISOString();
+    const mock = getMockPortalDataset();
+    const target = mock.wallets.find((wallet) => wallet.id === existing.id);
+
+    if (target) {
+      target.nome = input.nome.trim();
+      target.codigo = resolveNullableString(input.codigo);
+      target.descricao = resolveNullableString(input.descricao);
+      target.credor = resolvedCreditor.creditorName ?? "";
+      target.credor_id = resolvedCreditor.creditorId;
+      target.ativo = input.ativo ?? existing.ativo;
+      target.atualizado_em = now;
+    }
+
     return {
       walletId: existing.id,
-      message: "Modo demonstracao: atualizacao validada sem persistencia.",
+      message: "Modo demonstracao: carteira atualizada localmente.",
       demoMode: true,
     };
   }
@@ -390,9 +422,17 @@ export async function inativarCarteira(rawInput: unknown) {
   }
 
   if (!isSupabaseConfigured()) {
+    const mock = getMockPortalDataset();
+    const target = mock.wallets.find((wallet) => wallet.id === existing.id);
+
+    if (target) {
+      target.ativo = input.ativo;
+      target.atualizado_em = new Date().toISOString();
+    }
+
     return {
       walletId: existing.id,
-      message: "Modo demonstracao: status validado sem persistencia.",
+      message: "Modo demonstracao: status da carteira atualizado localmente.",
       demoMode: true,
     };
   }

@@ -10,6 +10,7 @@ import { getMockPortalDataset } from "@/lib/mock-data";
 import { canManageCreditors, canViewCreditors } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
+  entityIdSchema,
   formatMutationError,
   resolveNullableString,
 } from "@/services/cadastros-utils";
@@ -38,11 +39,11 @@ const creditorSchema = z.object({
 });
 
 const updateCreditorSchema = creditorSchema.extend({
-  id: z.string().uuid("Credor invalido."),
+  id: entityIdSchema("Credor invalido."),
 });
 
 const statusSchema = z.object({
-  id: z.string().uuid("Credor invalido."),
+  id: entityIdSchema("Credor invalido."),
   ativo: z.boolean(),
 });
 
@@ -190,9 +191,26 @@ export async function criarCredor(rawInput: unknown) {
   }
 
   if (!isSupabaseConfigured()) {
+    const now = new Date().toISOString();
+    const mock = getMockPortalDataset();
+    const creditorId = `demo-creditor-${Date.now()}`;
+
+    mock.creditors.unshift({
+      id: creditorId,
+      nome: input.nome.trim(),
+      codigo: resolveNullableString(input.codigo),
+      documento: resolveNullableString(input.documento),
+      email: resolveNullableString(input.email),
+      telefone: resolveNullableString(input.telefone),
+      observacao: resolveNullableString(input.observacao),
+      ativo: input.ativo ?? true,
+      criado_em: now,
+      atualizado_em: now,
+    });
+
     return {
-      creditorId: `demo-creditor-${Date.now()}`,
-      message: "Modo demonstracao: credor validado sem persistencia.",
+      creditorId,
+      message: "Modo demonstracao: credor cadastrado localmente.",
       demoMode: true,
     };
   }
@@ -279,9 +297,24 @@ export async function atualizarCredor(rawInput: unknown) {
   }
 
   if (!isSupabaseConfigured()) {
+    const now = new Date().toISOString();
+    const mock = getMockPortalDataset();
+    const target = mock.creditors.find((creditor) => creditor.id === existing.id);
+
+    if (target) {
+      target.nome = input.nome.trim();
+      target.codigo = resolveNullableString(input.codigo);
+      target.documento = resolveNullableString(input.documento);
+      target.email = resolveNullableString(input.email);
+      target.telefone = resolveNullableString(input.telefone);
+      target.observacao = resolveNullableString(input.observacao);
+      target.ativo = input.ativo ?? existing.ativo;
+      target.atualizado_em = now;
+    }
+
     return {
       creditorId: existing.id,
-      message: "Modo demonstracao: atualizacao validada sem persistencia.",
+      message: "Modo demonstracao: credor atualizado localmente.",
       demoMode: true,
     };
   }
@@ -376,9 +409,17 @@ export async function inativarCredor(rawInput: unknown) {
   }
 
   if (!isSupabaseConfigured()) {
+    const mock = getMockPortalDataset();
+    const target = mock.creditors.find((creditor) => creditor.id === existing.id);
+
+    if (target) {
+      target.ativo = input.ativo;
+      target.atualizado_em = new Date().toISOString();
+    }
+
     return {
       creditorId: existing.id,
-      message: "Modo demonstracao: status validado sem persistencia.",
+      message: "Modo demonstracao: status do credor atualizado localmente.",
       demoMode: true,
     };
   }

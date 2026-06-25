@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, Plus, Save } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -73,12 +73,14 @@ export function CreditorFormDialog({
   const [form, setForm] = useState<CreditorFormValue>(() =>
     buildCreditorFormValue(initialValue),
   );
+  const [showMoreInfo, setShowMoreInfo] = useState(false);
 
   const isControlled = typeof open === "boolean";
   const dialogOpen = isControlled ? open : internalOpen;
 
   function handleOpenChange(nextOpen: boolean) {
     setForm(buildCreditorFormValue(initialValue));
+    setShowMoreInfo(Boolean(initialValue?.codigo || initialValue?.documento || initialValue?.email || initialValue?.telefone));
 
     if (!isControlled) {
       setInternalOpen(nextOpen);
@@ -109,9 +111,9 @@ export function CreditorFormDialog({
           body: JSON.stringify({
             nome: form.nome,
             codigo: form.codigo || null,
-            documento: compact ? null : form.documento || null,
-            email: compact ? null : form.email || null,
-            telefone: compact ? null : form.telefone || null,
+            documento: form.documento || null,
+            email: form.email || null,
+            telefone: form.telefone || null,
             observacao: compact ? null : form.observacao || null,
           }),
         });
@@ -156,7 +158,7 @@ export function CreditorFormDialog({
           <DialogTitle>{form.id ? "Editar credor" : "Novo credor"}</DialogTitle>
           <DialogDescription>
             {compact
-              ? "Cadastre o credor com o minimo necessario para seguir no fluxo do caso."
+              ? "Cadastre o credor sem sair do fluxo atual."
               : "Mantenha o cadastro do credor organizado para vinculo com carteiras e operacao."}
           </DialogDescription>
         </DialogHeader>
@@ -164,27 +166,87 @@ export function CreditorFormDialog({
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className={compact ? "grid gap-4" : "grid gap-4 md:grid-cols-2"}>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="creditor-name">Nome do credor</Label>
+              <Label htmlFor="creditor-name">Nome do credor *</Label>
               <Input
                 id="creditor-name"
+                required
                 value={form.nome}
                 onChange={(event) => updateField("nome", event.target.value)}
                 className="h-11 rounded-lg"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="creditor-code">Codigo</Label>
-              <Input
-                id="creditor-code"
-                value={form.codigo ?? ""}
-                onChange={(event) => updateField("codigo", event.target.value)}
-                className="h-11 rounded-lg"
-              />
-            </div>
+            {compact ? (
+              <div className="rounded-lg border border-border/70 bg-muted/15">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-4 py-3 text-left"
+                  onClick={() => setShowMoreInfo((current) => !current)}
+                >
+                  <span className="text-sm font-medium">Mais informacoes</span>
+                  {showMoreInfo ? (
+                    <ChevronUp className="size-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="size-4 text-muted-foreground" />
+                  )}
+                </button>
+                {showMoreInfo ? (
+                  <div className="grid gap-4 border-t border-border/70 px-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="creditor-code">Codigo</Label>
+                      <Input
+                        id="creditor-code"
+                        value={form.codigo ?? ""}
+                        onChange={(event) => updateField("codigo", event.target.value)}
+                        className="h-11 rounded-lg"
+                      />
+                    </div>
 
-            {!compact ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="creditor-document">Documento</Label>
+                      <Input
+                        id="creditor-document"
+                        value={form.documento ?? ""}
+                        onChange={(event) => updateField("documento", event.target.value)}
+                        className="h-11 rounded-lg"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="creditor-phone">Telefone</Label>
+                      <Input
+                        id="creditor-phone"
+                        value={form.telefone ?? ""}
+                        onChange={(event) => updateField("telefone", event.target.value)}
+                        className="h-11 rounded-lg"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="creditor-email">E-mail</Label>
+                      <Input
+                        id="creditor-email"
+                        type="email"
+                        value={form.email ?? ""}
+                        onChange={(event) => updateField("email", event.target.value)}
+                        className="h-11 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
               <>
+                <div className="space-y-2">
+                  <Label htmlFor="creditor-code">Codigo</Label>
+                  <Input
+                    id="creditor-code"
+                    value={form.codigo ?? ""}
+                    onChange={(event) => updateField("codigo", event.target.value)}
+                    className="h-11 rounded-lg"
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="creditor-document">Documento / CNPJ</Label>
                   <Input
@@ -226,7 +288,7 @@ export function CreditorFormDialog({
                   />
                 </div>
               </>
-            ) : null}
+            )}
           </div>
 
           <DialogFooter>

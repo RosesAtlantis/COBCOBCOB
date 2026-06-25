@@ -1,6 +1,25 @@
 import "server-only";
 
+import { z } from "zod";
+
 import { normalizeText } from "@/lib/clientes-utils";
+import { isSupabaseConfigured } from "@/lib/env";
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const demoEntityIdPattern = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/i;
+
+function isSupportedEntityId(value: string) {
+  return uuidPattern.test(value) || (!isSupabaseConfigured() && demoEntityIdPattern.test(value));
+}
+
+export function entityIdSchema(message: string) {
+  return z
+    .string()
+    .trim()
+    .min(1, message)
+    .refine((value) => isSupportedEntityId(value), message);
+}
 
 export function resolveNullableString(value: string | null | undefined) {
   if (!value) {

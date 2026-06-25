@@ -122,8 +122,8 @@ export function Topbar({ profile, demoMode, onOpenSidebar }: TopbarProps) {
   const content = getCurrentPageContent(pathname);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border/70 bg-background/95 backdrop-blur">
-      <div className="flex min-h-18 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-20 border-b border-border/70 bg-background/96 backdrop-blur">
+      <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <Button
             variant="outline"
@@ -135,10 +135,10 @@ export function Topbar({ profile, demoMode, onOpenSidebar }: TopbarProps) {
             <Menu className="size-4" />
           </Button>
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Portal BKO
             </p>
-            <p className="truncate text-lg font-semibold tracking-tight">{content.title}</p>
+            <p className="truncate text-xl font-semibold tracking-tight">{content.title}</p>
             <p className="truncate text-sm text-muted-foreground">{content.subtitle}</p>
           </div>
         </div>

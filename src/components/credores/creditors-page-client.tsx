@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, Pencil, Search, ShieldCheck, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 
+import { CadastroHeader } from "@/components/cadastros/cadastro-header";
+import { CadastroSummaryGrid } from "@/components/cadastros/cadastro-summary-grid";
 import { CreditorFormDialog, type CreditorFormValue } from "@/components/credores/creditor-form-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -110,60 +112,32 @@ export function CreditorsPageClient({ initialData }: CreditorsPageClientProps) {
 
   return (
     <div className="space-y-6">
-      <section className="dashboard-surface p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Cadastros
-            </p>
-            <h1 className="text-2xl font-semibold tracking-tight">Credores</h1>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Mantenha o cadastro mestre de credores organizado para vinculo com carteiras e novos casos.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
+      <CadastroHeader
+        eyebrow="Cadastros"
+        title="Credores"
+        description="Cadastro mestre para vinculo com carteiras, contratos e novos casos."
+        actions={
+          <>
             {initialData.canManage ? (
-              <CreditorFormDialog
-                onSaved={refreshPage}
-                triggerLabel="Novo credor"
-              />
+              <CreditorFormDialog onSaved={refreshPage} triggerLabel="Novo credor" />
             ) : null}
             {initialData.demoMode ? (
               <Badge variant="outline" className="rounded-md px-3 py-1">
                 Demo
               </Badge>
             ) : null}
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="dashboard-surface">
-          <CardContent className="space-y-2 p-5">
-            <p className="text-sm text-muted-foreground">Credores exibidos</p>
-            <p className="text-3xl font-semibold tracking-tight">{summary.total}</p>
-          </CardContent>
-        </Card>
-        <Card className="dashboard-surface">
-          <CardContent className="space-y-2 p-5">
-            <p className="text-sm text-muted-foreground">Ativos</p>
-            <p className="text-3xl font-semibold tracking-tight">{summary.active}</p>
-          </CardContent>
-        </Card>
-        <Card className="dashboard-surface">
-          <CardContent className="space-y-2 p-5">
-            <p className="text-sm text-muted-foreground">Inativos</p>
-            <p className="text-3xl font-semibold tracking-tight">{summary.inactive}</p>
-          </CardContent>
-        </Card>
-        <Card className="dashboard-surface">
-          <CardContent className="space-y-2 p-5">
-            <p className="text-sm text-muted-foreground">Carteiras vinculadas</p>
-            <p className="text-3xl font-semibold tracking-tight">{summary.linkedWallets}</p>
-          </CardContent>
-        </Card>
-      </section>
+      <CadastroSummaryGrid
+        items={[
+          { label: "Credores exibidos", value: summary.total },
+          { label: "Ativos", value: summary.active },
+          { label: "Inativos", value: summary.inactive },
+          { label: "Carteiras vinculadas", value: summary.linkedWallets },
+        ]}
+      />
 
       <Card className="dashboard-surface">
         <CardContent className="space-y-4 p-4 sm:p-5">

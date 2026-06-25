@@ -10,6 +10,7 @@ import {
   Search,
 } from "lucide-react";
 
+import { CadastroHeader } from "@/components/cadastros/cadastro-header";
 import { DateFilter } from "@/components/date-filter";
 import { OperatorFilter } from "@/components/operator-filter";
 import { TeamFilter } from "@/components/team-filter";
@@ -553,6 +554,12 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
 
   return (
     <div className="space-y-6">
+      <CadastroHeader
+        eyebrow="Visao Geral"
+        title="Ranking"
+        description="Comparativo por operadores, equipes, carteiras e credores."
+      />
+
       <Card className="dashboard-surface">
         <CardContent className="space-y-4 p-4 sm:p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

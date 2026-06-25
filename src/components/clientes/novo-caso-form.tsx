@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { QuickCreateCarteiraModal } from "@/components/carteiras/quick-create-carteira-modal";
 import { QuickCreateCredorModal } from "@/components/credores/quick-create-credor-modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +81,7 @@ interface NovoCasoFormProps {
   creditors: FilterOption[];
   walletCreditors: WalletCreditorMap[];
   canManageCreditors?: boolean;
+  canManageWallets?: boolean;
   mode?: "page" | "dialog";
   onCancelled?: () => void;
   onCreated?: (
@@ -115,6 +117,7 @@ export function NovoCasoForm({
   creditors,
   walletCreditors,
   canManageCreditors = false,
+  canManageWallets = false,
   mode = "page",
   onCancelled,
   onCreated,
@@ -125,10 +128,13 @@ export function NovoCasoForm({
   const [isPending, startTransition] = useTransition();
   const [isCheckingDocument, setIsCheckingDocument] = useState(false);
   const [showInitialContract, setShowInitialContract] = useState(mode === "page");
+  const [showMoreInfo, setShowMoreInfo] = useState(mode === "page");
   const [existingClient, setExistingClient] = useState<ExistingClientPreview | null>(null);
   const [creditorDialogOpen, setCreditorDialogOpen] = useState(false);
+  const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<SubmitIntent | null>(null);
   const [creditorOptions, setCreditorOptions] = useState(creditors);
+  const [walletOptions, setWalletOptions] = useState(wallets);
 
   const walletCreditorByWallet = useMemo(
     () =>
@@ -143,7 +149,7 @@ export function NovoCasoForm({
       ),
     [walletCreditors],
   );
-  const defaultWalletId = wallets[0]?.value ?? "";
+  const defaultWalletId = walletOptions[0]?.value ?? "";
   const defaultCreditorId = resolveCreditorOptionValue(
     defaultWalletId,
     creditors,
@@ -156,8 +162,8 @@ export function NovoCasoForm({
   }));
 
   const selectedWallet = useMemo(
-    () => wallets.find((wallet) => wallet.value === form.carteiraId) ?? null,
-    [form.carteiraId, wallets],
+    () => walletOptions.find((wallet) => wallet.value === form.carteiraId) ?? null,
+    [form.carteiraId, walletOptions],
   );
 
   const selectedCreditor = useMemo(
@@ -238,7 +244,7 @@ export function NovoCasoForm({
     setForm((current) => ({
       ...current,
       carteiraId: nextWalletId,
-      credorId: nextCreditorId || current.credorId,
+      credorId: nextCreditorId,
     }));
   }
 
@@ -283,11 +289,11 @@ export function NovoCasoForm({
               carteiraId: form.carteiraId,
               credorId: form.credorId || null,
               credor: selectedCreditor?.label ?? null,
-              telefone: mode === "page" ? form.telefone || null : null,
-              email: mode === "page" ? form.email || null : null,
-              operadorId: mode === "page" ? form.operadorId || null : null,
-              equipeId: mode === "page" ? form.equipeId || null : null,
-              observacao: mode === "page" ? form.observacao || null : null,
+              telefone: form.telefone || null,
+              email: form.email || null,
+              operadorId: form.operadorId || null,
+              equipeId: form.equipeId || null,
+              observacao: form.observacao || null,
               numeroContrato:
                 mode === "page" && showInitialContract ? form.numeroContrato || null : null,
               valorEmAberto:
@@ -306,18 +312,26 @@ export function NovoCasoForm({
           };
 
           if (!response.ok || !payload.clientId) {
-            toast.error(payload.message ?? "Nao foi possivel criar o caso.");
+            toast.error(
+              payload.message
+                ? `Nao foi possivel salvar. Detalhes: ${payload.message}`
+                : "Nao foi possivel salvar o caso.",
+            );
             return;
           }
 
           if (payload.clientExists) {
-            toast.error(payload.message ?? "Cliente ja cadastrado.");
+            toast.error(
+              payload.message
+                ? `Nao foi possivel salvar. Detalhes: ${payload.message}`
+                : "Cliente ja cadastrado.",
+            );
             router.push(`/clientes/${payload.clientId}`);
             router.refresh();
             return;
           }
 
-          toast.success(payload.message ?? "Caso criado com sucesso.");
+          toast.success(payload.message ?? "Cadastro salvo com sucesso.");
           handleSuccess(
             {
               ...payload,
@@ -334,20 +348,20 @@ export function NovoCasoForm({
 
   const formIntro =
     mode === "dialog"
-      ? "Preencha apenas o essencial para abrir o caso sem sair da lista."
+      ? "Preencha o essencial para abrir o caso sem sair da lista."
       : "Nome, CPF/CNPJ e carteira bastam para abrir o caso. O restante pode entrar depois, na ficha.";
 
   return (
     <form ref={formRef} className="space-y-6" onSubmit={handleSubmit}>
       <Card className="dashboard-surface">
-        <CardHeader className="border-b border-border/70 pb-5">
+        <CardHeader className="border-b border-border/70 pb-4">
           <CardTitle>{mode === "dialog" ? "Novo caso" : "Dados obrigatorios"}</CardTitle>
           <p className="text-sm text-muted-foreground">{formIntro}</p>
         </CardHeader>
         <CardContent
           className={
             mode === "dialog"
-              ? "grid gap-4 pt-6"
+              ? "grid gap-4 pt-5"
               : "grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-3"
           }
         >
@@ -380,17 +394,27 @@ export function NovoCasoForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Carteira</Label>
-            <Select
-              value={form.carteiraId || "none"}
-              onValueChange={handleWalletChange}
-            >
+            <div className="flex items-center justify-between gap-3">
+              <Label>Carteira *</Label>
+              {canManageWallets ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-auto rounded-lg px-2 py-1 text-xs"
+                  onClick={() => setWalletDialogOpen(true)}
+                >
+                  <Plus className="size-3.5" />
+                  Nova carteira
+                </Button>
+              ) : null}
+            </div>
+            <Select value={form.carteiraId || "none"} onValueChange={handleWalletChange}>
               <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Selecione</SelectItem>
-                {wallets.map((wallet) => (
+                {walletOptions.map((wallet) => (
                   <SelectItem key={wallet.value} value={wallet.value}>
                     <div className="flex flex-col">
                       <span>{wallet.label}</span>
@@ -402,51 +426,6 @@ export function NovoCasoForm({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className={mode === "dialog" ? "space-y-2" : "space-y-2 xl:col-span-2"}>
-            <div className="flex items-center justify-between gap-3">
-              <Label>Credor</Label>
-              {canManageCreditors ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-auto rounded-lg px-2 py-1 text-xs"
-                  onClick={() => setCreditorDialogOpen(true)}
-                >
-                  <Plus className="size-3.5" />
-                  Novo credor
-                </Button>
-              ) : null}
-            </div>
-            <Select
-              value={form.credorId || "none"}
-              onValueChange={(value) =>
-                updateField("credorId", !value || value === "none" ? "" : value)
-              }
-            >
-              <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                <SelectValue placeholder="Opcional" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Nao informar agora</SelectItem>
-                {creditorOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div className="flex flex-col">
-                      <span>{option.label}</span>
-                      {option.description ? (
-                        <span className="text-xs text-muted-foreground">{option.description}</span>
-                      ) : null}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedWallet?.description ? (
-              <p className="text-xs text-muted-foreground">
-                Carteira selecionada: {selectedWallet.description}
-              </p>
-            ) : null}
           </div>
 
           {existingClient ? (
@@ -477,15 +456,73 @@ export function NovoCasoForm({
         </CardContent>
       </Card>
 
-      {mode === "page" ? (
-        <Card className="dashboard-surface">
-          <CardHeader className="border-b border-border/70 pb-5">
-            <CardTitle>Dados opcionais</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Use estes campos quando o atendimento ja exigir mais contexto operacional.
-            </p>
-          </CardHeader>
-          <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
+      <Card className="dashboard-surface">
+        <CardHeader className="border-b border-border/70 pb-4">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() => setShowMoreInfo((current) => !current)}
+          >
+            <div>
+              <CardTitle>Mais informacoes</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Credor e dados complementares podem ser preenchidos agora ou depois.
+              </p>
+            </div>
+            {showMoreInfo ? (
+              <ChevronUp className="size-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="size-5 text-muted-foreground" />
+            )}
+          </button>
+        </CardHeader>
+        {showMoreInfo ? (
+          <CardContent className="grid gap-4 pt-5 md:grid-cols-2 xl:grid-cols-4">
+            <div className={mode === "dialog" ? "space-y-2 md:col-span-2 xl:col-span-4" : "space-y-2 xl:col-span-2"}>
+              <div className="flex items-center justify-between gap-3">
+                <Label>Credor</Label>
+                {canManageCreditors ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto rounded-lg px-2 py-1 text-xs"
+                    onClick={() => setCreditorDialogOpen(true)}
+                  >
+                    <Plus className="size-3.5" />
+                    Novo credor
+                  </Button>
+                ) : null}
+              </div>
+              <Select
+                value={form.credorId || "none"}
+                onValueChange={(value) =>
+                  updateField("credorId", !value || value === "none" ? "" : value)
+                }
+              >
+                <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
+                  <SelectValue placeholder="Nao informar agora" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nao informar agora</SelectItem>
+                  {creditorOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <div className="flex flex-col">
+                        <span>{option.label}</span>
+                        {option.description ? (
+                          <span className="text-xs text-muted-foreground">{option.description}</span>
+                        ) : null}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedWallet?.description ? (
+                <p className="text-xs text-muted-foreground">
+                  Credor sugerido pela carteira: {selectedWallet.description}
+                </p>
+              ) : null}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="telefone">Telefone</Label>
               <Input
@@ -551,7 +588,7 @@ export function NovoCasoForm({
               </Select>
             </div>
 
-            <div className="space-y-2 xl:col-span-4">
+            <div className={mode === "dialog" ? "space-y-2 md:col-span-2 xl:col-span-4" : "space-y-2 xl:col-span-4"}>
               <Label htmlFor="observacao">Observacao</Label>
               <Textarea
                 id="observacao"
@@ -562,8 +599,8 @@ export function NovoCasoForm({
               />
             </div>
           </CardContent>
-        </Card>
-      ) : null}
+        ) : null}
+      </Card>
 
       {mode === "page" ? (
         <Card className="dashboard-surface">
@@ -660,7 +697,7 @@ export function NovoCasoForm({
           ) : (
             <Save className="size-4" />
           )}
-          Salvar caso
+          Salvar
         </Button>
         <Button
           type="button"
@@ -694,6 +731,31 @@ export function NovoCasoForm({
             setForm((current) => ({
               ...current,
               credorId: creditor.id,
+            }));
+          }}
+        />
+      ) : null}
+
+      {canManageWallets ? (
+        <QuickCreateCarteiraModal
+          open={walletDialogOpen}
+          onOpenChange={setWalletDialogOpen}
+          creditors={creditorOptions}
+          canQuickCreateCreditor={canManageCreditors}
+          onCreated={(wallet) => {
+            setWalletOptions((current) => {
+              const next = current.filter((option) => option.value !== wallet.id);
+              next.push({
+                value: wallet.id,
+                label: wallet.nome,
+                description: wallet.creditorName ?? undefined,
+              });
+              return next.sort((left, right) => left.label.localeCompare(right.label));
+            });
+            setForm((current) => ({
+              ...current,
+              carteiraId: wallet.id,
+              credorId: wallet.creditorId ?? current.credorId,
             }));
           }}
         />

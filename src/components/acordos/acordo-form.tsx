@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2, Plus, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 
+import { QuickCreateCarteiraModal } from "@/components/carteiras/quick-create-carteira-modal";
+import { QuickCreateCredorModal } from "@/components/credores/quick-create-credor-modal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,7 +50,10 @@ interface AcordoFormProps {
   operators: FilterOption[];
   teams: FilterOption[];
   wallets: FilterOption[];
+  creditors: FilterOption[];
   canCreate: boolean;
+  canManageCreditors?: boolean;
+  canManageWallets?: boolean;
 }
 
 type AgreementMode = "avista" | "entrada_parcelas" | "parcelado";
@@ -100,16 +105,23 @@ export function AcordoForm({
   operators,
   teams,
   wallets,
+  creditors,
   canCreate,
+  canManageCreditors = false,
+  canManageWallets = false,
 }: AcordoFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
+  const [quickCreditorOpen, setQuickCreditorOpen] = useState(false);
+  const [quickWalletOpen, setQuickWalletOpen] = useState(false);
+  const [creditorOptions, setCreditorOptions] = useState(creditors);
+  const [walletOptions, setWalletOptions] = useState(wallets);
   const defaultContract = contracts[0] ?? null;
   const [agreementMode, setAgreementMode] = useState<AgreementMode>("parcelado");
   const [contractId, setContractId] = useState<string>(defaultContract?.id ?? "");
   const [walletId, setWalletId] = useState<string>(
-    findOptionValue(wallets, defaultContract?.carteira_id, null),
+    findOptionValue(walletOptions, defaultContract?.carteira_id, null),
   );
   const [operatorId, setOperatorId] = useState<string>(
     findOptionValue(operators, client.operador_id, defaultContract?.operador_id ?? null),
@@ -136,8 +148,8 @@ export function AcordoForm({
   const [createContractNow, setCreateContractNow] = useState(false);
   const [flowContract, setFlowContract] = useState(() =>
     buildFlowContractState(
-      findOptionValue(wallets, defaultContract?.carteira_id, null),
-      defaultContract?.credor ?? wallets[0]?.description ?? "",
+      findOptionValue(walletOptions, defaultContract?.carteira_id, null),
+      defaultContract?.credor ?? walletOptions[0]?.description ?? "",
     ),
   );
   const [parcelDrafts, setParcelDrafts] = useState<AgreementInstallmentDraft[]>([]);
@@ -203,7 +215,7 @@ export function AcordoForm({
     const nextOpenValue = String(
       nextContract?.valor_em_aberto ?? nextContract?.valor_original ?? 0,
     );
-    const nextWalletId = findOptionValue(wallets, nextContract?.carteira_id, null);
+    const nextWalletId = findOptionValue(walletOptions, nextContract?.carteira_id, null);
 
     setAgreementMode("parcelado");
     setContractId(nextContract?.id ?? "");
@@ -228,7 +240,9 @@ export function AcordoForm({
     setFlowContract(
       buildFlowContractState(
         nextWalletId,
-        nextContract?.credor ?? wallets.find((wallet) => wallet.value === nextWalletId)?.description ?? "",
+        nextContract?.credor ??
+          walletOptions.find((wallet) => wallet.value === nextWalletId)?.description ??
+          "",
       ),
     );
     setHasManualAdjustments(false);
@@ -243,7 +257,7 @@ export function AcordoForm({
       return;
     }
 
-    if (nextContract.carteira_id && wallets.some((item) => item.value === nextContract.carteira_id)) {
+    if (nextContract.carteira_id && walletOptions.some((item) => item.value === nextContract.carteira_id)) {
       setWalletId(nextContract.carteira_id);
     }
 
@@ -261,7 +275,9 @@ export function AcordoForm({
     setFlowContract(
       buildFlowContractState(
         nextContract.carteira_id ?? walletId,
-        nextContract.credor ?? wallets.find((wallet) => wallet.value === nextContract.carteira_id)?.description ?? "",
+        nextContract.credor ??
+          walletOptions.find((wallet) => wallet.value === nextContract.carteira_id)?.description ??
+          "",
       ),
     );
     setHasManualAdjustments(false);
@@ -603,7 +619,7 @@ export function AcordoForm({
                           carteiraId: current.carteiraId || walletId,
                           credor:
                             current.credor ||
-                            wallets.find((wallet) => wallet.value === (current.carteiraId || walletId))
+                            walletOptions.find((wallet) => wallet.value === (current.carteiraId || walletId))
                               ?.description ||
                             "",
                         }));
@@ -627,12 +643,25 @@ export function AcordoForm({
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="flowContractWallet">Carteira</Label>
+                        <div className="flex items-center justify-between gap-3">
+                          <Label htmlFor="flowContractWallet">Carteira</Label>
+                          {canManageWallets ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-auto rounded-lg px-2 py-1 text-xs"
+                              onClick={() => setQuickWalletOpen(true)}
+                            >
+                              <Plus className="size-3.5" />
+                              Nova carteira
+                            </Button>
+                          ) : null}
+                        </div>
                         <Select
                           value={flowContract.carteiraId || "none"}
                           onValueChange={(value) => {
                             const nextWalletId = !value || value === "none" ? "" : value;
-                            const nextWallet = wallets.find((wallet) => wallet.value === nextWalletId);
+                            const nextWallet = walletOptions.find((wallet) => wallet.value === nextWalletId);
 
                             updateFlowContract({
                               carteiraId: nextWalletId,
@@ -648,7 +677,7 @@ export function AcordoForm({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">Selecione</SelectItem>
-                            {wallets.map((wallet) => (
+                            {walletOptions.map((wallet) => (
                               <SelectItem key={wallet.value} value={wallet.value}>
                                 {wallet.label}
                               </SelectItem>
@@ -657,7 +686,20 @@ export function AcordoForm({
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="flowContractCreditor">Credor</Label>
+                        <div className="flex items-center justify-between gap-3">
+                          <Label htmlFor="flowContractCreditor">Credor</Label>
+                          {canManageCreditors ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-auto rounded-lg px-2 py-1 text-xs"
+                              onClick={() => setQuickCreditorOpen(true)}
+                            >
+                              <Plus className="size-3.5" />
+                              Novo credor
+                            </Button>
+                          ) : null}
+                        </div>
                         <Input
                           id="flowContractCreditor"
                           value={flowContract.credor}
@@ -687,12 +729,25 @@ export function AcordoForm({
               ) : null}
 
               <div className="space-y-2">
-                <Label htmlFor="walletId">Carteira</Label>
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="walletId">Carteira</Label>
+                  {canManageWallets ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-auto rounded-lg px-2 py-1 text-xs"
+                      onClick={() => setQuickWalletOpen(true)}
+                    >
+                      <Plus className="size-3.5" />
+                      Nova carteira
+                    </Button>
+                  ) : null}
+                </div>
                 <Select
                   value={walletId || "none"}
                   onValueChange={(value) => {
                     const nextWalletId = !value || value === "none" ? "" : value;
-                    const nextWallet = wallets.find((wallet) => wallet.value === nextWalletId);
+                    const nextWallet = walletOptions.find((wallet) => wallet.value === nextWalletId);
 
                     setWalletId(nextWalletId);
 
@@ -709,7 +764,7 @@ export function AcordoForm({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Selecione</SelectItem>
-                    {wallets.map((wallet) => (
+                    {walletOptions.map((wallet) => (
                       <SelectItem key={wallet.value} value={wallet.value}>
                         {wallet.label}
                       </SelectItem>
@@ -1141,6 +1196,50 @@ export function AcordoForm({
           </form>
         </DialogContent>
       </Dialog>
+
+      {canManageCreditors ? (
+        <QuickCreateCredorModal
+          open={quickCreditorOpen}
+          onOpenChange={setQuickCreditorOpen}
+          onCreated={(creditor) => {
+            setCreditorOptions((current) => {
+              const next = current.filter((option) => option.value !== creditor.id);
+              next.push({
+                value: creditor.id,
+                label: creditor.nome,
+                description: creditor.codigo ?? undefined,
+              });
+              return next.sort((left, right) => left.label.localeCompare(right.label));
+            });
+            updateFlowContract({ credor: creditor.nome });
+          }}
+        />
+      ) : null}
+
+      {canManageWallets ? (
+        <QuickCreateCarteiraModal
+          open={quickWalletOpen}
+          onOpenChange={setQuickWalletOpen}
+          creditors={creditorOptions}
+          canQuickCreateCreditor={canManageCreditors}
+          onCreated={(wallet) => {
+            setWalletOptions((current) => {
+              const next = current.filter((option) => option.value !== wallet.id);
+              next.push({
+                value: wallet.id,
+                label: wallet.nome,
+                description: wallet.creditorName ?? undefined,
+              });
+              return next.sort((left, right) => left.label.localeCompare(right.label));
+            });
+            setWalletId(wallet.id);
+            updateFlowContract({
+              carteiraId: wallet.id,
+              credor: wallet.creditorName ?? flowContract.credor,
+            });
+          }}
+        />
+      ) : null}
     </>
   );
 }
