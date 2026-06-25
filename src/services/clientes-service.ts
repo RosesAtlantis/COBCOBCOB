@@ -535,6 +535,11 @@ function createMockClientsContext(profile: PortalProfile): ClientsContext {
   });
 
   const contracts: Contract[] = clients.flatMap((client, index) => {
+    // Keep one mock case without contract so the inline contract flow can be exercised in demo mode.
+    if (index === 5) {
+      return [];
+    }
+
     const wallet = wallets[index % wallets.length];
     const operator = operators[index % operators.length];
     const teamId = operator.equipe_id;
@@ -896,9 +901,7 @@ function scopeClientsContext(context: ClientsContext, profile: PortalProfile) {
   };
 }
 
-export const getClientsContext = cache(async (): Promise<ClientsContext> => {
-  const profile = await requireActiveProfile();
-
+async function loadClientsContext(profile: PortalProfile): Promise<ClientsContext> {
   if (!canViewClients(profile.perfil)) {
     return createMockClientsContext(profile);
   }
@@ -978,7 +981,24 @@ export const getClientsContext = cache(async (): Promise<ClientsContext> => {
     goals: toRows(goalsResult) as Goal[],
     profiles: mapProfileRows(toRows(profilesResult)),
   };
+}
+
+const getCachedPersistedClientsContext = cache(async (_profileId: string) => {
+  void _profileId;
+  const profile = await requireActiveProfile();
+
+  return loadClientsContext(profile);
 });
+
+export async function getClientsContext(): Promise<ClientsContext> {
+  const profile = await requireActiveProfile();
+
+  if (!canViewClients(profile.perfil) || !isSupabaseConfigured()) {
+    return createMockClientsContext(profile);
+  }
+
+  return getCachedPersistedClientsContext(profile.id);
+}
 
 export function buildResolvedCollections(context: ClientsContext) {
   const walletById = new Map(context.wallets.map((item) => [item.id, item]));

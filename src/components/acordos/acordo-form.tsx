@@ -11,7 +11,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -61,7 +60,6 @@ interface AcordoFormProps {
 type AgreementMode = "avista" | "entrada_parcelas" | "parcelado";
 
 const today = new Date().toISOString().slice(0, 10);
-const EMPTY_SELECT_VALUE = "__empty__";
 
 function findOptionValue(
   options: FilterOption[],
@@ -82,14 +80,14 @@ function resolveSelectValue(
 ) {
   return value && options.some((item) => item.value === value)
     ? value
-    : EMPTY_SELECT_VALUE;
+    : null;
 }
 
 function resolveContractValue(
   items: ClientContractRow[],
   value: string | null | undefined,
 ) {
-  return value && items.some((item) => item.id === value) ? value : EMPTY_SELECT_VALUE;
+  return value && items.some((item) => item.id === value) ? value : null;
 }
 
 function toNumber(value: string) {
@@ -113,11 +111,27 @@ function buildAgreementModeLabel(mode: AgreementMode) {
   return "Parcelado";
 }
 
-function buildFlowContractState(walletId: string) {
+function buildFlowContractState(params: {
+  walletId: string;
+  originalValue?: string;
+  openValue?: string;
+  operatorId?: string;
+  teamId?: string;
+  note?: string;
+  contractDate?: string;
+  dueDate?: string;
+}) {
   return {
     numeroContrato: "",
-    carteiraId: walletId,
-    valorEmAberto: "",
+    carteiraId: params.walletId,
+    valorOriginal: params.originalValue ?? "",
+    valorEmAberto: params.openValue ?? "",
+    dataContrato: params.contractDate ?? "",
+    dataVencimento: params.dueDate ?? "",
+    operadorId: params.operatorId ?? "",
+    equipeId: params.teamId ?? "",
+    observacao: params.note ?? "",
+    status: "em_acordo",
   };
 }
 
@@ -167,7 +181,19 @@ export function AcordoForm({
   const [status, setStatus] = useState("ativo");
   const [createContractNow, setCreateContractNow] = useState(false);
   const [flowContract, setFlowContract] = useState(() =>
-    buildFlowContractState(findOptionValue(walletOptions, defaultContract?.carteira_id, null)),
+    buildFlowContractState({
+      walletId: findOptionValue(walletOptions, defaultContract?.carteira_id, null),
+      originalValue: formatCurrencyInputValue(defaultContract?.valor_original ?? null),
+      openValue: formatCurrencyInputValue(
+        defaultContract?.valor_em_aberto ?? defaultContract?.valor_original ?? null,
+      ),
+      operatorId: findOptionValue(
+        operators,
+        client.operador_id,
+        defaultContract?.operador_id ?? null,
+      ),
+      teamId: findOptionValue(teams, client.equipe_id, defaultContract?.equipe_id ?? null),
+    }),
   );
   const [parcelDrafts, setParcelDrafts] = useState<AgreementInstallmentDraft[]>([]);
   const [hasManualAdjustments, setHasManualAdjustments] = useState(false);
@@ -228,6 +254,19 @@ export function AcordoForm({
     : 0;
   const shouldShowCreateContractPrompt = !contractId;
 
+  function createFlowContractDraft(overrides?: Partial<typeof flowContract>) {
+    return buildFlowContractState({
+      walletId: overrides?.carteiraId ?? walletId,
+      originalValue: overrides?.valorOriginal ?? originalValue,
+      openValue: overrides?.valorEmAberto ?? (agreementValue || originalValue),
+      operatorId: overrides?.operadorId ?? operatorId,
+      teamId: overrides?.equipeId ?? teamId,
+      note: overrides?.observacao ?? note,
+      contractDate: overrides?.dataContrato ?? agreementDate,
+      dueDate: overrides?.dataVencimento ?? firstDueDate,
+    });
+  }
+
   function resetForm(nextContract: ClientContractRow | null = defaultContract) {
     const nextOpenValue = formatCurrencyInputValue(
       nextContract?.valor_em_aberto ?? nextContract?.valor_original ?? null,
@@ -254,7 +293,19 @@ export function AcordoForm({
     setNote("");
     setStatus("ativo");
     setCreateContractNow(false);
-    setFlowContract(buildFlowContractState(nextWalletId));
+    setFlowContract(
+      buildFlowContractState({
+        walletId: nextWalletId,
+        originalValue: formatCurrencyInputValue(nextContract?.valor_original ?? null),
+        openValue: nextOpenValue,
+        operatorId: findOptionValue(
+          operators,
+          client.operador_id,
+          nextContract?.operador_id ?? null,
+        ),
+        teamId: findOptionValue(teams, client.equipe_id, nextContract?.equipe_id ?? null),
+      }),
+    );
     setHasManualAdjustments(false);
     setParcelDrafts([]);
   }
@@ -267,7 +318,13 @@ export function AcordoForm({
       setOriginalValue("");
       setAgreementValue("");
       setCreateContractNow(false);
-      setFlowContract(buildFlowContractState(walletId));
+      setFlowContract(
+        buildFlowContractState({
+          walletId,
+          operatorId,
+          teamId,
+        }),
+      );
       setHasManualAdjustments(false);
       return;
     }
@@ -289,7 +346,17 @@ export function AcordoForm({
       formatCurrencyInputValue(nextContract.valor_em_aberto || nextContract.valor_original),
     );
     setCreateContractNow(false);
-    setFlowContract(buildFlowContractState(nextContract.carteira_id ?? walletId));
+    setFlowContract(
+      buildFlowContractState({
+        walletId: nextContract.carteira_id ?? walletId,
+        originalValue: formatCurrencyInputValue(nextContract.valor_original),
+        openValue: formatCurrencyInputValue(
+          nextContract.valor_em_aberto || nextContract.valor_original,
+        ),
+        operatorId: nextContract.operador_id ?? operatorId,
+        teamId: nextContract.equipe_id ?? teamId,
+      }),
+    );
     setHasManualAdjustments(false);
   }
 
@@ -392,6 +459,8 @@ export function AcordoForm({
     }
 
     if (createContractNow) {
+      const parsedFlowOriginalValue =
+        parseCurrencyBR(flowContract.valorOriginal) ?? originalValueNumber;
       const parsedFlowOpenValue = parseCurrencyBR(flowContract.valorEmAberto);
 
       if (!flowContract.numeroContrato.trim()) {
@@ -406,6 +475,11 @@ export function AcordoForm({
 
       if (parsedFlowOpenValue === null || parsedFlowOpenValue <= 0) {
         toast.error("Informe um valor em aberto valido para o novo contrato.");
+        return;
+      }
+
+      if (parsedFlowOriginalValue < 0) {
+        toast.error("Informe um valor original valido para o novo contrato.");
         return;
       }
     }
@@ -458,11 +532,14 @@ export function AcordoForm({
                   numero_contrato: flowContract.numeroContrato,
                   carteira_id: flowContract.carteiraId,
                   valor_em_aberto: parseCurrencyBR(flowContract.valorEmAberto),
-                  valor_original: originalValueNumber,
-                  operador_id: operatorId || null,
-                  equipe_id: teamId || null,
-                  observacao: note || null,
-                  status: "em_acordo",
+                  valor_original:
+                    parseCurrencyBR(flowContract.valorOriginal) ?? originalValueNumber,
+                  data_contrato: flowContract.dataContrato || null,
+                  data_vencimento: flowContract.dataVencimento || null,
+                  operador_id: flowContract.operadorId || null,
+                  equipe_id: flowContract.equipeId || null,
+                  observacao: flowContract.observacao || null,
+                  status: flowContract.status || "em_acordo",
                 }
               : null,
             parcelas_customizadas: displayedParcelDrafts.map((installment, index) => ({
@@ -507,56 +584,25 @@ export function AcordoForm({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[min(1040px,calc(100vw-1.5rem))] overflow-hidden p-0">
-          <DialogHeader className="gap-1 border-b border-border/70 px-6 py-5">
-            <DialogTitle>Novo acordo</DialogTitle>
-            <DialogDescription>Defina o modelo, valores e parcelas do acordo.</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="h-[min(90vh,960px)] gap-0 overflow-hidden p-0 sm:max-w-6xl">
+          <form className="flex h-full min-h-0 flex-col" onSubmit={handleSubmit}>
+            <DialogHeader className="shrink-0 gap-1 border-b border-border/70 bg-background px-6 py-5 pr-14">
+              <DialogTitle>Novo acordo</DialogTitle>
+              <DialogDescription>
+                Defina o modelo, valores e parcelas do acordo.
+              </DialogDescription>
+            </DialogHeader>
 
-          <form className="flex min-h-0 flex-col" onSubmit={handleSubmit}>
-            <div className="max-h-[76vh] space-y-6 overflow-y-auto overflow-x-hidden px-6 py-5">
-              <section className="space-y-3">
-                <div>
-                  <p className="text-sm font-semibold">Modelo do acordo</p>
-                  <p className="text-sm text-muted-foreground">
-                    Escolha como a negociacao sera estruturada antes de gerar as parcelas.
-                  </p>
-                </div>
-                <div className="grid gap-3 lg:grid-cols-3">
-                  {(["avista", "entrada_parcelas", "parcelado"] as AgreementMode[]).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => handleModeChange(mode)}
-                      className={cn(
-                        "min-h-[136px] rounded-2xl border px-4 py-4 text-left transition-colors",
-                        agreementMode === mode
-                          ? "border-primary/30 bg-primary/10"
-                          : "border-border/70 bg-background hover:bg-muted/20",
-                      )}
-                    >
-                      <p className="text-sm font-semibold">{buildAgreementModeLabel(mode)}</p>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        {mode === "avista"
-                          ? "Valor integral em uma unica parcela."
-                          : mode === "entrada_parcelas"
-                            ? "Entrada inicial e saldo distribuido em parcelas."
-                            : "Parcelamento recorrente sem entrada inicial."}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </section>
-
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-6 py-6 pb-8">
               <section className="space-y-5 rounded-2xl border border-border/70 bg-muted/10 p-5">
                 <div className="space-y-1">
                   <p className="text-sm font-semibold">Dados principais</p>
                   <p className="text-sm text-muted-foreground">
-                    Revise contrato, carteira e responsaveis antes de montar o acordo.
+                    Dados do cliente e do acordo organizados em blocos mais confortaveis.
                   </p>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
+                <div className="grid gap-4 xl:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="clientName">Cliente</Label>
                     <Input
@@ -594,217 +640,31 @@ export function AcordoForm({
                   </div>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-                  <div className="space-y-2">
-                    <Label htmlFor="contractId">Contrato</Label>
-                    <Select
-                      value={resolveContractValue(contracts, contractId)}
-                      onValueChange={(value) =>
-                        handleContractChange(
-                          !value || value === EMPTY_SELECT_VALUE ? "" : value,
-                        )
-                      }
-                    >
-                      <SelectTrigger
-                        id="contractId"
-                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                      >
-                        <SelectValue placeholder="Sem contrato vinculado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={EMPTY_SELECT_VALUE}>
-                          Sem contrato vinculado
-                        </SelectItem>
-                        {contracts.map((contract) => (
-                          <SelectItem key={contract.id} value={contract.id}>
-                            {`${contract.numero_contrato} - ${formatCurrency(contract.valor_em_aberto)} em aberto`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="walletId">Carteira</Label>
-                    <Select
-                      value={resolveSelectValue(walletOptions, walletId)}
-                      onValueChange={(value) => {
-                        const nextWalletId =
-                          !value || value === EMPTY_SELECT_VALUE ? "" : value;
-
-                        setWalletId(nextWalletId);
-
-                        if (createContractNow) {
-                          updateFlowContract({
-                            carteiraId: flowContract.carteiraId || nextWalletId,
-                          });
-                        }
-                      }}
-                    >
-                      <SelectTrigger
-                        id="walletId"
-                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                      >
-                        <SelectValue placeholder="Selecione uma carteira" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={EMPTY_SELECT_VALUE}>
-                          Selecione uma carteira
-                        </SelectItem>
-                        {walletOptions.map((wallet) => (
-                          <SelectItem key={wallet.value} value={wallet.value}>
-                            {wallet.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {canManageWallets ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="rounded-lg"
-                        onClick={() => setQuickWalletOpen(true)}
-                      >
-                        <Plus className="size-4" />
-                        Nova carteira
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-
-                {shouldShowCreateContractPrompt ? (
-                  <div className="rounded-2xl border border-amber-300/70 bg-amber-50/70 p-4">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="size-4 text-amber-700" />
-                          <p className="text-sm font-semibold text-amber-950">
-                            Este cliente ainda nao possui contrato vinculado.
-                          </p>
-                        </div>
-                        <p className="text-sm leading-6 text-amber-900/80">
-                          Voce pode criar um contrato agora para completar o fluxo ou continuar sem
-                          vinculo, se a regra operacional permitir.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant={createContractNow ? "default" : "outline"}
-                        className="rounded-lg"
-                        onClick={() => {
-                          setCreateContractNow((current) => !current);
-                          setFlowContract((current) => ({
-                            ...current,
-                            carteiraId: current.carteiraId || walletId,
-                          }));
-                        }}
-                      >
-                        {createContractNow ? "Remover contrato em fluxo" : "Criar contrato agora"}
-                      </Button>
-                    </div>
-
-                    {createContractNow ? (
-                      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                        <div className="space-y-2">
-                          <Label htmlFor="flowContractNumber">Numero do contrato</Label>
-                          <Input
-                            id="flowContractNumber"
-                            value={flowContract.numeroContrato}
-                            onChange={(event) =>
-                              updateFlowContract({ numeroContrato: event.target.value })
-                            }
-                            placeholder="Ex.: 12345/2026"
-                            className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="flowContractWallet">Carteira</Label>
-                          <Select
-                            value={resolveSelectValue(walletOptions, flowContract.carteiraId)}
-                            onValueChange={(value) => {
-                              const nextWalletId =
-                                !value || value === EMPTY_SELECT_VALUE ? "" : value;
-
-                              updateFlowContract({
-                                carteiraId: nextWalletId,
-                              });
-                            }}
-                          >
-                            <SelectTrigger
-                              id="flowContractWallet"
-                              className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                            >
-                              <SelectValue placeholder="Selecione uma carteira" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={EMPTY_SELECT_VALUE}>
-                                Selecione uma carteira
-                              </SelectItem>
-                              {walletOptions.map((wallet) => (
-                                <SelectItem key={wallet.value} value={wallet.value}>
-                                  {wallet.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {canManageWallets ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="rounded-lg"
-                              onClick={() => setQuickWalletOpen(true)}
-                            >
-                              <Plus className="size-4" />
-                              Nova carteira
-                            </Button>
-                          ) : null}
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="flowContractOpenValue">Valor em aberto</Label>
-                          <Input
-                            id="flowContractOpenValue"
-                            inputMode="decimal"
-                            value={flowContract.valorEmAberto}
-                            onChange={(event) =>
-                              updateFlowContract({
-                                valorEmAberto: maskCurrencyInput(event.target.value),
-                              })
-                            }
-                            placeholder="R$ 0,00"
-                            className="h-11 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className="grid gap-4 lg:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="operatorId">Operador responsavel</Label>
                     <Select
                       value={resolveSelectValue(operators, operatorId)}
-                      onValueChange={(value) =>
-                        setOperatorId(!value || value === EMPTY_SELECT_VALUE ? "" : value)
-                      }
+                      onValueChange={(value) => setOperatorId(value ?? "")}
                     >
                       <SelectTrigger
                         id="operatorId"
                         className="h-11 rounded-lg border-border/70 bg-background shadow-none"
                       >
-                        <SelectValue placeholder="Sem operador definido" />
+                        <SelectValue placeholder="Selecione um operador" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={EMPTY_SELECT_VALUE}>
-                          Sem operador definido
-                        </SelectItem>
-                        {operators.map((operator) => (
-                          <SelectItem key={operator.value} value={operator.value}>
-                            {operator.label}
+                        {operators.length ? (
+                          operators.map((operator) => (
+                            <SelectItem key={operator.value} value={operator.value}>
+                              {operator.label}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="sem-operadores" disabled>
+                            Selecione um operador
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -813,25 +673,26 @@ export function AcordoForm({
                     <Label htmlFor="teamId">Equipe</Label>
                     <Select
                       value={resolveSelectValue(teams, teamId)}
-                      onValueChange={(value) =>
-                        setTeamId(!value || value === EMPTY_SELECT_VALUE ? "" : value)
-                      }
+                      onValueChange={(value) => setTeamId(value ?? "")}
                     >
                       <SelectTrigger
                         id="teamId"
                         className="h-11 rounded-lg border-border/70 bg-background shadow-none"
                       >
-                        <SelectValue placeholder="Sem equipe definida" />
+                        <SelectValue placeholder="Selecione uma equipe" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={EMPTY_SELECT_VALUE}>
-                          Sem equipe definida
-                        </SelectItem>
-                        {teams.map((team) => (
-                          <SelectItem key={team.value} value={team.value}>
-                            {team.label}
+                        {teams.length ? (
+                          teams.map((team) => (
+                            <SelectItem key={team.value} value={team.value}>
+                              {team.label}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="sem-equipes" disabled>
+                            Selecione uma equipe
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -851,14 +712,375 @@ export function AcordoForm({
 
               <section className="space-y-5 rounded-2xl border border-border/70 bg-muted/10 p-5">
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold">Valores e parcelas</p>
+                  <p className="text-sm font-semibold">Contrato</p>
                   <p className="text-sm text-muted-foreground">
-                    Preencha os valores do acordo e ajuste as datas de vencimento conforme o
-                    modelo selecionado.
+                    Vincule um contrato existente ou monte um novo contrato no fluxo do acordo.
                   </p>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_auto]">
+                  <div className="space-y-2">
+                    <Label htmlFor="contractId">Contrato</Label>
+                    <Select
+                      value={resolveContractValue(contracts, contractId)}
+                      onValueChange={(value) => handleContractChange(value ?? "")}
+                    >
+                      <SelectTrigger
+                        id="contractId"
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      >
+                        <SelectValue placeholder="Sem contrato vinculado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {contracts.length ? (
+                          contracts.map((contract) => (
+                            <SelectItem key={contract.id} value={contract.id}>
+                              {`${contract.numero_contrato} - ${formatCurrency(contract.valor_em_aberto)} em aberto`}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="sem-contratos" disabled>
+                            Sem contrato vinculado
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="walletId">Carteira</Label>
+                    <Select
+                      value={resolveSelectValue(walletOptions, walletId)}
+                      onValueChange={(value) => {
+                        const nextWalletId = value ?? "";
+                        setWalletId(nextWalletId);
+
+                        if (createContractNow && !flowContract.carteiraId) {
+                          updateFlowContract({ carteiraId: nextWalletId });
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        id="walletId"
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      >
+                        <SelectValue placeholder="Selecione uma carteira" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {walletOptions.length ? (
+                          walletOptions.map((wallet) => (
+                            <SelectItem key={wallet.value} value={wallet.value}>
+                              {wallet.label}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="sem-carteiras" disabled>
+                            Selecione uma carteira
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-end">
+                    {canManageWallets ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 w-full rounded-lg md:w-auto"
+                        onClick={() => setQuickWalletOpen(true)}
+                      >
+                        <Plus className="size-4" />
+                        Nova carteira
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {shouldShowCreateContractPrompt ? (
+                  <div className="space-y-4 rounded-2xl border border-amber-300/70 bg-amber-50/80 p-5">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-700" />
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold text-amber-950">
+                          Este cliente ainda nao possui contrato vinculado.
+                        </p>
+                        <p className="max-w-3xl text-sm leading-6 text-amber-900/80">
+                          Voce pode criar um contrato agora para completar o fluxo ou continuar sem
+                          vinculo, se a regra operacional permitir.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      {!createContractNow ? (
+                        <Button
+                          type="button"
+                          className="rounded-lg"
+                          onClick={() => {
+                            setCreateContractNow(true);
+                            setFlowContract(createFlowContractDraft());
+                          }}
+                        >
+                          Criar contrato agora
+                        </Button>
+                      ) : null}
+                      {createContractNow ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-lg"
+                          onClick={() => {
+                            setCreateContractNow(false);
+                            setFlowContract(createFlowContractDraft());
+                          }}
+                        >
+                          Remover contrato em fluxo
+                        </Button>
+                      ) : null}
+                    </div>
+
+                    {createContractNow ? (
+                      <div className="space-y-4 rounded-2xl border border-border/70 bg-background p-4">
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                          <div className="space-y-2">
+                            <Label htmlFor="flowContractNumber">Numero do contrato</Label>
+                            <Input
+                              id="flowContractNumber"
+                              value={flowContract.numeroContrato}
+                              onChange={(event) =>
+                                updateFlowContract({ numeroContrato: event.target.value })
+                              }
+                              placeholder="Ex.: 12345/2026"
+                              className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="flowContractWallet">Carteira</Label>
+                            <Select
+                              value={resolveSelectValue(walletOptions, flowContract.carteiraId)}
+                              onValueChange={(value) =>
+                                updateFlowContract({ carteiraId: value ?? "" })
+                              }
+                            >
+                              <SelectTrigger
+                                id="flowContractWallet"
+                                className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                              >
+                                <SelectValue placeholder="Selecione uma carteira" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {walletOptions.length ? (
+                                  walletOptions.map((wallet) => (
+                                    <SelectItem key={wallet.value} value={wallet.value}>
+                                      {wallet.label}
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="sem-carteiras-fluxo" disabled>
+                                    Selecione uma carteira
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                            {canManageWallets ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="rounded-lg"
+                                onClick={() => setQuickWalletOpen(true)}
+                              >
+                                <Plus className="size-4" />
+                                Nova carteira
+                              </Button>
+                            ) : null}
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="flowContractOpenValue">Valor em aberto</Label>
+                            <Input
+                              id="flowContractOpenValue"
+                              inputMode="decimal"
+                              value={flowContract.valorEmAberto}
+                              onChange={(event) =>
+                                updateFlowContract({
+                                  valorEmAberto: maskCurrencyInput(event.target.value),
+                                })
+                              }
+                              placeholder="R$ 0,00"
+                              className="h-11 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                          <div className="space-y-2">
+                            <Label htmlFor="flowContractOriginalValue">Valor original</Label>
+                            <Input
+                              id="flowContractOriginalValue"
+                              inputMode="decimal"
+                              value={flowContract.valorOriginal}
+                              onChange={(event) =>
+                                updateFlowContract({
+                                  valorOriginal: maskCurrencyInput(event.target.value),
+                                })
+                              }
+                              placeholder="R$ 0,00"
+                              className="h-11 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="flowContractDate">Data do contrato</Label>
+                            <Input
+                              id="flowContractDate"
+                              type="date"
+                              value={flowContract.dataContrato}
+                              onChange={(event) =>
+                                updateFlowContract({ dataContrato: event.target.value })
+                              }
+                              className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="flowContractDueDate">Data de vencimento</Label>
+                            <Input
+                              id="flowContractDueDate"
+                              type="date"
+                              value={flowContract.dataVencimento}
+                              onChange={(event) =>
+                                updateFlowContract({ dataVencimento: event.target.value })
+                              }
+                              className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="flowContractOperator">Operador</Label>
+                            <Select
+                              value={resolveSelectValue(operators, flowContract.operadorId)}
+                              onValueChange={(value) =>
+                                updateFlowContract({ operadorId: value ?? "" })
+                              }
+                            >
+                              <SelectTrigger
+                                id="flowContractOperator"
+                                className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                              >
+                                <SelectValue placeholder="Selecione um operador" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {operators.length ? (
+                                  operators.map((operator) => (
+                                    <SelectItem key={operator.value} value={operator.value}>
+                                      {operator.label}
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="sem-operadores-fluxo" disabled>
+                                    Selecione um operador
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="flowContractTeam">Equipe</Label>
+                            <Select
+                              value={resolveSelectValue(teams, flowContract.equipeId)}
+                              onValueChange={(value) =>
+                                updateFlowContract({ equipeId: value ?? "" })
+                              }
+                            >
+                              <SelectTrigger
+                                id="flowContractTeam"
+                                className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                              >
+                                <SelectValue placeholder="Selecione uma equipe" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {teams.length ? (
+                                  teams.map((team) => (
+                                    <SelectItem key={team.value} value={team.value}>
+                                      {team.label}
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="sem-equipes-fluxo" disabled>
+                                    Selecione uma equipe
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="flowContractNote">Observacao</Label>
+                          <Textarea
+                            id="flowContractNote"
+                            value={flowContract.observacao}
+                            onChange={(event) =>
+                              updateFlowContract({ observacao: event.target.value })
+                            }
+                            placeholder="Detalhes operacionais e observacoes do contrato."
+                            className="min-h-24 rounded-lg border-border/70 bg-background shadow-none"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="space-y-4">
+                <div>
+                  <p className="text-sm font-semibold">Modelo do acordo</p>
+                  <p className="text-sm text-muted-foreground">
+                    Escolha como a negociacao sera estruturada antes de gerar as parcelas.
+                  </p>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-3">
+                  {(["avista", "entrada_parcelas", "parcelado"] as AgreementMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => handleModeChange(mode)}
+                      className={cn(
+                        "min-h-[132px] rounded-2xl border px-4 py-4 text-left transition-colors",
+                        agreementMode === mode
+                          ? "border-primary/30 bg-primary/10"
+                          : "border-border/70 bg-background hover:bg-muted/20",
+                      )}
+                    >
+                      <p className="text-sm font-semibold">{buildAgreementModeLabel(mode)}</p>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {mode === "avista"
+                          ? "Valor integral em uma unica parcela."
+                          : mode === "entrada_parcelas"
+                            ? "Entrada inicial e saldo distribuido em parcelas."
+                            : "Parcelamento recorrente sem entrada inicial."}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="space-y-5 rounded-2xl border border-border/70 bg-muted/10 p-5">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Valores e parcelas</p>
+                  <p className="text-sm text-muted-foreground">
+                    Preencha os valores do acordo, prazos e parametros principais.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="originalValue">Valor original</Label>
                     <Input
@@ -901,7 +1123,7 @@ export function AcordoForm({
                 </div>
 
                 {hasEntry ? (
-                  <div className="grid gap-4 lg:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor="entryValue">Valor de entrada</Label>
                       <Input
@@ -941,7 +1163,7 @@ export function AcordoForm({
                     </div>
                   </div>
                 ) : (
-                  <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="paymentMethod">Forma de pagamento</Label>
                       <Input
@@ -956,7 +1178,7 @@ export function AcordoForm({
                 )}
 
                 {!isCashAgreement ? (
-                  <div className="grid gap-4 lg:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor="installmentsCount">Quantidade de parcelas</Label>
                       <Input
@@ -1002,7 +1224,7 @@ export function AcordoForm({
                     </div>
                   </div>
                 ) : (
-                  <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="firstDueDate">Vencimento</Label>
                       <Input
@@ -1029,36 +1251,35 @@ export function AcordoForm({
                     className="min-h-24 rounded-lg border-border/70 bg-background shadow-none"
                   />
                 </div>
-              </section>
 
-              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <p className="text-sm text-muted-foreground">Valor negociado</p>
-                  <p className="mt-1 text-xl font-semibold">{formatCurrency(agreementValueNumber)}</p>
-                </div>
-                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <p className="text-sm text-muted-foreground">Entrada</p>
-                  <p className="mt-1 text-xl font-semibold">{formatCurrency(entryValueNumber)}</p>
-                </div>
-                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <p className="text-sm text-muted-foreground">Saldo parcelado</p>
-                  <p className="mt-1 text-xl font-semibold">
-                    {formatCurrency(Math.max(agreementValueNumber - entryValueNumber, 0))}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <p className="text-sm text-muted-foreground">Honorarios previstos</p>
-                  <p className="mt-1 text-xl font-semibold">{formatCurrency(honorariosPrevistos)}</p>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-2xl border border-border/70 bg-background px-4 py-4">
+                    <p className="text-sm text-muted-foreground">Valor negociado</p>
+                    <p className="mt-1 text-xl font-semibold">{formatCurrency(agreementValueNumber)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-background px-4 py-4">
+                    <p className="text-sm text-muted-foreground">Entrada</p>
+                    <p className="mt-1 text-xl font-semibold">{formatCurrency(entryValueNumber)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-background px-4 py-4">
+                    <p className="text-sm text-muted-foreground">Saldo parcelado</p>
+                    <p className="mt-1 text-xl font-semibold">
+                      {formatCurrency(Math.max(agreementValueNumber - entryValueNumber, 0))}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-background px-4 py-4">
+                    <p className="text-sm text-muted-foreground">Honorarios previstos</p>
+                    <p className="mt-1 text-xl font-semibold">{formatCurrency(honorariosPrevistos)}</p>
+                  </div>
                 </div>
               </section>
 
               <section className="space-y-4 rounded-2xl border border-border/70 bg-muted/10 p-5">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
+                  <div className="space-y-1">
                     <p className="text-sm font-semibold">Previa das parcelas</p>
                     <p className="text-sm text-muted-foreground">
-                      Ajuste vencimento, valor, operador e classificacao de cada parcela sem abrir
-                      scroll horizontal no modal.
+                      Ajuste vencimento, valor e classificacao por parcela sem quebrar o modal.
                     </p>
                   </div>
                   <Button
@@ -1099,8 +1320,8 @@ export function AcordoForm({
                         key={`${installment.numeroParcela}-${index}`}
                         className="overflow-hidden rounded-2xl border border-border/70 bg-background p-4"
                       >
-                        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.7fr)]">
-                          <div>
+                        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.7fr)]">
+                          <div className="space-y-1">
                             <p className="text-sm font-semibold">
                               Parcela {installment.numeroParcela} -{" "}
                               {resolveAgreementTypeLabel(installment.tipo)}
@@ -1110,7 +1331,7 @@ export function AcordoForm({
                               {getRevenueTypeOriginLabel(installment.tipoReceitaOrigem)}
                             </p>
                           </div>
-                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                             <div className="space-y-2">
                               <Label htmlFor={`due-${index}`}>Vencimento</Label>
                               <Input
@@ -1148,8 +1369,7 @@ export function AcordoForm({
                                 value={resolveSelectValue(operators, installment.operadorId)}
                                 onValueChange={(value) =>
                                   updateInstallmentDraft(index, {
-                                    operadorId:
-                                      value === EMPTY_SELECT_VALUE ? null : value,
+                                    operadorId: value ?? null,
                                   })
                                 }
                               >
@@ -1160,16 +1380,32 @@ export function AcordoForm({
                                   <SelectValue placeholder="Herdar do acordo" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value={EMPTY_SELECT_VALUE}>
-                                    Herdar do acordo
-                                  </SelectItem>
-                                  {operators.map((operator) => (
-                                    <SelectItem key={operator.value} value={operator.value}>
-                                      {operator.label}
+                                  {operators.length ? (
+                                    operators.map((operator) => (
+                                      <SelectItem key={operator.value} value={operator.value}>
+                                        {operator.label}
+                                      </SelectItem>
+                                    ))
+                                  ) : (
+                                    <SelectItem value="sem-operadores-parcela" disabled>
+                                      Herdar do acordo
                                     </SelectItem>
-                                  ))}
+                                  )}
                                 </SelectContent>
                               </Select>
+                              {installment.operadorId ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="rounded-lg px-0 text-xs"
+                                  onClick={() =>
+                                    updateInstallmentDraft(index, { operadorId: null })
+                                  }
+                                >
+                                  Usar operador do acordo
+                                </Button>
+                              ) : null}
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor={`revenue-${index}`}>Classificacao</Label>
@@ -1260,15 +1496,22 @@ export function AcordoForm({
               </section>
             </div>
 
-            <DialogFooter className="mx-0 mb-0 mt-auto rounded-none border-border/70 bg-muted/30 px-6 py-4">
-              <Button type="button" variant="outline" className="rounded-lg" onClick={() => setOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" className="rounded-lg" disabled={isPending || !walletId}>
-                {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-                Salvar acordo
-              </Button>
-            </DialogFooter>
+            <div className="shrink-0 border-t border-border/70 bg-background px-6 py-4">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-lg"
+                  onClick={() => setOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="rounded-lg" disabled={isPending || !walletId}>
+                  {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                  Salvar acordo
+                </Button>
+              </div>
+            </div>
           </form>
         </DialogContent>
       </Dialog>
