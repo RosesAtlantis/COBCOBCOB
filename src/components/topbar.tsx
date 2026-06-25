@@ -23,11 +23,11 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   },
   "/carteiras": {
     title: "Cadastro de carteiras",
-    subtitle: "Mantenha carteiras, codigos e vinculos com credores.",
+    subtitle: "Mantenha carteiras, codigos e contatos operacionais em dia.",
   },
   "/credores": {
-    title: "Cadastro de credores",
-    subtitle: "Central mestre para criacao, edicao e status de credores.",
+    title: "Cadastro de carteiras",
+    subtitle: "Acesse a central principal das carteiras operacionais.",
   },
   "/operadores": {
     title: "Cadastro de operadores",
@@ -39,7 +39,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   },
   "/metas": {
     title: "Cadastro de metas",
-    subtitle: "Metas mensais por operador, equipe, carteira e credor.",
+    subtitle: "Metas mensais por operador, equipe e carteira.",
   },
   "/clientes": {
     title: "Clientes",

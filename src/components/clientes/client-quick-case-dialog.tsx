@@ -15,19 +15,10 @@ import {
 } from "@/components/ui/dialog";
 import type { FilterOption } from "@/types/portal";
 
-interface WalletCreditorMap {
-  walletId: string;
-  creditorId: string | null;
-  creditorName: string | null;
-}
-
 interface ClientQuickCaseDialogProps {
   operators: FilterOption[];
   teams: FilterOption[];
   wallets: FilterOption[];
-  creditors: FilterOption[];
-  walletCreditors: WalletCreditorMap[];
-  canManageCreditors?: boolean;
   canManageWallets?: boolean;
 }
 
@@ -35,9 +26,6 @@ export function ClientQuickCaseDialog({
   operators,
   teams,
   wallets,
-  creditors,
-  walletCreditors,
-  canManageCreditors = false,
   canManageWallets = false,
 }: ClientQuickCaseDialogProps) {
   const router = useRouter();
@@ -61,9 +49,6 @@ export function ClientQuickCaseDialog({
           operators={operators}
           teams={teams}
           wallets={wallets}
-          creditors={creditors}
-          walletCreditors={walletCreditors}
-          canManageCreditors={canManageCreditors}
           canManageWallets={canManageWallets}
           onCancelled={() => setOpen(false)}
           onCreated={(result, action) => {

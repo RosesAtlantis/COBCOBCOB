@@ -114,6 +114,10 @@ export interface Database {
           credor: string;
           codigo: string | null;
           descricao: string | null;
+          documento: string | null;
+          telefone: string | null;
+          email: string | null;
+          observacao: string | null;
           credor_id: string | null;
           percentual_honorarios_padrao: number | null;
           percentual_escritorio_padrao: number | null;
@@ -127,6 +131,10 @@ export interface Database {
           credor: string;
           codigo?: string | null;
           descricao?: string | null;
+          documento?: string | null;
+          telefone?: string | null;
+          email?: string | null;
+          observacao?: string | null;
           credor_id?: string | null;
           percentual_honorarios_padrao?: number | null;
           percentual_escritorio_padrao?: number | null;

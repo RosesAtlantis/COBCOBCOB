@@ -3,7 +3,6 @@ import "server-only";
 import { z } from "zod";
 
 import { requireActiveProfile } from "@/lib/auth";
-import { normalizeText } from "@/lib/clientes-utils";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getMockPortalDataset } from "@/lib/mock-data";
 import { canManageWallets } from "@/lib/permissions";
@@ -15,19 +14,23 @@ import {
   formatMutationError,
   resolveNullableString,
 } from "@/services/cadastros-utils";
-import { getClientsContext, uniqueOptions } from "@/services/clientes-service";
-import type {
-  FilterOption,
-  WalletRegistryPageData,
-  WalletRegistryRow,
-} from "@/types/portal";
+import { getClientsContext } from "@/services/clientes-service";
+import type { WalletRegistryPageData, WalletRegistryRow } from "@/types/portal";
 
 const walletSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome da carteira."),
-  credorId: entityIdSchema("Credor invalido.").nullable().optional(),
-  credor: z.string().trim().nullable().optional(),
   codigo: z.string().trim().nullable().optional(),
   descricao: z.string().trim().nullable().optional(),
+  documento: z.string().trim().nullable().optional(),
+  telefone: z.string().trim().nullable().optional(),
+  email: z
+    .string()
+    .trim()
+    .email("E-mail invalido.")
+    .nullable()
+    .optional()
+    .or(z.literal("")),
+  observacao: z.string().trim().nullable().optional(),
   ativo: z.boolean().optional(),
 });
 
@@ -43,17 +46,10 @@ const walletStatusSchema = z.object({
 function buildWalletRows(
   context: Awaited<ReturnType<typeof getClientsContext>>,
 ): WalletRegistryRow[] {
-  const creditorById = new Map(
-    context.creditors.map((creditor) => [creditor.id, creditor.nome]),
-  );
-
   return context.wallets
     .map((wallet) => ({
       ...wallet,
-      creditorName:
-        (wallet.credor_id ? creditorById.get(wallet.credor_id) : null) ??
-        resolveNullableString(wallet.credor) ??
-        "Sem credor vinculado",
+      creditorName: resolveNullableString(wallet.credor) ?? wallet.nome,
       linkedClients: context.walletLinks.filter(
         (link) => link.carteira_id === wallet.id && link.ativo,
       ).length,
@@ -70,6 +66,10 @@ function filterWalletRows(rows: WalletRegistryRow[], query?: string) {
       row.nome,
       row.codigo,
       row.descricao,
+      row.documento,
+      row.telefone,
+      row.email,
+      row.observacao,
       row.creditorName,
       row.ativo ? "ativo" : "inativo",
     ]
@@ -78,64 +78,19 @@ function filterWalletRows(rows: WalletRegistryRow[], query?: string) {
   );
 }
 
-function buildCreditorOptions(
-  context: Awaited<ReturnType<typeof getClientsContext>>,
-): FilterOption[] {
-  return uniqueOptions(
-    context.creditors.map((creditor) => ({
-      value: creditor.id,
-      label: creditor.nome,
-      description: creditor.codigo ?? undefined,
-    })),
-  );
-}
-
-function resolveCreditor(
-  context: Awaited<ReturnType<typeof getClientsContext>>,
-  payload: {
-    credorId?: string | null;
-    credorName?: string | null;
-  },
-) {
-  const creditorById = new Map(context.creditors.map((creditor) => [creditor.id, creditor]));
-  const creditorByName = new Map(
-    context.creditors.map((creditor) => [normalizeText(creditor.nome), creditor]),
-  );
-
-  const selectedById = payload.credorId ? creditorById.get(payload.credorId) : null;
-  const selectedByName = payload.credorName
-    ? creditorByName.get(normalizeText(payload.credorName))
-    : null;
-
-  if (payload.credorId && !selectedById) {
-    throw new Error("Credor nao encontrado para o perfil atual.");
-  }
-
-  const resolved = selectedById ?? selectedByName ?? null;
-
-  return {
-    creditorId: resolved?.id ?? null,
-    creditorName: resolved?.nome ?? resolveNullableString(payload.credorName) ?? null,
-  };
-}
-
 function hasDuplicateWallet(
   rows: WalletRegistryRow[],
-  input: {
-    nome: string;
-    creditorName: string | null;
-  },
+  nome: string,
   excludedId?: string,
 ) {
-  const inputKey = `${normalizeText(input.nome)}::${normalizeText(input.creditorName)}`;
+  const normalizedInput = nome.trim().toLocaleLowerCase();
 
   return rows.some((row) => {
     if (row.id === excludedId) {
       return false;
     }
 
-    const rowKey = `${normalizeText(row.nome)}::${normalizeText(row.creditorName)}`;
-    return rowKey === inputKey;
+    return row.nome.trim().toLocaleLowerCase() === normalizedInput;
   });
 }
 
@@ -164,7 +119,6 @@ export async function getCarteirasPageData(
   return {
     profile: context.profile,
     wallets: rows,
-    creditors: buildCreditorOptions(context),
     canManage: canManageWallets(context.profile.perfil),
     demoMode: context.demoMode,
     summary: {
@@ -185,18 +139,8 @@ export async function criarCarteira(rawInput: unknown) {
     throw new Error("Seu perfil nao pode cadastrar carteiras.");
   }
 
-  const resolvedCreditor = resolveCreditor(context, {
-    credorId: input.credorId ?? null,
-    credorName: input.credor ?? null,
-  });
-
-  if (
-    hasDuplicateWallet(buildWalletRows(context), {
-      nome: input.nome,
-      creditorName: resolvedCreditor.creditorName,
-    })
-  ) {
-    throw new Error("Ja existe uma carteira com este nome para o credor informado.");
+  if (hasDuplicateWallet(buildWalletRows(context), input.nome)) {
+    throw new Error("Ja existe uma carteira com este nome.");
   }
 
   if (!isSupabaseConfigured()) {
@@ -207,10 +151,14 @@ export async function criarCarteira(rawInput: unknown) {
     mock.wallets.unshift({
       id: walletId,
       nome: input.nome.trim(),
-      credor: resolvedCreditor.creditorName ?? "",
+      credor: input.nome.trim(),
       codigo: resolveNullableString(input.codigo),
       descricao: resolveNullableString(input.descricao),
-      credor_id: resolvedCreditor.creditorId,
+      documento: resolveNullableString(input.documento),
+      telefone: resolveNullableString(input.telefone),
+      email: resolveNullableString(input.email),
+      observacao: resolveNullableString(input.observacao),
+      credor_id: null,
       ativo: input.ativo ?? true,
       criado_em: now,
       atualizado_em: now,
@@ -239,8 +187,12 @@ export async function criarCarteira(rawInput: unknown) {
       nome: input.nome,
       codigo: resolveNullableString(input.codigo),
       descricao: resolveNullableString(input.descricao),
-      credor: resolvedCreditor.creditorName ?? "",
-      credor_id: resolvedCreditor.creditorId,
+      documento: resolveNullableString(input.documento),
+      telefone: resolveNullableString(input.telefone),
+      email: resolveNullableString(input.email),
+      observacao: resolveNullableString(input.observacao),
+      credor: input.nome.trim(),
+      credor_id: null,
       ativo: input.ativo ?? true,
     })
     .select("*")
@@ -264,6 +216,9 @@ export async function criarCarteira(rawInput: unknown) {
     dadosNovos: {
       nome: data.nome,
       codigo: data.codigo,
+      documento: data.documento,
+      telefone: data.telefone,
+      email: data.email,
       credor: data.credor,
       ativo: data.ativo,
     },
@@ -290,22 +245,8 @@ export async function atualizarCarteira(rawInput: unknown) {
     throw new Error("Carteira nao encontrada.");
   }
 
-  const resolvedCreditor = resolveCreditor(context, {
-    credorId: input.credorId ?? existing.credor_id ?? null,
-    credorName: input.credor ?? existing.credor ?? null,
-  });
-
-  if (
-    hasDuplicateWallet(
-      buildWalletRows(context),
-      {
-        nome: input.nome,
-        creditorName: resolvedCreditor.creditorName,
-      },
-      existing.id,
-    )
-  ) {
-    throw new Error("Ja existe outra carteira com este nome para o credor informado.");
+  if (hasDuplicateWallet(buildWalletRows(context), input.nome, existing.id)) {
+    throw new Error("Ja existe outra carteira com este nome.");
   }
 
   if (!isSupabaseConfigured()) {
@@ -317,8 +258,11 @@ export async function atualizarCarteira(rawInput: unknown) {
       target.nome = input.nome.trim();
       target.codigo = resolveNullableString(input.codigo);
       target.descricao = resolveNullableString(input.descricao);
-      target.credor = resolvedCreditor.creditorName ?? "";
-      target.credor_id = resolvedCreditor.creditorId;
+      target.documento = resolveNullableString(input.documento);
+      target.telefone = resolveNullableString(input.telefone);
+      target.email = resolveNullableString(input.email);
+      target.observacao = resolveNullableString(input.observacao);
+      target.credor = input.nome.trim();
       target.ativo = input.ativo ?? existing.ativo;
       target.atualizado_em = now;
     }
@@ -346,8 +290,11 @@ export async function atualizarCarteira(rawInput: unknown) {
       nome: input.nome,
       codigo: resolveNullableString(input.codigo),
       descricao: resolveNullableString(input.descricao),
-      credor: resolvedCreditor.creditorName ?? "",
-      credor_id: resolvedCreditor.creditorId,
+      documento: resolveNullableString(input.documento),
+      telefone: resolveNullableString(input.telefone),
+      email: resolveNullableString(input.email),
+      observacao: resolveNullableString(input.observacao),
+      credor: input.nome.trim(),
       ativo: input.ativo ?? existing.ativo,
     })
     .eq("id", existing.id)
@@ -364,15 +311,13 @@ export async function atualizarCarteira(rawInput: unknown) {
     supabase
       .from("cliente_carteiras")
       .update({
-        credor: data.credor,
-        credor_id: data.credor_id,
+        credor: data.nome,
       })
       .eq("carteira_id", data.id),
     supabase
       .from("contratos")
       .update({
-        credor: data.credor || null,
-        credor_id: data.credor_id,
+        credor: data.nome || null,
       })
       .eq("carteira_id", data.id),
   ]);
@@ -389,12 +334,18 @@ export async function atualizarCarteira(rawInput: unknown) {
     dadosAnteriores: {
       nome: existing.nome,
       codigo: existing.codigo ?? null,
+      documento: existing.documento ?? null,
+      telefone: existing.telefone ?? null,
+      email: existing.email ?? null,
       credor: existing.credor,
       ativo: existing.ativo,
     },
     dadosNovos: {
       nome: data.nome,
       codigo: data.codigo,
+      documento: data.documento,
+      telefone: data.telefone,
+      email: data.email,
       credor: data.credor,
       ativo: data.ativo,
     },

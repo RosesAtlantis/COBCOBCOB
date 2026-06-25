@@ -44,7 +44,7 @@ export type AgreementStatus =
 export type AgreementInstallmentType = "entrada" | "parcela" | "avista";
 export type RevenueType = "NOVO" | "COLCHAO";
 export type RevenueTypeOrigin = "automatico" | "manual";
-export type RankingView = "operadores" | "equipes" | "carteiras" | "credores";
+export type RankingView = "operadores" | "equipes" | "carteiras";
 export type AuditOrigin =
   | "manual"
   | "importacao"
@@ -110,6 +110,10 @@ export interface Wallet {
   credor: string;
   codigo?: string | null;
   descricao?: string | null;
+  documento?: string | null;
+  telefone?: string | null;
+  email?: string | null;
+  observacao?: string | null;
   credor_id?: string | null;
   percentual_honorarios_padrao?: number | null;
   percentual_escritorio_padrao?: number | null;
@@ -557,7 +561,6 @@ export interface RankingPageData {
   operatorRanking: RankingOperatorRow[];
   teamRanking: RankingTeamRow[];
   walletRanking: RankingWalletRow[];
-  creditorRanking: RankingCreditorRow[];
   demoMode: boolean;
 }
 
@@ -588,7 +591,6 @@ export interface WalletRegistryRow extends Wallet {
 export interface WalletRegistryPageData {
   profile: PortalProfile;
   wallets: WalletRegistryRow[];
-  creditors: FilterOption[];
   canManage: boolean;
   demoMode: boolean;
   summary: {

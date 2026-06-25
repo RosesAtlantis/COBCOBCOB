@@ -50,9 +50,7 @@ export default async function NovoClientePage() {
           operators={data.operators}
           teams={data.teams}
           wallets={data.wallets}
-          creditors={data.creditors}
-          walletCreditors={data.walletCreditors}
-          canManageCreditors={data.canManageCreditors}
+          canManageWallets={data.canManageWallets}
         />
       </div>
     </PermissionGuard>

@@ -35,7 +35,6 @@ import { cn } from "@/lib/utils";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/format";
 import type {
   DashboardFilters,
-  RankingCreditorRow,
   RankingOperatorRow,
   RankingPageData,
   RankingTeamRow,
@@ -47,7 +46,6 @@ type RankingRowMap = {
   operadores: RankingOperatorRow;
   equipes: RankingTeamRow;
   carteiras: RankingWalletRow;
-  credores: RankingCreditorRow;
 };
 
 type SortDirection = "asc" | "desc";
@@ -337,84 +335,13 @@ function buildColumns() {
         render: (row: RankingWalletRow) => formatCurrency(row.averageTicket),
       },
     ] satisfies RankingColumn<RankingWalletRow>[],
-    credores: [
-      {
-        key: "position",
-        label: "Posicao",
-        sortValue: (row: RankingCreditorRow) => row.position,
-        render: (row: RankingCreditorRow) => (
-          <Badge variant={row.position <= 3 ? "default" : "outline"} className="rounded-md px-2 py-0.5 text-[11px]">
-            #{row.position}
-          </Badge>
-        ),
-      },
-      {
-        key: "creditor",
-        label: "Credor",
-        sortValue: (row: RankingCreditorRow) => row.creditor,
-        render: (row: RankingCreditorRow) => row.creditor,
-      },
-      {
-        key: "linkedWallets",
-        label: "Carteiras vinculadas",
-        align: "right",
-        sortValue: (row: RankingCreditorRow) => row.linkedWallets,
-        render: (row: RankingCreditorRow) => formatNumber(row.linkedWallets),
-      },
-      {
-        key: "received",
-        label: "Valor recebido",
-        align: "right",
-        sortValue: (row: RankingCreditorRow) => row.received,
-        render: (row: RankingCreditorRow) => formatCurrency(row.received),
-      },
-      {
-        key: "officeFees",
-        label: "Honorarios escritorio",
-        align: "right",
-        sortValue: (row: RankingCreditorRow) => row.officeFees,
-        render: (row: RankingCreditorRow) => formatCurrency(row.officeFees),
-      },
-      {
-        key: "agreements",
-        label: "Acordos",
-        align: "right",
-        sortValue: (row: RankingCreditorRow) => row.agreements,
-        render: (row: RankingCreditorRow) => formatNumber(row.agreements),
-      },
-      {
-        key: "writeOffs",
-        label: "Baixas",
-        align: "right",
-        sortValue: (row: RankingCreditorRow) => row.writeOffs,
-        render: (row: RankingCreditorRow) => formatNumber(row.writeOffs),
-      },
-      {
-        key: "novo",
-        label: "NOVO",
-        align: "right",
-        sortValue: (row: RankingCreditorRow) => row.novo,
-        render: (row: RankingCreditorRow) => formatCurrency(row.novo),
-      },
-      {
-        key: "colchao",
-        label: "COLCHAO",
-        align: "right",
-        sortValue: (row: RankingCreditorRow) => row.colchao,
-        render: (row: RankingCreditorRow) => formatCurrency(row.colchao),
-      },
-      {
-        key: "averageTicket",
-        label: "Ticket medio",
-        align: "right",
-        sortValue: (row: RankingCreditorRow) => row.averageTicket,
-        render: (row: RankingCreditorRow) => formatCurrency(row.averageTicket),
-      },
-    ] satisfies RankingColumn<RankingCreditorRow>[],
   };
 }
 
-function renderHighlight(row: RankingOperatorRow | RankingTeamRow | RankingWalletRow | RankingCreditorRow, view: RankingView) {
+function renderHighlight(
+  row: RankingOperatorRow | RankingTeamRow | RankingWalletRow,
+  view: RankingView,
+) {
   if (view === "operadores") {
     const current = row as RankingOperatorRow;
     return {
@@ -442,11 +369,10 @@ function renderHighlight(row: RankingOperatorRow | RankingTeamRow | RankingWalle
     };
   }
 
-  const current = row as RankingCreditorRow;
   return {
-    title: current.creditor,
-    subtitle: `${formatNumber(current.linkedWallets)} carteiras vinculadas`,
-    extra: `${formatCurrency(current.averageTicket)} de ticket medio`,
+    title: "",
+    subtitle: "",
+    extra: "",
   };
 }
 
@@ -461,7 +387,6 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
     operadores: { key: "received", direction: "desc" },
     equipes: { key: "received", direction: "desc" },
     carteiras: { key: "received", direction: "desc" },
-    credores: { key: "received", direction: "desc" },
   });
 
   const columns = useMemo(() => buildColumns(), []);
@@ -472,11 +397,10 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
         operadores: data.operatorRanking,
         equipes: data.teamRanking,
         carteiras: data.walletRanking,
-        credores: data.creditorRanking,
       }) satisfies {
         [K in RankingView]: RankingRowMap[K][];
       },
-    [data.creditorRanking, data.operatorRanking, data.teamRanking, data.walletRanking],
+    [data.operatorRanking, data.teamRanking, data.walletRanking],
   );
 
   const visibleRows = useMemo(() => {
@@ -557,7 +481,7 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
       <CadastroHeader
         eyebrow="Visao Geral"
         title="Ranking"
-        description="Comparativo por operadores, equipes, carteiras e credores."
+        description="Comparativo por operadores, equipes e carteiras."
       />
 
       <Card className="dashboard-surface">
@@ -566,7 +490,7 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
             <div>
               <p className="text-sm font-semibold">Filtros do ranking</p>
               <p className="text-sm text-muted-foreground">
-                Aplique o recorte por periodo, time, carteira, credor, tipo de receita e status do acordo.
+                Aplique o recorte por periodo, time, carteira, tipo de receita e status do acordo.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -612,30 +536,6 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
               options={data.options.wallets}
               onChange={(value) => updateFilters({ walletId: value })}
             />
-
-            <div className="space-y-2">
-              <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Credor
-              </Label>
-              <Select
-                value={localFilters.creditor ?? "all"}
-                onValueChange={(value) =>
-                  updateFilters({ creditor: !value || value === "all" ? undefined : value })
-                }
-              >
-                <SelectTrigger className="h-10 rounded-lg border-border/70 bg-background shadow-none">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {data.options.creditors.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             <div className="space-y-2">
               <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -740,9 +640,6 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
             <TabsTrigger value="carteiras" className="px-4 py-2.5">
               Carteiras
             </TabsTrigger>
-            <TabsTrigger value="credores" className="px-4 py-2.5">
-              Credores
-            </TabsTrigger>
           </TabsList>
 
           <div className="relative w-full max-w-sm">
@@ -756,13 +653,13 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
           </div>
         </div>
 
-        {(["operadores", "equipes", "carteiras", "credores"] as RankingView[]).map((view) => (
+        {(["operadores", "equipes", "carteiras"] as RankingView[]).map((view) => (
           <TabsContent key={view} value={view} className="space-y-6">
             <div className="grid gap-4 lg:grid-cols-3">
               {topHighlights.length ? (
                 topHighlights.map((row, index) => {
                   const highlight = renderHighlight(
-                    row as RankingOperatorRow | RankingTeamRow | RankingWalletRow | RankingCreditorRow,
+                    row as RankingOperatorRow | RankingTeamRow | RankingWalletRow,
                     activeView,
                   );
 
@@ -780,7 +677,10 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
                           <p className="text-sm text-muted-foreground">{highlight.subtitle}</p>
                         </div>
                         <p className="text-3xl font-semibold tracking-tight">
-                          {formatCurrency((row as RankingOperatorRow | RankingTeamRow | RankingWalletRow | RankingCreditorRow).received)}
+                          {formatCurrency(
+                            (row as RankingOperatorRow | RankingTeamRow | RankingWalletRow)
+                              .received,
+                          )}
                         </p>
                         <p className="text-sm text-muted-foreground">{highlight.extra}</p>
                       </CardContent>

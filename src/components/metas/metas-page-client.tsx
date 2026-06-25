@@ -37,7 +37,6 @@ function toFormValue(row: GoalRegistryRow): MetaFormValue {
     operadorId: row.operador_id ?? "",
     equipeId: row.equipe_id ?? "",
     carteiraId: row.carteira_id ?? "",
-    credorId: row.credor_id ?? "",
     ativo: row.ativo,
   };
 }
@@ -110,7 +109,7 @@ export function MetasPageClient({ initialData }: MetasPageClientProps) {
       <CadastroHeader
         eyebrow="Cadastros"
         title="Metas"
-        description="Cadastre metas mensais por operador, equipe, carteira ou credor, com controle manual de vigencia e status."
+        description="Cadastre metas mensais por operador, equipe ou carteira, com controle manual de vigencia e status."
         actions={
           <>
             {initialData.canManage ? (
@@ -118,7 +117,6 @@ export function MetasPageClient({ initialData }: MetasPageClientProps) {
                 operators={initialData.operators}
                 teams={initialData.teams}
                 wallets={initialData.wallets}
-                creditors={initialData.creditors}
                 onSaved={refreshPage}
                 triggerLabel="Nova meta"
               />
@@ -147,7 +145,7 @@ export function MetasPageClient({ initialData }: MetasPageClientProps) {
             <div>
               <p className="text-sm font-semibold">Pesquisa rapida</p>
               <p className="text-sm text-muted-foreground">
-                Busque por competencia, responsavel, carteira ou credor.
+                Busque por competencia, responsavel, carteira ou valor.
               </p>
             </div>
             <div className="relative w-full max-w-md">
@@ -187,7 +185,7 @@ export function MetasPageClient({ initialData }: MetasPageClientProps) {
               <div className="space-y-1 text-sm">
                 <p>{row.operatorName ?? row.teamName ?? "Sem operador/equipe"}</p>
                 <p className="text-muted-foreground">
-                  {row.walletName ?? "Sem carteira"} · {row.creditorName ?? "Sem credor"}
+                  {row.walletName ?? "Sem carteira"}
                 </p>
               </div>
             ),
@@ -269,7 +267,6 @@ export function MetasPageClient({ initialData }: MetasPageClientProps) {
         operators={initialData.operators}
         teams={initialData.teams}
         wallets={initialData.wallets}
-        creditors={initialData.creditors}
         onSaved={() => {
           setEditing(null);
           router.refresh();

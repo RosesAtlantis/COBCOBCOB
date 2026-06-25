@@ -8,7 +8,6 @@ import type {
   FilterOption,
   Goal,
   Payment,
-  RankingCreditorRow,
   RankingFilterOptions,
   RankingOperatorRow,
   RankingPageData,
@@ -68,10 +67,6 @@ function buildWalletMaps(wallets: Wallet[]) {
     walletById,
     walletNameById,
   };
-}
-
-function buildCreditorName(wallet: Wallet | undefined) {
-  return wallet?.credor ?? "Credor nao informado";
 }
 
 function buildMainWalletLabel(payments: Payment[], wallets: Wallet[]) {
@@ -223,7 +218,7 @@ export async function listarRankingCarteiras(filters: DashboardFilters = getDefa
         position: 0,
         walletId: wallet.id,
         wallet: wallet.nome,
-        creditor: buildCreditorName(wallet),
+        creditor: wallet.codigo ? `Codigo ${wallet.codigo}` : "Carteira operacional",
         received,
         officeFees: sumOfficeFees(walletPayments),
         agreements: walletAgreements.length,
@@ -234,64 +229,6 @@ export async function listarRankingCarteiras(filters: DashboardFilters = getDefa
       } satisfies RankingWalletRow;
     })
     .filter((row) => row.received > 0 || row.agreements > 0)
-    .sort((left, right) => right.received - left.received || right.agreements - left.agreements)
-    .map((row, index) => ({
-      ...row,
-      position: index + 1,
-    }));
-}
-
-export async function listarRankingCredores(filters: DashboardFilters = getDefaultFilters()) {
-  const { dataset, payments, agreements } = await filterRankingDataset(filters);
-
-  const creditorKeys = new Map<string, { id: string | null; name: string }>();
-
-  for (const creditor of dataset.creditors) {
-    creditorKeys.set(creditor.nome, {
-      id: creditor.id,
-      name: creditor.nome,
-    });
-  }
-
-  for (const wallet of dataset.wallets) {
-    if (!creditorKeys.has(wallet.credor)) {
-      creditorKeys.set(wallet.credor, {
-        id: wallet.credor_id ?? null,
-        name: wallet.credor,
-      });
-    }
-  }
-
-  return Array.from(creditorKeys.values())
-    .map((creditor) => {
-      const linkedWallets = dataset.wallets.filter(
-        (wallet) =>
-          wallet.credor_id === creditor.id || wallet.credor === creditor.name,
-      );
-      const linkedWalletIds = new Set(linkedWallets.map((wallet) => wallet.id));
-      const creditorPayments = payments.filter((payment) =>
-        payment.carteira_id ? linkedWalletIds.has(payment.carteira_id) : false,
-      );
-      const creditorAgreements = agreements.filter((agreement) =>
-        agreement.carteira_id ? linkedWalletIds.has(agreement.carteira_id) : false,
-      );
-      const received = sumPaymentsValue(creditorPayments);
-
-      return {
-        position: 0,
-        creditorId: creditor.id,
-        creditor: creditor.name,
-        linkedWallets: linkedWallets.length,
-        received,
-        officeFees: sumOfficeFees(creditorPayments),
-        agreements: creditorAgreements.length,
-        writeOffs: creditorPayments.length,
-        novo: sumRevenueType(creditorPayments, "NOVO"),
-        colchao: sumRevenueType(creditorPayments, "COLCHAO"),
-        averageTicket: safeDivide(received, creditorAgreements.length),
-      } satisfies RankingCreditorRow;
-    })
-    .filter((row) => row.received > 0 || row.agreements > 0 || row.linkedWallets > 0)
     .sort((left, right) => right.received - left.received || right.agreements - left.agreements)
     .map((row, index) => ({
       ...row,
@@ -340,14 +277,13 @@ function buildRankingSummary(payments: Payment[], agreements: Agreement[], goals
 export async function getRankingPageData(
   filters: DashboardFilters,
 ): Promise<RankingPageData> {
-  const [{ profile, demoMode, payments, agreements, goals }, options, operatorRanking, teamRanking, walletRanking, creditorRanking] =
+  const [{ profile, demoMode, payments, agreements, goals }, options, operatorRanking, teamRanking, walletRanking] =
     await Promise.all([
       filterRankingDataset(filters),
       buildRankingOptions(),
       listarRankingOperadores(filters),
       listarRankingEquipes(filters),
       listarRankingCarteiras(filters),
-      listarRankingCredores(filters),
     ]);
 
   return {
@@ -358,7 +294,6 @@ export async function getRankingPageData(
     operatorRanking,
     teamRanking,
     walletRanking,
-    creditorRanking,
     demoMode,
   };
 }

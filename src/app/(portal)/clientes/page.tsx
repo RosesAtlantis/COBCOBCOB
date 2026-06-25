@@ -38,9 +38,6 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                   operators={quickCaseData.operators}
                   teams={quickCaseData.teams}
                   wallets={quickCaseData.wallets}
-                  creditors={quickCaseData.creditors}
-                  walletCreditors={quickCaseData.walletCreditors}
-                  canManageCreditors={quickCaseData.canManageCreditors}
                   canManageWallets={quickCaseData.canManageWallets}
                 />
                 <Link

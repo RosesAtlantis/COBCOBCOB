@@ -31,7 +31,7 @@ export default async function AdminSectionPage({
   }
 
   if (section === "credores") {
-    redirect("/credores");
+    redirect("/carteiras");
   }
 
   if (section === "usuarios") {

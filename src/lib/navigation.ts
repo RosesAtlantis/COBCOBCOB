@@ -6,7 +6,6 @@ import {
   FileSpreadsheet,
   Gauge,
   History,
-  Landmark,
   Layers3,
   ListTodo,
   Target,
@@ -120,13 +119,6 @@ const adminOperatorsItem: NavigationItem = {
   matchPrefixes: ["/operadores"],
 };
 
-const creditorsItem: NavigationItem = {
-  title: "Credores",
-  href: "/credores",
-  icon: Landmark,
-  matchPrefixes: ["/credores"],
-};
-
 const adminGoalsItem: NavigationItem = {
   title: "Metas",
   href: "/metas",
@@ -189,7 +181,7 @@ const financeNavigation: NavigationGroup[] = [
   },
   {
     title: "Cadastros",
-    items: [creditorsItem, walletsItem, adminGoalsItem],
+    items: [walletsItem, adminGoalsItem],
   },
   {
     title: "Dados",
@@ -210,7 +202,6 @@ const managementNavigation: NavigationGroup[] = [
     title: "Cadastros",
     items: [
       newClientItem,
-      creditorsItem,
       walletsItem,
       adminOperatorsItem,
       teamsItem,

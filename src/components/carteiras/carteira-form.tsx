@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { ChevronDown, ChevronUp, Loader2, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 
-import { QuickCreateCredorModal } from "@/components/credores/quick-create-credor-modal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,21 +24,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { FilterOption } from "@/types/portal";
 
 export interface CarteiraFormValue {
   id?: string;
   nome: string;
   codigo?: string | null;
   descricao?: string | null;
-  credorId?: string | null;
+  documento?: string | null;
+  telefone?: string | null;
+  email?: string | null;
+  observacao?: string | null;
   ativo?: boolean;
 }
 
 interface CarteiraFormDialogProps {
-  canQuickCreateCreditor?: boolean;
   compact?: boolean;
-  creditors: FilterOption[];
   initialValue?: CarteiraFormValue | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -47,8 +46,7 @@ interface CarteiraFormDialogProps {
     id: string;
     nome: string;
     codigo?: string | null;
-    creditorId?: string | null;
-    creditorName?: string | null;
+    descricao?: string | null;
   }) => void;
   triggerLabel?: string;
   triggerVariant?: "default" | "outline" | "secondary" | "ghost";
@@ -58,7 +56,10 @@ const emptyForm: CarteiraFormValue = {
   nome: "",
   codigo: "",
   descricao: "",
-  credorId: "",
+  documento: "",
+  telefone: "",
+  email: "",
+  observacao: "",
   ativo: true,
 };
 
@@ -68,15 +69,27 @@ function buildFormValue(initialValue?: CarteiraFormValue | null): CarteiraFormVa
     ...initialValue,
     codigo: initialValue?.codigo ?? "",
     descricao: initialValue?.descricao ?? "",
-    credorId: initialValue?.credorId ?? "",
+    documento: initialValue?.documento ?? "",
+    telefone: initialValue?.telefone ?? "",
+    email: initialValue?.email ?? "",
+    observacao: initialValue?.observacao ?? "",
     ativo: initialValue?.ativo ?? true,
   };
 }
 
+function hasExpandedInfo(form: CarteiraFormValue) {
+  return Boolean(
+    form.codigo ||
+      form.descricao ||
+      form.documento ||
+      form.telefone ||
+      form.email ||
+      form.observacao,
+  );
+}
+
 export function CarteiraFormDialog({
-  canQuickCreateCreditor = false,
   compact = false,
-  creditors,
   initialValue,
   open,
   onOpenChange,
@@ -86,23 +99,16 @@ export function CarteiraFormDialog({
 }: CarteiraFormDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [quickCreditorOpen, setQuickCreditorOpen] = useState(false);
   const [form, setForm] = useState<CarteiraFormValue>(() => buildFormValue(initialValue));
-  const [creditorOptions, setCreditorOptions] = useState(creditors);
-  const [showMoreInfo, setShowMoreInfo] = useState(false);
+  const [showMoreInfo, setShowMoreInfo] = useState(hasExpandedInfo(buildFormValue(initialValue)));
 
   const isControlled = typeof open === "boolean";
   const dialogOpen = isControlled ? open : internalOpen;
 
-  const sortedCreditors = useMemo(
-    () => [...creditorOptions].sort((left, right) => left.label.localeCompare(right.label)),
-    [creditorOptions],
-  );
-
   function handleOpenChange(nextOpen: boolean) {
-    setForm(buildFormValue(initialValue));
-    setCreditorOptions(creditors);
-    setShowMoreInfo(Boolean(initialValue?.codigo || initialValue?.descricao));
+    const nextForm = buildFormValue(initialValue);
+    setForm(nextForm);
+    setShowMoreInfo(hasExpandedInfo(nextForm));
 
     if (!isControlled) {
       setInternalOpen(nextOpen);
@@ -125,8 +131,6 @@ export function CarteiraFormDialog({
       void (async () => {
         const method = form.id ? "PATCH" : "POST";
         const endpoint = form.id ? `/api/carteiras/${form.id}` : "/api/carteiras";
-        const selectedCreditor =
-          sortedCreditors.find((option) => option.value === form.credorId) ?? null;
         const response = await fetch(endpoint, {
           method,
           headers: {
@@ -136,8 +140,10 @@ export function CarteiraFormDialog({
             nome: form.nome,
             codigo: form.codigo || null,
             descricao: form.descricao || null,
-            credorId: form.credorId || null,
-            credor: selectedCreditor?.label ?? null,
+            documento: form.documento || null,
+            telefone: form.telefone || null,
+            email: form.email || null,
+            observacao: form.observacao || null,
             ativo: form.ativo ?? true,
           }),
         });
@@ -161,8 +167,7 @@ export function CarteiraFormDialog({
           id: payload.walletId,
           nome: form.nome,
           codigo: form.codigo || null,
-          creditorId: selectedCreditor?.value ?? null,
-          creditorName: selectedCreditor?.label ?? null,
+          descricao: form.descricao || null,
         });
         handleOpenChange(false);
       })();
@@ -170,202 +175,198 @@ export function CarteiraFormDialog({
   }
 
   return (
-    <>
-      <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
-        {!isControlled ? (
-          <DialogTrigger render={<Button variant={triggerVariant} className="rounded-lg" />}>
-            <Plus className="size-4" />
-            {triggerLabel}
-          </DialogTrigger>
-        ) : null}
+    <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
+      {!isControlled ? (
+        <DialogTrigger render={<Button variant={triggerVariant} className="rounded-lg" />}>
+          <Plus className="size-4" />
+          {triggerLabel}
+        </DialogTrigger>
+      ) : null}
 
-        <DialogContent className={compact ? "sm:max-w-md" : "sm:max-w-2xl"}>
-          <DialogHeader>
-            <DialogTitle>{form.id ? "Editar carteira" : "Nova carteira"}</DialogTitle>
-            <DialogDescription>
-              {compact
-                ? "Cadastre a carteira sem sair do fluxo atual."
-                : "Cadastre a carteira com nome obrigatorio, vinculo opcional de credor e status operacional."}
-            </DialogDescription>
-          </DialogHeader>
+      <DialogContent className={compact ? "sm:max-w-lg" : "sm:max-w-3xl"}>
+        <DialogHeader>
+          <DialogTitle>{form.id ? "Editar carteira" : "Nova carteira"}</DialogTitle>
+          <DialogDescription>
+            {compact
+              ? "Cadastre a carteira sem sair do fluxo atual."
+              : "Centralize nome, codigo, contato e status operacional da carteira."}
+          </DialogDescription>
+        </DialogHeader>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className={compact ? "grid gap-4" : "grid gap-4 md:grid-cols-2"}>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="wallet-name">Nome da carteira *</Label>
-                <Input
-                  id="wallet-name"
-                  required
-                  value={form.nome}
-                  onChange={(event) => updateField("nome", event.target.value)}
-                  className="h-11 rounded-lg"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label>Credor</Label>
-                  {canQuickCreateCreditor ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-auto rounded-lg px-2 py-1 text-xs"
-                      onClick={() => setQuickCreditorOpen(true)}
-                    >
-                      <Plus className="size-3.5" />
-                      Novo credor
-                    </Button>
-                  ) : null}
-                </div>
-                <Select
-                  value={form.credorId || "none"}
-                  onValueChange={(value) =>
-                    updateField("credorId", !value || value === "none" ? "" : value)
-                  }
-                >
-                  <SelectTrigger className="h-11 rounded-lg">
-                    <SelectValue placeholder="Nao vincular agora" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nao vincular agora</SelectItem>
-                    {sortedCreditors.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex flex-col">
-                          <span>{option.label}</span>
-                          {option.description ? (
-                            <span className="text-xs text-muted-foreground">
-                              {option.description}
-                            </span>
-                          ) : null}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {compact ? (
-                <div className="rounded-lg border border-border/70 bg-muted/15">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between px-4 py-3 text-left"
-                    onClick={() => setShowMoreInfo((current) => !current)}
-                  >
-                    <span className="text-sm font-medium">Mais informacoes</span>
-                    {showMoreInfo ? (
-                      <ChevronUp className="size-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="size-4 text-muted-foreground" />
-                    )}
-                  </button>
-                  {showMoreInfo ? (
-                    <div className="grid gap-4 border-t border-border/70 px-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="wallet-code">Codigo</Label>
-                        <Input
-                          id="wallet-code"
-                          value={form.codigo ?? ""}
-                          onChange={(event) => updateField("codigo", event.target.value)}
-                          className="h-11 rounded-lg"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="wallet-description">Descricao</Label>
-                        <Textarea
-                          id="wallet-description"
-                          value={form.descricao ?? ""}
-                          onChange={(event) => updateField("descricao", event.target.value)}
-                          className="min-h-24 rounded-lg"
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="wallet-code">Codigo</Label>
-                    <Input
-                      id="wallet-code"
-                      value={form.codigo ?? ""}
-                      onChange={(event) => updateField("codigo", event.target.value)}
-                      className="h-11 rounded-lg"
-                    />
-                  </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="wallet-description">Descricao</Label>
-                    <Textarea
-                      id="wallet-description"
-                      value={form.descricao ?? ""}
-                      onChange={(event) => updateField("descricao", event.target.value)}
-                      className="min-h-24 rounded-lg"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Status</Label>
-                    <Select
-                      value={form.ativo ? "ativo" : "inativo"}
-                      onValueChange={(value) => updateField("ativo", value === "ativo")}
-                    >
-                      <SelectTrigger className="h-11 rounded-lg">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ativo">Ativa</SelectItem>
-                        <SelectItem value="inativo">Inativa</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div className={compact ? "grid gap-4" : "grid gap-4 md:grid-cols-2"}>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="wallet-name">Nome da carteira *</Label>
+              <Input
+                id="wallet-name"
+                required
+                value={form.nome}
+                onChange={(event) => updateField("nome", event.target.value)}
+                className="h-11 rounded-lg"
+              />
             </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-lg"
-                onClick={() => handleOpenChange(false)}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" className="rounded-lg" disabled={isPending}>
-                {isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Save className="size-4" />
-                )}
-                {form.id ? "Salvar alteracoes" : "Salvar carteira"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            {compact ? (
+              <div className="rounded-lg border border-border/70 bg-muted/15">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-4 py-3 text-left"
+                  onClick={() => setShowMoreInfo((current) => !current)}
+                >
+                  <span className="text-sm font-medium">Mais informacoes</span>
+                  {showMoreInfo ? (
+                    <ChevronUp className="size-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="size-4 text-muted-foreground" />
+                  )}
+                </button>
+                {showMoreInfo ? (
+                  <div className="grid gap-4 border-t border-border/70 px-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="wallet-code">Codigo</Label>
+                      <Input
+                        id="wallet-code"
+                        value={form.codigo ?? ""}
+                        onChange={(event) => updateField("codigo", event.target.value)}
+                        className="h-11 rounded-lg"
+                      />
+                    </div>
 
-      {canQuickCreateCreditor ? (
-        <QuickCreateCredorModal
-          open={quickCreditorOpen}
-          onOpenChange={setQuickCreditorOpen}
-          onCreated={(creditor) => {
-            setCreditorOptions((current) => {
-              const next = current.filter((option) => option.value !== creditor.id);
-              next.push({
-                value: creditor.id,
-                label: creditor.nome,
-                description: creditor.codigo ?? undefined,
-              });
-              return next;
-            });
-            setForm((current) => ({
-              ...current,
-              credorId: creditor.id,
-            }));
-          }}
-        />
-      ) : null}
-    </>
+                    <div className="space-y-2">
+                      <Label htmlFor="wallet-document">Documento</Label>
+                      <Input
+                        id="wallet-document"
+                        value={form.documento ?? ""}
+                        onChange={(event) => updateField("documento", event.target.value)}
+                        className="h-11 rounded-lg"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="wallet-phone">Telefone</Label>
+                      <Input
+                        id="wallet-phone"
+                        value={form.telefone ?? ""}
+                        onChange={(event) => updateField("telefone", event.target.value)}
+                        className="h-11 rounded-lg"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="wallet-email">E-mail</Label>
+                      <Input
+                        id="wallet-email"
+                        type="email"
+                        value={form.email ?? ""}
+                        onChange={(event) => updateField("email", event.target.value)}
+                        className="h-11 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="wallet-code">Codigo</Label>
+                  <Input
+                    id="wallet-code"
+                    value={form.codigo ?? ""}
+                    onChange={(event) => updateField("codigo", event.target.value)}
+                    className="h-11 rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="wallet-document">Documento</Label>
+                  <Input
+                    id="wallet-document"
+                    value={form.documento ?? ""}
+                    onChange={(event) => updateField("documento", event.target.value)}
+                    className="h-11 rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="wallet-phone">Telefone</Label>
+                  <Input
+                    id="wallet-phone"
+                    value={form.telefone ?? ""}
+                    onChange={(event) => updateField("telefone", event.target.value)}
+                    className="h-11 rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="wallet-email">E-mail</Label>
+                  <Input
+                    id="wallet-email"
+                    type="email"
+                    value={form.email ?? ""}
+                    onChange={(event) => updateField("email", event.target.value)}
+                    className="h-11 rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="wallet-description">Descricao</Label>
+                  <Textarea
+                    id="wallet-description"
+                    value={form.descricao ?? ""}
+                    onChange={(event) => updateField("descricao", event.target.value)}
+                    className="min-h-24 rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="wallet-note">Observacao</Label>
+                  <Textarea
+                    id="wallet-note"
+                    value={form.observacao ?? ""}
+                    onChange={(event) => updateField("observacao", event.target.value)}
+                    className="min-h-24 rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select
+                    value={form.ativo ? "ativo" : "inativo"}
+                    onValueChange={(value) => updateField("ativo", value === "ativo")}
+                  >
+                    <SelectTrigger className="h-11 rounded-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ativo">Ativa</SelectItem>
+                      <SelectItem value="inativo">Inativa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-lg"
+              onClick={() => handleOpenChange(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className="rounded-lg" disabled={isPending}>
+              {isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Save className="size-4" />
+              )}
+              {form.id ? "Salvar alteracoes" : "Salvar carteira"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

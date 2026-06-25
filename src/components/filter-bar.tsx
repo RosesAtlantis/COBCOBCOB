@@ -43,7 +43,7 @@ export function FilterBar({
   showOperatorFilter = true,
   showTeamFilter = true,
   showWalletFilter = true,
-  showCreditorFilter = true,
+  showCreditorFilter = false,
 }: FilterBarProps) {
   const router = useRouter();
   const pathname = usePathname();

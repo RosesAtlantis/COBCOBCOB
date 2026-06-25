@@ -37,7 +37,10 @@ function toFormValue(row: WalletRegistryRow): CarteiraFormValue {
     nome: row.nome,
     codigo: row.codigo ?? "",
     descricao: row.descricao ?? "",
-    credorId: row.credor_id ?? "",
+    documento: row.documento ?? "",
+    telefone: row.telefone ?? "",
+    email: row.email ?? "",
+    observacao: row.observacao ?? "",
     ativo: row.ativo,
   };
 }
@@ -63,7 +66,10 @@ export function CarteirasPageClient({
           row.nome,
           row.codigo,
           row.descricao,
-          row.creditorName,
+          row.documento,
+          row.telefone,
+          row.email,
+          row.observacao,
           row.ativo ? "ativo" : "inativo",
         ]
           .filter(Boolean)
@@ -106,16 +112,11 @@ export function CarteirasPageClient({
       <CadastroHeader
         eyebrow="Cadastros"
         title="Carteiras"
-        description="Cadastre carteiras manualmente, vincule credores e mantenha a base operacional pronta para novos casos e contratos."
+        description="Cadastre carteiras manualmente e mantenha o cadastro operacional pronto para novos casos, contratos e filtros."
         actions={
           <>
             {initialData.canManage ? (
-              <CarteiraFormDialog
-                creditors={initialData.creditors}
-                canQuickCreateCreditor={initialData.canManage}
-                onSaved={refreshPage}
-                triggerLabel="Nova carteira"
-              />
+              <CarteiraFormDialog onSaved={refreshPage} triggerLabel="Nova carteira" />
             ) : null}
             {initialData.demoMode ? (
               <Badge variant="outline" className="rounded-md px-3 py-1">
@@ -144,7 +145,7 @@ export function CarteirasPageClient({
             <div>
               <p className="text-sm font-semibold">Pesquisa rapida</p>
               <p className="text-sm text-muted-foreground">
-                Busque por nome, codigo, descricao ou credor vinculado.
+                Busque por nome, codigo, documento, contato ou anotacoes.
               </p>
             </div>
             <div className="relative w-full max-w-md">
@@ -178,13 +179,25 @@ export function CarteirasPageClient({
             ),
           },
           {
-            key: "credor",
-            header: "Credor",
+            key: "contato",
+            header: "Contato",
             render: (row) => (
               <div className="space-y-1">
-                <p className="text-sm">{row.creditorName}</p>
+                <p className="text-sm">{row.telefone ?? "Sem telefone cadastrado"}</p>
                 <p className="text-xs text-muted-foreground">
-                  {row.descricao ?? "Sem descricao adicional"}
+                  {row.email ?? "Sem e-mail cadastrado"}
+                </p>
+              </div>
+            ),
+          },
+          {
+            key: "dados",
+            header: "Dados",
+            render: (row) => (
+              <div className="space-y-1 text-sm">
+                <p>{row.documento ?? "Sem documento cadastrado"}</p>
+                <p className="text-muted-foreground">
+                  {row.descricao ?? row.observacao ?? "Sem observacoes adicionais"}
                 </p>
               </div>
             ),
@@ -276,8 +289,6 @@ export function CarteirasPageClient({
           }
         }}
         initialValue={editing ? toFormValue(editing) : null}
-        creditors={initialData.creditors}
-        canQuickCreateCreditor={initialData.canManage}
         onSaved={() => {
           setEditing(null);
           router.refresh();

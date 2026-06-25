@@ -33,12 +33,10 @@ export interface MetaFormValue {
   operadorId?: string | null;
   equipeId?: string | null;
   carteiraId?: string | null;
-  credorId?: string | null;
   ativo?: boolean;
 }
 
 interface MetaFormDialogProps {
-  creditors: FilterOption[];
   initialValue?: MetaFormValue | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -59,7 +57,6 @@ const emptyForm: MetaFormValue = {
   operadorId: "",
   equipeId: "",
   carteiraId: "",
-  credorId: "",
   ativo: true,
 };
 
@@ -71,7 +68,6 @@ function buildFormValue(initialValue?: MetaFormValue | null): MetaFormValue {
     operadorId: initialValue?.operadorId ?? "",
     equipeId: initialValue?.equipeId ?? "",
     carteiraId: initialValue?.carteiraId ?? "",
-    credorId: initialValue?.credorId ?? "",
     ativo: initialValue?.ativo ?? true,
   };
 }
@@ -92,7 +88,6 @@ const monthOptions = [
 ];
 
 export function MetaFormDialog({
-  creditors,
   initialValue,
   open,
   onOpenChange,
@@ -146,7 +141,6 @@ export function MetaFormDialog({
             operadorId: form.operadorId || null,
             equipeId: form.equipeId || null,
             carteiraId: form.carteiraId || null,
-            credorId: form.credorId || null,
             ativo: form.ativo ?? true,
           }),
         });
@@ -309,36 +303,6 @@ export function MetaFormDialog({
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <Label>Credor</Label>
-              <Select
-                value={form.credorId || "none"}
-                onValueChange={(value) =>
-                  updateField("credorId", !value || value === "none" ? "" : value)
-                }
-              >
-                <SelectTrigger className="h-11 rounded-lg">
-                  <SelectValue placeholder="Opcional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nao definir</SelectItem>
-                  {creditors.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <div className="flex flex-col">
-                        <span>{option.label}</span>
-                        {option.description ? (
-                          <span className="text-xs text-muted-foreground">
-                            {option.description}
-                          </span>
-                        ) : null}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="space-y-2">
               <Label>Status</Label>
               <Select

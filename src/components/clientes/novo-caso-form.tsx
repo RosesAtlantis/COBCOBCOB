@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -13,7 +13,6 @@ import {
 import { toast } from "sonner";
 
 import { QuickCreateCarteiraModal } from "@/components/carteiras/quick-create-carteira-modal";
-import { QuickCreateCredorModal } from "@/components/credores/quick-create-credor-modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -37,50 +36,10 @@ interface ExistingClientPreview {
   cpfCnpj: string;
 }
 
-interface WalletCreditorMap {
-  walletId: string;
-  creditorId: string | null;
-  creditorName: string | null;
-}
-
-function resolveCreditorOptionValue(
-  walletId: string,
-  options: FilterOption[],
-  walletCreditorByWallet: Map<
-    string,
-    {
-      creditorId: string | null;
-      creditorName: string | null;
-    }
-  >,
-) {
-  if (!walletId) {
-    return "";
-  }
-
-  const walletMatch = walletCreditorByWallet.get(walletId);
-
-  if (!walletMatch?.creditorId && !walletMatch?.creditorName) {
-    return "";
-  }
-
-  const creditorById = walletMatch.creditorId
-    ? options.find((option) => option.value === walletMatch.creditorId)
-    : null;
-  const creditorByName = walletMatch.creditorName
-    ? options.find((option) => option.label === walletMatch.creditorName)
-    : null;
-
-  return creditorById?.value ?? creditorByName?.value ?? "";
-}
-
 interface NovoCasoFormProps {
   operators: FilterOption[];
   teams: FilterOption[];
   wallets: FilterOption[];
-  creditors: FilterOption[];
-  walletCreditors: WalletCreditorMap[];
-  canManageCreditors?: boolean;
   canManageWallets?: boolean;
   mode?: "page" | "dialog";
   onCancelled?: () => void;
@@ -99,7 +58,6 @@ const emptyForm = {
   nome: "",
   cpfCnpj: "",
   carteiraId: "",
-  credorId: "",
   telefone: "",
   email: "",
   operadorId: "",
@@ -114,9 +72,6 @@ export function NovoCasoForm({
   operators,
   teams,
   wallets,
-  creditors,
-  walletCreditors,
-  canManageCreditors = false,
   canManageWallets = false,
   mode = "page",
   onCancelled,
@@ -130,46 +85,14 @@ export function NovoCasoForm({
   const [showInitialContract, setShowInitialContract] = useState(mode === "page");
   const [showMoreInfo, setShowMoreInfo] = useState(mode === "page");
   const [existingClient, setExistingClient] = useState<ExistingClientPreview | null>(null);
-  const [creditorDialogOpen, setCreditorDialogOpen] = useState(false);
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<SubmitIntent | null>(null);
-  const [creditorOptions, setCreditorOptions] = useState(creditors);
   const [walletOptions, setWalletOptions] = useState(wallets);
-
-  const walletCreditorByWallet = useMemo(
-    () =>
-      new Map(
-        walletCreditors.map((item) => [
-          item.walletId,
-          {
-            creditorId: item.creditorId,
-            creditorName: item.creditorName,
-          },
-        ]),
-      ),
-    [walletCreditors],
-  );
   const defaultWalletId = walletOptions[0]?.value ?? "";
-  const defaultCreditorId = resolveCreditorOptionValue(
-    defaultWalletId,
-    creditors,
-    walletCreditorByWallet,
-  );
   const [form, setForm] = useState(() => ({
     ...emptyForm,
     carteiraId: defaultWalletId,
-    credorId: defaultCreditorId,
   }));
-
-  const selectedWallet = useMemo(
-    () => walletOptions.find((wallet) => wallet.value === form.carteiraId) ?? null,
-    [form.carteiraId, walletOptions],
-  );
-
-  const selectedCreditor = useMemo(
-    () => creditorOptions.find((option) => option.value === form.credorId) ?? null,
-    [creditorOptions, form.credorId],
-  );
 
   function updateField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -235,16 +158,10 @@ export function NovoCasoForm({
 
   function handleWalletChange(value: string | null) {
     const nextWalletId = !value || value === "none" ? "" : value;
-    const nextCreditorId = resolveCreditorOptionValue(
-      nextWalletId,
-      creditorOptions,
-      walletCreditorByWallet,
-    );
 
     setForm((current) => ({
       ...current,
       carteiraId: nextWalletId,
-      credorId: nextCreditorId,
     }));
   }
 
@@ -287,8 +204,6 @@ export function NovoCasoForm({
               nome: form.nome,
               cpfCnpj: form.cpfCnpj,
               carteiraId: form.carteiraId,
-              credorId: form.credorId || null,
-              credor: selectedCreditor?.label ?? null,
               telefone: form.telefone || null,
               email: form.email || null,
               operadorId: form.operadorId || null,
@@ -466,7 +381,7 @@ export function NovoCasoForm({
             <div>
               <CardTitle>Mais informacoes</CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                Credor e dados complementares podem ser preenchidos agora ou depois.
+                Contatos e contexto complementar podem ser preenchidos agora ou depois.
               </p>
             </div>
             {showMoreInfo ? (
@@ -478,51 +393,6 @@ export function NovoCasoForm({
         </CardHeader>
         {showMoreInfo ? (
           <CardContent className="grid gap-4 pt-5 md:grid-cols-2 xl:grid-cols-4">
-            <div className={mode === "dialog" ? "space-y-2 md:col-span-2 xl:col-span-4" : "space-y-2 xl:col-span-2"}>
-              <div className="flex items-center justify-between gap-3">
-                <Label>Credor</Label>
-                {canManageCreditors ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-auto rounded-lg px-2 py-1 text-xs"
-                    onClick={() => setCreditorDialogOpen(true)}
-                  >
-                    <Plus className="size-3.5" />
-                    Novo credor
-                  </Button>
-                ) : null}
-              </div>
-              <Select
-                value={form.credorId || "none"}
-                onValueChange={(value) =>
-                  updateField("credorId", !value || value === "none" ? "" : value)
-                }
-              >
-                <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                  <SelectValue placeholder="Nao informar agora" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nao informar agora</SelectItem>
-                  {creditorOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <div className="flex flex-col">
-                        <span>{option.label}</span>
-                        {option.description ? (
-                          <span className="text-xs text-muted-foreground">{option.description}</span>
-                        ) : null}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedWallet?.description ? (
-                <p className="text-xs text-muted-foreground">
-                  Credor sugerido pela carteira: {selectedWallet.description}
-                </p>
-              ) : null}
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="telefone">Telefone</Label>
               <Input
@@ -714,48 +584,23 @@ export function NovoCasoForm({
         </Button>
       </div>
 
-      {canManageCreditors ? (
-        <QuickCreateCredorModal
-          open={creditorDialogOpen}
-          onOpenChange={setCreditorDialogOpen}
-          onCreated={(creditor) => {
-            setCreditorOptions((current) => {
-              const next = current.filter((option) => option.value !== creditor.id);
-              next.push({
-                value: creditor.id,
-                label: creditor.nome,
-                description: creditor.codigo ?? undefined,
-              });
-              return next.sort((left, right) => left.label.localeCompare(right.label));
-            });
-            setForm((current) => ({
-              ...current,
-              credorId: creditor.id,
-            }));
-          }}
-        />
-      ) : null}
-
       {canManageWallets ? (
         <QuickCreateCarteiraModal
           open={walletDialogOpen}
           onOpenChange={setWalletDialogOpen}
-          creditors={creditorOptions}
-          canQuickCreateCreditor={canManageCreditors}
           onCreated={(wallet) => {
             setWalletOptions((current) => {
               const next = current.filter((option) => option.value !== wallet.id);
               next.push({
                 value: wallet.id,
                 label: wallet.nome,
-                description: wallet.creditorName ?? undefined,
+                description: wallet.codigo ?? undefined,
               });
               return next.sort((left, right) => left.label.localeCompare(right.label));
             });
             setForm((current) => ({
               ...current,
               carteiraId: wallet.id,
-              credorId: wallet.creditorId ?? current.credorId,
             }));
           }}
         />

@@ -26,12 +26,7 @@ const sections = [
   {
     href: "/carteiras",
     title: "Carteiras",
-    description: "Carteiras, credores e visibilidade financeira.",
-  },
-  {
-    href: "/credores",
-    title: "Credores",
-    description: "Cadastro mestre dos credores atendidos.",
+    description: "Cadastro operacional central das carteiras e seus dados de contato.",
   },
   {
     href: "/clientes",

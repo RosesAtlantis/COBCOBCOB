@@ -88,7 +88,7 @@ export function AcordosFilters({ filters, options }: AcordosFiltersProps) {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div className="space-y-2 md:col-span-2 xl:col-span-2">
             <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Busca
@@ -179,32 +179,6 @@ export function AcordosFilters({ filters, options }: AcordosFiltersProps) {
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
                 {options.wallets.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Credor
-            </Label>
-            <Select
-              value={localFilters.creditor ?? "all"}
-              onValueChange={(value) =>
-                updateFilter({
-                  creditor: value && value !== "all" ? value : undefined,
-                })
-              }
-            >
-              <SelectTrigger className={controlClassName}>
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {options.creditors.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
