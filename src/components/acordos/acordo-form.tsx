@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, RefreshCcw } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -85,6 +85,15 @@ function buildAgreementModeLabel(mode: AgreementMode) {
   return "Parcelado";
 }
 
+function buildFlowContractState(walletId: string, creditor?: string | null) {
+  return {
+    numeroContrato: "",
+    carteiraId: walletId,
+    credor: creditor ?? "",
+    valorEmAberto: "",
+  };
+}
+
 export function AcordoForm({
   client,
   contracts,
@@ -124,6 +133,13 @@ export function AcordoForm({
   const [paymentMethod, setPaymentMethod] = useState("Boleto");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState("ativo");
+  const [createContractNow, setCreateContractNow] = useState(false);
+  const [flowContract, setFlowContract] = useState(() =>
+    buildFlowContractState(
+      findOptionValue(wallets, defaultContract?.carteira_id, null),
+      defaultContract?.credor ?? wallets[0]?.description ?? "",
+    ),
+  );
   const [parcelDrafts, setParcelDrafts] = useState<AgreementInstallmentDraft[]>([]);
   const [hasManualAdjustments, setHasManualAdjustments] = useState(false);
 
@@ -181,15 +197,17 @@ export function AcordoForm({
   const honorariosPrevistos = percentualHonorariosNumber
     ? roundCurrency((agreementValueNumber * percentualHonorariosNumber) / 100)
     : 0;
+  const shouldShowCreateContractPrompt = !contractId;
 
   function resetForm(nextContract: ClientContractRow | null = defaultContract) {
     const nextOpenValue = String(
       nextContract?.valor_em_aberto ?? nextContract?.valor_original ?? 0,
     );
+    const nextWalletId = findOptionValue(wallets, nextContract?.carteira_id, null);
 
     setAgreementMode("parcelado");
     setContractId(nextContract?.id ?? "");
-    setWalletId(findOptionValue(wallets, nextContract?.carteira_id, null));
+    setWalletId(nextWalletId);
     setOperatorId(
       findOptionValue(operators, client.operador_id, nextContract?.operador_id ?? null),
     );
@@ -206,6 +224,13 @@ export function AcordoForm({
     setPaymentMethod("Boleto");
     setNote("");
     setStatus("ativo");
+    setCreateContractNow(false);
+    setFlowContract(
+      buildFlowContractState(
+        nextWalletId,
+        nextContract?.credor ?? wallets.find((wallet) => wallet.value === nextWalletId)?.description ?? "",
+      ),
+    );
     setHasManualAdjustments(false);
     setParcelDrafts([]);
   }
@@ -232,6 +257,13 @@ export function AcordoForm({
 
     setOriginalValue(String(nextContract.valor_original));
     setAgreementValue(String(nextContract.valor_em_aberto || nextContract.valor_original));
+    setCreateContractNow(false);
+    setFlowContract(
+      buildFlowContractState(
+        nextContract.carteira_id ?? walletId,
+        nextContract.credor ?? wallets.find((wallet) => wallet.value === nextContract.carteira_id)?.description ?? "",
+      ),
+    );
     setHasManualAdjustments(false);
   }
 
@@ -267,6 +299,12 @@ export function AcordoForm({
         currentIndex === index ? { ...installment, ...patch } : installment,
       );
     });
+  }
+
+  function updateFlowContract(
+    patch: Partial<typeof flowContract>,
+  ) {
+    setFlowContract((current) => ({ ...current, ...patch }));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -325,6 +363,26 @@ export function AcordoForm({
       return;
     }
 
+    if (createContractNow) {
+      if (!flowContract.numeroContrato.trim()) {
+        toast.error("Informe o numero do contrato para continuar.");
+        return;
+      }
+
+      if (!flowContract.carteiraId) {
+        toast.error("Selecione a carteira do novo contrato.");
+        return;
+      }
+
+      if (
+        !Number.isFinite(Number(flowContract.valorEmAberto)) ||
+        Number(flowContract.valorEmAberto) <= 0
+      ) {
+        toast.error("Informe um valor em aberto valido para o novo contrato.");
+        return;
+      }
+    }
+
     const invalidInstallment = displayedParcelDrafts.find(
       (installment) =>
         !installment.dataVencimento ||
@@ -366,6 +424,20 @@ export function AcordoForm({
             formaPagamento: paymentMethod || null,
             observacao: note || null,
             status,
+            criarContratoAgora: createContractNow,
+            novoContrato: createContractNow
+              ? {
+                  numeroContrato: flowContract.numeroContrato,
+                  carteiraId: flowContract.carteiraId,
+                  credor: flowContract.credor || null,
+                  valorEmAberto: Number(flowContract.valorEmAberto),
+                  valorOriginal: originalValueNumber,
+                  operadorId: operatorId || null,
+                  equipeId: teamId || null,
+                  observacao: note || null,
+                  status: "em_acordo",
+                }
+              : null,
             parcelasCustomizadas: displayedParcelDrafts.map((installment, index) => ({
               numeroParcela: index + 1,
               tipo: installment.tipo,
@@ -505,11 +577,132 @@ export function AcordoForm({
                 </Select>
               </div>
 
+              {shouldShowCreateContractPrompt ? (
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 xl:col-span-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="size-4 text-amber-600" />
+                        <p className="text-sm font-semibold">
+                          Cliente sem contrato vinculado neste acordo
+                        </p>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Voce pode salvar o acordo sem contrato ou criar um
+                        contrato minimo agora para deixar o fluxo completo desde a origem.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant={createContractNow ? "default" : "outline"}
+                      className="rounded-lg"
+                      onClick={() => {
+                        setCreateContractNow((current) => !current);
+                        setFlowContract((current) => ({
+                          ...current,
+                          carteiraId: current.carteiraId || walletId,
+                          credor:
+                            current.credor ||
+                            wallets.find((wallet) => wallet.value === (current.carteiraId || walletId))
+                              ?.description ||
+                            "",
+                        }));
+                      }}
+                    >
+                      {createContractNow ? "Remover contrato em fluxo" : "Criar contrato agora"}
+                    </Button>
+                  </div>
+
+                  {createContractNow ? (
+                    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="space-y-2 xl:col-span-2">
+                        <Label htmlFor="flowContractNumber">Numero do contrato</Label>
+                        <Input
+                          id="flowContractNumber"
+                          value={flowContract.numeroContrato}
+                          onChange={(event) =>
+                            updateFlowContract({ numeroContrato: event.target.value })
+                          }
+                          className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="flowContractWallet">Carteira</Label>
+                        <Select
+                          value={flowContract.carteiraId || "none"}
+                          onValueChange={(value) => {
+                            const nextWalletId = !value || value === "none" ? "" : value;
+                            const nextWallet = wallets.find((wallet) => wallet.value === nextWalletId);
+
+                            updateFlowContract({
+                              carteiraId: nextWalletId,
+                              credor: flowContract.credor || nextWallet?.description || "",
+                            });
+                          }}
+                        >
+                          <SelectTrigger
+                            id="flowContractWallet"
+                            className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                          >
+                            <SelectValue placeholder="Selecione a carteira" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Selecione</SelectItem>
+                            {wallets.map((wallet) => (
+                              <SelectItem key={wallet.value} value={wallet.value}>
+                                {wallet.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="flowContractCreditor">Credor</Label>
+                        <Input
+                          id="flowContractCreditor"
+                          value={flowContract.credor}
+                          onChange={(event) =>
+                            updateFlowContract({ credor: event.target.value })
+                          }
+                          className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="flowContractOpenValue">Valor em aberto</Label>
+                        <Input
+                          id="flowContractOpenValue"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={flowContract.valorEmAberto}
+                          onChange={(event) =>
+                            updateFlowContract({ valorEmAberto: event.target.value })
+                          }
+                          className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="space-y-2">
                 <Label htmlFor="walletId">Carteira</Label>
                 <Select
                   value={walletId || "none"}
-                  onValueChange={(value) => setWalletId(!value || value === "none" ? "" : value)}
+                  onValueChange={(value) => {
+                    const nextWalletId = !value || value === "none" ? "" : value;
+                    const nextWallet = wallets.find((wallet) => wallet.value === nextWalletId);
+
+                    setWalletId(nextWalletId);
+
+                    if (createContractNow) {
+                      updateFlowContract({
+                        carteiraId: flowContract.carteiraId || nextWalletId,
+                        credor: flowContract.credor || nextWallet?.description || "",
+                      });
+                    }
+                  }}
                 >
                   <SelectTrigger id="walletId" className="h-11 rounded-lg border-border/70 bg-background shadow-none">
                     <SelectValue placeholder="Selecione a carteira" />

@@ -35,6 +35,15 @@ export function parseDashboardFilters(searchParams: SearchParamsLike) {
     operatorId: readSearchParam(searchParams, "operador") || undefined,
     walletId: readSearchParam(searchParams, "carteira") || undefined,
     creditor: readSearchParam(searchParams, "credor") || undefined,
+    revenueType:
+      (readSearchParam(searchParams, "tipoReceita") as DashboardFilters["revenueType"]) ||
+      undefined,
+    agreementStatus:
+      (readSearchParam(searchParams, "statusAcordo") as DashboardFilters["agreementStatus"]) ||
+      undefined,
+    rankingView:
+      (readSearchParam(searchParams, "visao") as DashboardFilters["rankingView"]) ||
+      undefined,
   };
 
   return filters;
@@ -88,6 +97,18 @@ export function createSearchParams(filters: DashboardFilters) {
 
   if (filters.creditor) {
     params.set("credor", filters.creditor);
+  }
+
+  if (filters.revenueType) {
+    params.set("tipoReceita", filters.revenueType);
+  }
+
+  if (filters.agreementStatus) {
+    params.set("statusAcordo", filters.agreementStatus);
+  }
+
+  if (filters.rankingView) {
+    params.set("visao", filters.rankingView);
   }
 
   return params;

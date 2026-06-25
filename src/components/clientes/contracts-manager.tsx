@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Edit3, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";
+import { QuickCreateCredorModal } from "@/components/credores/quick-create-credor-modal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,14 +40,22 @@ interface ContractsManagerProps {
   clientId: string;
   contracts: ClientContractRow[];
   wallets: FilterOption[];
+  creditors: FilterOption[];
   operators: FilterOption[];
   teams: FilterOption[];
+  preferredWalletId?: string | null;
   canEdit: boolean;
+  canManageCreditors?: boolean;
 }
 
-function buildInitialForm(contract: ClientContractRow | null) {
+function buildInitialForm(
+  contract: ClientContractRow | null,
+  preferredWalletId?: string | null,
+  creditorId?: string,
+) {
   return {
-    carteiraId: contract?.carteira_id ?? "",
+    carteiraId: contract?.carteira_id ?? preferredWalletId ?? "",
+    credorId: creditorId ?? "",
     credor: contract?.credor ?? "",
     numeroContrato: contract?.numero_contrato ?? "",
     valorOriginal: String(contract?.valor_original ?? 0),
@@ -60,29 +69,111 @@ function buildInitialForm(contract: ClientContractRow | null) {
   };
 }
 
+function resolveCreditorIdFromWallet(
+  walletId: string | null | undefined,
+  wallets: FilterOption[],
+  creditors: FilterOption[],
+) {
+  if (!walletId) {
+    return "";
+  }
+
+  const wallet = wallets.find((item) => item.value === walletId);
+
+  if (!wallet?.description) {
+    return "";
+  }
+
+  return creditors.find((item) => item.label === wallet.description)?.value ?? "";
+}
+
+function resolveInitialCreditorId(
+  contract: ClientContractRow | null,
+  creditors: FilterOption[],
+) {
+  if (!contract) {
+    return "";
+  }
+
+  if (contract.credor_id) {
+    const byId = creditors.find((item) => item.value === contract.credor_id);
+
+    if (byId) {
+      return byId.value;
+    }
+  }
+
+  if (contract.credor) {
+    const byName = creditors.find((item) => item.label === contract.credor);
+
+    if (byName) {
+      return byName.value;
+    }
+  }
+
+  return "";
+}
+
 export function ContractsManager({
   clientId,
   contracts,
   wallets,
+  creditors,
   operators,
   teams,
+  preferredWalletId,
   canEdit,
+  canManageCreditors = false,
 }: ContractsManagerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedContract, setSelectedContract] = useState<ClientContractRow | null>(null);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(buildInitialForm(null));
+  const [quickCreditorOpen, setQuickCreditorOpen] = useState(false);
+  const [creditorOptions, setCreditorOptions] = useState(creditors);
+  const sortedCreditors = useMemo(
+    () => [...creditorOptions].sort((left, right) => left.label.localeCompare(right.label)),
+    [creditorOptions],
+  );
+  const [form, setForm] = useState(() =>
+    buildInitialForm(
+      null,
+      preferredWalletId,
+      resolveCreditorIdFromWallet(preferredWalletId, wallets, creditors),
+    ),
+  );
+
+  const selectedWallet = useMemo(
+    () => wallets.find((wallet) => wallet.value === form.carteiraId) ?? null,
+    [form.carteiraId, wallets],
+  );
+
+  const selectedCreditor = useMemo(
+    () => sortedCreditors.find((creditor) => creditor.value === form.credorId) ?? null,
+    [form.credorId, sortedCreditors],
+  );
 
   function openCreate() {
     setSelectedContract(null);
-    setForm(buildInitialForm(null));
+    setForm(
+      buildInitialForm(
+        null,
+        preferredWalletId,
+        resolveCreditorIdFromWallet(preferredWalletId, wallets, creditorOptions),
+      ),
+    );
     setOpen(true);
   }
 
   function openEdit(contract: ClientContractRow) {
     setSelectedContract(contract);
-    setForm(buildInitialForm(contract));
+    setForm(
+      buildInitialForm(
+        contract,
+        preferredWalletId,
+        resolveInitialCreditorId(contract, creditorOptions),
+      ),
+    );
     setOpen(true);
   }
 
@@ -91,6 +182,24 @@ export function ContractsManager({
     value: (typeof form)[K] | null,
   ) {
     setForm((current) => ({ ...current, [key]: (value ?? "") as (typeof form)[K] }));
+  }
+
+  function handleWalletChange(value: string | null) {
+    const nextWalletId = !value || value === "none" ? "" : value;
+    const nextCreditorId = resolveCreditorIdFromWallet(
+      nextWalletId,
+      wallets,
+      creditorOptions,
+    );
+    const nextCreditor =
+      sortedCreditors.find((option) => option.value === nextCreditorId)?.label ?? "";
+
+    setForm((current) => ({
+      ...current,
+      carteiraId: nextWalletId,
+      credorId: nextCreditorId || current.credorId,
+      credor: nextCreditor || current.credor,
+    }));
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -108,7 +217,8 @@ export function ContractsManager({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             carteiraId: form.carteiraId || null,
-            credor: form.credor || null,
+            credorId: form.credorId || null,
+            credor: (selectedCreditor?.label ?? form.credor) || null,
             numeroContrato: form.numeroContrato,
             valorOriginal: Number(form.valorOriginal || 0),
             valorEmAberto: Number(form.valorEmAberto || 0),
@@ -155,7 +265,7 @@ export function ContractsManager({
         {canEdit ? (
           <Button type="button" variant="outline" className="rounded-lg" onClick={openCreate}>
             <Plus className="size-4" />
-            Novo contrato
+            Adicionar contrato
           </Button>
         ) : null}
       </div>
@@ -249,27 +359,24 @@ export function ContractsManager({
             <DialogTitle>{selectedContract ? "Editar contrato" : "Novo contrato"}</DialogTitle>
             <DialogDescription>
               Atualize saldo, vinculos e dados contratuais com auditoria automatica.
+              {selectedContract ? "" : " A carteira principal ja vem sugerida para acelerar o cadastro."}
             </DialogDescription>
           </DialogHeader>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-2">
-                <Label>Contrato</Label>
+                <Label>Contrato *</Label>
                 <Input
+                  required
                   value={form.numeroContrato}
                   onChange={(event) => updateField("numeroContrato", event.target.value)}
                   className="h-11 rounded-lg border-border/70 bg-background shadow-none"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Carteira</Label>
-                <Select
-                  value={form.carteiraId || "none"}
-                  onValueChange={(value) =>
-                    updateField("carteiraId", !value || value === "none" ? "" : value)
-                  }
-                >
+                <Label>Carteira *</Label>
+                <Select value={form.carteiraId || "none"} onValueChange={handleWalletChange}>
                   <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
@@ -284,12 +391,58 @@ export function ContractsManager({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Credor</Label>
-                <Input
-                  value={form.credor}
-                  onChange={(event) => updateField("credor", event.target.value)}
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
+                <div className="flex items-center justify-between gap-3">
+                  <Label>Credor</Label>
+                  {canManageCreditors ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-auto rounded-lg px-2 py-1 text-xs"
+                      onClick={() => setQuickCreditorOpen(true)}
+                    >
+                      <Plus className="size-3.5" />
+                      Novo credor
+                    </Button>
+                  ) : null}
+                </div>
+                <Select
+                  value={form.credorId || "none"}
+                  onValueChange={(value) => {
+                    const nextCredorId = !value || value === "none" ? "" : value;
+                    const nextCredor =
+                      sortedCreditors.find((option) => option.value === nextCredorId)?.label ??
+                      "";
+                    setForm((current) => ({
+                      ...current,
+                      credorId: nextCredorId,
+                      credor: nextCredor,
+                    }));
+                  }}
+                >
+                  <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
+                    <SelectValue placeholder="Nao informar agora" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nao informar agora</SelectItem>
+                    {sortedCreditors.map((creditor) => (
+                      <SelectItem key={creditor.value} value={creditor.value}>
+                        <div className="flex flex-col">
+                          <span>{creditor.label}</span>
+                          {creditor.description ? (
+                            <span className="text-xs text-muted-foreground">
+                              {creditor.description}
+                            </span>
+                          ) : null}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedWallet?.description ? (
+                  <p className="text-xs text-muted-foreground">
+                    Credor sugerido pela carteira: {selectedWallet.description}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
@@ -410,6 +563,29 @@ export function ContractsManager({
           </form>
         </DialogContent>
       </Dialog>
+
+      {canManageCreditors ? (
+        <QuickCreateCredorModal
+          open={quickCreditorOpen}
+          onOpenChange={setQuickCreditorOpen}
+          onCreated={(creditor) => {
+            setCreditorOptions((current) => {
+              const next = current.filter((option) => option.value !== creditor.id);
+              next.push({
+                value: creditor.id,
+                label: creditor.nome,
+                description: creditor.codigo ?? undefined,
+              });
+              return next;
+            });
+            setForm((current) => ({
+              ...current,
+              credorId: creditor.id,
+              credor: creditor.nome,
+            }));
+          }}
+        />
+      ) : null}
     </div>
   );
 }

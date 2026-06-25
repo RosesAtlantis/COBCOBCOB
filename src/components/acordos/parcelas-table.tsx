@@ -11,6 +11,8 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import {
   getInstallmentStatusLabel,
   getInstallmentStatusVariant,
+  getRevenueTypeLabel,
+  getRevenueTypeOriginLabel,
   resolveAgreementTypeLabel,
 } from "@/lib/clientes-utils";
 import type { AgreementInstallment } from "@/types/portal";
@@ -48,6 +50,18 @@ export function ParcelasTable({ installments }: ParcelasTableProps) {
             <TableHead className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Pago
             </TableHead>
+            <TableHead className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Saldo
+            </TableHead>
+            <TableHead className="h-10 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Classificacao
+            </TableHead>
+            <TableHead className="h-10 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Origem
+            </TableHead>
+            <TableHead className="h-10 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Operador
+            </TableHead>
             <TableHead className="h-10 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Pagamento
             </TableHead>
@@ -74,10 +88,26 @@ export function ParcelasTable({ installments }: ParcelasTableProps) {
               <TableCell className="px-4 py-3 text-right font-mono text-sm">
                 {formatCurrency(installment.valor_pago)}
               </TableCell>
+              <TableCell className="px-4 py-3 text-right font-mono text-sm">
+                {formatCurrency(
+                  Math.max(installment.valor_parcela - installment.valor_pago, 0),
+                )}
+              </TableCell>
+              <TableCell className="px-4 py-3">
+                <Badge variant={installment.tipo_receita === "COLCHAO" ? "secondary" : "default"}>
+                  {getRevenueTypeLabel(installment.tipo_receita)}
+                </Badge>
+              </TableCell>
+              <TableCell className="px-4 py-3 text-sm text-muted-foreground">
+                {getRevenueTypeOriginLabel(installment.tipo_receita_origem)}
+              </TableCell>
+              <TableCell className="px-4 py-3 text-sm text-muted-foreground">
+                {installment.operador_id ? "Vinculado ao acordo" : "-"}
+              </TableCell>
               <TableCell className="px-4 py-3 text-sm text-muted-foreground">
                 {installment.data_pagamento ? formatDate(installment.data_pagamento) : "-"}
               </TableCell>
-              <TableCell className="px-4 py-3">
+              <TableCell className="px-4 py-3 text-sm">
                 <Badge variant={getInstallmentStatusVariant(installment.status)}>
                   {getInstallmentStatusLabel(installment.status)}
                 </Badge>

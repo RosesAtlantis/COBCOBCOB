@@ -14,27 +14,37 @@ const sections = [
     description: "Perfis, papeis de acesso e status de atividade.",
   },
   {
-    href: "/admin/operadores",
+    href: "/operadores",
     title: "Operadores",
     description: "Base operacional e vinculacao por equipe.",
   },
   {
-    href: "/admin/equipes",
+    href: "/equipes",
     title: "Equipes",
     description: "Supervisao e organizacao dos times.",
   },
   {
-    href: "/admin/carteiras",
+    href: "/carteiras",
     title: "Carteiras",
     description: "Carteiras, credores e visibilidade financeira.",
   },
   {
-    href: "/admin/credores",
+    href: "/credores",
     title: "Credores",
     description: "Cadastro mestre dos credores atendidos.",
   },
   {
-    href: "/admin/metas",
+    href: "/clientes",
+    title: "Clientes",
+    description: "Casos manuais, ficha operacional e contratos vinculados.",
+  },
+  {
+    href: "/contratos",
+    title: "Contratos",
+    description: "Consulta central da base contratual e atalho para as fichas.",
+  },
+  {
+    href: "/metas",
     title: "Metas",
     description: "Metas mensais por operador, equipe e carteira.",
   },
@@ -79,7 +89,7 @@ export default async function AdminIndexPage() {
               href={section.href}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
-              Acessar secao
+              Abrir cadastro
               <ArrowRight className="size-4" />
             </Link>
           </CardContent>

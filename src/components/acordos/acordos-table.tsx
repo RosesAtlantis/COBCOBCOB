@@ -29,12 +29,13 @@ import { ParcelasTable } from "@/components/acordos/parcelas-table";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getAgreementStatusLabel, getAgreementStatusVariant } from "@/lib/clientes-utils";
-import type { ClientAgreementRow } from "@/types/portal";
+import type { ClientAgreementRow, FilterOption } from "@/types/portal";
 
 interface AcordosTableProps {
   clientId: string;
   clientName: string;
   agreements: ClientAgreementRow[];
+  wallets: FilterOption[];
   canCancel: boolean;
   canRegisterWriteOff: boolean;
 }
@@ -43,6 +44,7 @@ export function AcordosTable({
   clientId,
   clientName,
   agreements,
+  wallets,
   canCancel,
   canRegisterWriteOff,
 }: AcordosTableProps) {
@@ -240,6 +242,7 @@ export function AcordosTable({
         clientId={clientId}
         clientName={clientName}
         agreement={writeOffAgreement}
+        wallets={wallets}
         open={Boolean(writeOffAgreement)}
         onOpenChange={(open) => {
           if (!open) {

@@ -37,16 +37,18 @@ import {
   getAgreementStatusVariant,
 } from "@/lib/clientes-utils";
 import { cn } from "@/lib/utils";
-import type { AgreementCenterRow } from "@/types/portal";
+import type { AgreementCenterRow, FilterOption } from "@/types/portal";
 
 interface AcordosTableProps {
   rows: AgreementCenterRow[];
+  wallets: FilterOption[];
   canCancel: boolean;
   canRegisterWriteOff: boolean;
 }
 
 export function AcordosTable({
   rows,
+  wallets,
   canCancel,
   canRegisterWriteOff,
 }: AcordosTableProps) {
@@ -280,6 +282,7 @@ export function AcordosTable({
         clientId={writeOffAgreement?.clientId ?? ""}
         clientName={writeOffAgreement?.cliente ?? undefined}
         agreement={writeOffAgreement ? toClientAgreementRow(writeOffAgreement) : null}
+        wallets={wallets}
         open={Boolean(writeOffAgreement)}
         onOpenChange={(open) => {
           if (!open) {

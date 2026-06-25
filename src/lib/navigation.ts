@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   Banknote,
-  BriefcaseBusiness,
   Building2,
   FileSpreadsheet,
   FileText,
@@ -60,14 +59,14 @@ const teamsItem: NavigationItem = {
   title: "Equipes",
   href: "/equipes",
   icon: Building2,
-  description: "Leitura operacional por time.",
+  description: "Cadastro manual de equipes, supervisao e status.",
 };
 
 const walletsItem: NavigationItem = {
   title: "Carteiras",
   href: "/carteiras",
   icon: Layers3,
-  description: "Carteiras, credores e recuperacao.",
+  description: "Cadastro manual de carteiras e vinculo com credores.",
 };
 
 const clientsItem: NavigationItem = {
@@ -83,6 +82,14 @@ const newClientItem: NavigationItem = {
   icon: UserCog,
   description: "Abertura manual de cliente e contrato com auditoria.",
   matchPrefixes: ["/clientes/novo"],
+};
+
+const contractsItem: NavigationItem = {
+  title: "Contratos",
+  href: "/contratos",
+  icon: FileText,
+  description: "Consulta dos contratos e atalho para cadastro manual.",
+  matchPrefixes: ["/contratos"],
 };
 
 const agreementsItem: NavigationItem = {
@@ -141,23 +148,26 @@ const adminUsersItem: NavigationItem = {
 
 const adminOperatorsItem: NavigationItem = {
   title: "Operadores",
-  href: "/admin/operadores",
+  href: "/operadores",
   icon: UserCog,
   description: "Base operacional e vinculacoes.",
+  matchPrefixes: ["/operadores"],
 };
 
-const adminCreditorsItem: NavigationItem = {
+const creditorsItem: NavigationItem = {
   title: "Credores",
-  href: "/admin/credores",
+  href: "/credores",
   icon: Landmark,
-  description: "Cadastro mestre de credores.",
+  description: "Cadastro mestre de credores e vinculo com carteiras.",
+  matchPrefixes: ["/credores"],
 };
 
 const adminGoalsItem: NavigationItem = {
   title: "Metas",
-  href: "/admin/metas",
+  href: "/metas",
   icon: Target,
   description: "Metas mensais e direcionadores.",
+  matchPrefixes: ["/metas"],
 };
 
 const adminImportsItem: NavigationItem = {
@@ -206,11 +216,18 @@ const supervisorNavigation: NavigationGroup[] = [
   },
   {
     title: "Cobranca",
-    items: [clientsItem, newClientItem, teamsItem, walletsItem],
+    items: [
+      clientsItem,
+      newClientItem,
+      contractsItem,
+      agreementsItem,
+      installmentsItem,
+      writeOffsItem,
+    ],
   },
   {
-    title: "Financeiro",
-    items: [agreementsItem, installmentsItem, writeOffsItem],
+    title: "Cadastros",
+    items: [walletsItem, adminOperatorsItem, teamsItem],
   },
   {
     title: "Dados",
@@ -225,18 +242,11 @@ const financeNavigation: NavigationGroup[] = [
   },
   {
     title: "Financeiro",
-    items: [
-      clientsItem,
-      agreementsItem,
-      installmentsItem,
-      writeOffsItem,
-      {
-        title: "Carteiras",
-        href: "/carteiras",
-        icon: BriefcaseBusiness,
-        description: "Recebimento, acordos e recuperacao.",
-      },
-    ],
+    items: [clientsItem, agreementsItem, installmentsItem, writeOffsItem],
+  },
+  {
+    title: "Cadastros",
+    items: [creditorsItem, walletsItem, adminGoalsItem],
   },
   {
     title: "Dados",
@@ -251,11 +261,24 @@ const managementNavigation: NavigationGroup[] = [
   },
   {
     title: "Cobranca",
-    items: [clientsItem, newClientItem, teamsItem, walletsItem],
+    items: [
+      clientsItem,
+      newClientItem,
+      contractsItem,
+      agreementsItem,
+      installmentsItem,
+      writeOffsItem,
+    ],
   },
   {
-    title: "Financeiro",
-    items: [agreementsItem, installmentsItem, writeOffsItem],
+    title: "Cadastros",
+    items: [
+      creditorsItem,
+      walletsItem,
+      adminOperatorsItem,
+      teamsItem,
+      adminGoalsItem,
+    ],
   },
   {
     title: "Dados",
@@ -266,8 +289,6 @@ const managementNavigation: NavigationGroup[] = [
     items: [
       adminHomeItem,
       adminUsersItem,
-      adminOperatorsItem,
-      adminCreditorsItem,
       adminGoalsItem,
       adminImportsItem,
       adminSettingsItem,

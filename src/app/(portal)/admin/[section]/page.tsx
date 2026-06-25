@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { DataTable } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
@@ -28,6 +28,30 @@ export default async function AdminSectionPage({
 
   if (!validSections.has(section as AdminSectionKey)) {
     notFound();
+  }
+
+  if (section === "credores") {
+    redirect("/credores");
+  }
+
+  if (section === "usuarios") {
+    redirect("/admin/usuarios");
+  }
+
+  if (section === "operadores") {
+    redirect("/operadores");
+  }
+
+  if (section === "equipes") {
+    redirect("/equipes");
+  }
+
+  if (section === "carteiras") {
+    redirect("/carteiras");
+  }
+
+  if (section === "metas") {
+    redirect("/metas");
   }
 
   const { profile, data } = await getAdminSectionData(section as AdminSectionKey);

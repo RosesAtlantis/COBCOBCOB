@@ -1,12 +1,16 @@
 import Link from "next/link";
 
+import { ClientQuickCaseDialog } from "@/components/clientes/client-quick-case-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ClientesFilters } from "@/components/clientes/clientes-filters";
 import { ClientesTable } from "@/components/clientes/clientes-table";
 import { parseClientFilters } from "@/lib/clientes-filters";
 import { cn } from "@/lib/utils";
-import { getClientesPageData } from "@/services/clientes-service";
+import {
+  getClientesPageData,
+  getNovoClientePageData,
+} from "@/services/clientes-service";
 
 interface ClientesPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -14,7 +18,10 @@ interface ClientesPageProps {
 
 export default async function ClientesPage({ searchParams }: ClientesPageProps) {
   const filters = parseClientFilters(await searchParams);
-  const data = await getClientesPageData(filters);
+  const [data, quickCaseData] = await Promise.all([
+    getClientesPageData(filters),
+    getNovoClientePageData(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -33,12 +40,22 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
 
           <div className="flex flex-wrap gap-2">
             {data.canCreateCase ? (
-              <Link
-                href="/clientes/novo"
-                className={cn(buttonVariants({ variant: "outline" }), "rounded-lg")}
-              >
-                Novo caso manual
-              </Link>
+              <>
+                <ClientQuickCaseDialog
+                  operators={quickCaseData.operators}
+                  teams={quickCaseData.teams}
+                  wallets={quickCaseData.wallets}
+                  creditors={quickCaseData.creditors}
+                  walletCreditors={quickCaseData.walletCreditors}
+                  canManageCreditors={quickCaseData.canManageCreditors}
+                />
+                <Link
+                  href="/clientes/novo"
+                  className={cn(buttonVariants({ variant: "outline" }), "rounded-lg")}
+                >
+                  Abrir formulario completo
+                </Link>
+              </>
             ) : null}
             <Badge variant="secondary" className="rounded-md px-3 py-1">
               {data.clients.length} cliente(s) visivel(is)

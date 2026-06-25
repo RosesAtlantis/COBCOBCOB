@@ -83,6 +83,11 @@ export interface Database {
         Row: {
           id: string;
           nome: string;
+          codigo: string | null;
+          documento: string | null;
+          email: string | null;
+          telefone: string | null;
+          observacao: string | null;
           ativo: boolean;
           criado_em: string;
           atualizado_em: string;
@@ -90,6 +95,11 @@ export interface Database {
         Insert: {
           id?: string;
           nome: string;
+          codigo?: string | null;
+          documento?: string | null;
+          email?: string | null;
+          telefone?: string | null;
+          observacao?: string | null;
           ativo?: boolean;
           criado_em?: string;
           atualizado_em?: string;
@@ -102,6 +112,9 @@ export interface Database {
           id: string;
           nome: string;
           credor: string;
+          codigo: string | null;
+          descricao: string | null;
+          credor_id: string | null;
           percentual_honorarios_padrao: number | null;
           percentual_escritorio_padrao: number | null;
           ativo: boolean;
@@ -112,6 +125,9 @@ export interface Database {
           id?: string;
           nome: string;
           credor: string;
+          codigo?: string | null;
+          descricao?: string | null;
+          credor_id?: string | null;
           percentual_honorarios_padrao?: number | null;
           percentual_escritorio_padrao?: number | null;
           ativo?: boolean;
@@ -167,6 +183,7 @@ export interface Database {
           cliente_id: string;
           carteira_id: string;
           credor: string;
+          credor_id: string | null;
           ativo: boolean;
           chave_externa: string | null;
           criado_em: string;
@@ -177,6 +194,7 @@ export interface Database {
           cliente_id: string;
           carteira_id: string;
           credor: string;
+          credor_id?: string | null;
           ativo?: boolean;
           chave_externa?: string | null;
           criado_em?: string;
@@ -191,6 +209,7 @@ export interface Database {
           cliente_id: string;
           carteira_id: string | null;
           credor: string | null;
+          credor_id: string | null;
           numero_contrato: string;
           valor_original: number;
           valor_em_aberto: number;
@@ -211,6 +230,7 @@ export interface Database {
           cliente_id: string;
           carteira_id?: string | null;
           credor?: string | null;
+          credor_id?: string | null;
           numero_contrato: string;
           valor_original?: number;
           valor_em_aberto?: number;
@@ -237,7 +257,9 @@ export interface Database {
           operador_id: string | null;
           equipe_id: string | null;
           carteira_id: string | null;
+          credor_id: string | null;
           valor_meta: number;
+          ativo: boolean;
           chave_externa: string | null;
           criado_em: string;
           atualizado_em: string;
@@ -249,7 +271,9 @@ export interface Database {
           operador_id?: string | null;
           equipe_id?: string | null;
           carteira_id?: string | null;
+          credor_id?: string | null;
           valor_meta: number;
+          ativo?: boolean;
           chave_externa?: string | null;
           criado_em?: string;
           atualizado_em?: string;

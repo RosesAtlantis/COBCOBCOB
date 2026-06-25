@@ -25,7 +25,12 @@ import {
   registrarAuditoria,
 } from "@/services/auditoria-service";
 import {
+  criarContratoDuranteAcordo,
+  criarContratoDuranteBaixa,
+} from "@/services/contratos-service";
+import {
   calcularHonorarios,
+  calcularClassificacaoAutomaticaParcela,
   classificarParcelas,
   classificarTipoReceita,
 } from "@/services/honorarios-service";
@@ -45,8 +50,24 @@ import type {
   AgreementOperationResult,
   AgreementStatus,
   CreateAgreementInput,
+  UpdateInstallmentRevenueTypeInput,
   WriteOffCenterRow,
 } from "@/types/portal";
+
+const flowContractSchema = z.object({
+  numeroContrato: z.string().trim().min(1, "Numero do contrato obrigatorio."),
+  carteiraId: z.string().uuid("Carteira invalida."),
+  credor: z.string().trim().nullable().optional(),
+  credorId: z.string().uuid().nullable().optional(),
+  valorOriginal: z.coerce.number().min(0, "Valor original invalido.").nullable().optional(),
+  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
+  dataContrato: z.string().trim().nullable().optional(),
+  dataVencimento: z.string().trim().nullable().optional(),
+  operadorId: z.string().uuid().nullable().optional(),
+  equipeId: z.string().uuid().nullable().optional(),
+  status: z.string().trim().nullable().optional(),
+  observacao: z.string().trim().nullable().optional(),
+});
 
 const createAgreementSchema = z.object({
   clienteId: z.string().uuid("Cliente invalido."),
@@ -70,6 +91,8 @@ const createAgreementSchema = z.object({
   formaPagamento: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
   status: z.string().trim().nullable().optional(),
+  criarContratoAgora: z.coerce.boolean().optional(),
+  novoContrato: flowContractSchema.nullable().optional(),
   parcelasCustomizadas: z
     .array(
       z.object({
@@ -98,11 +121,18 @@ const registerWriteOffSchema = z.object({
   confirmarAcimaSaldo: z.coerce.boolean().optional(),
   formaPagamento: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
+  criarContratoAgora: z.coerce.boolean().optional(),
+  novoContrato: flowContractSchema.nullable().optional(),
 });
 
 const cancelAgreementSchema = z.object({
   acordoId: z.string().uuid("Acordo invalido."),
   observacao: z.string().trim().nullable().optional(),
+});
+
+const updateInstallmentRevenueTypeSchema = z.object({
+  parcelaId: z.string().uuid("Parcela invalida."),
+  tipoReceita: z.enum(["NOVO", "COLCHAO"]),
 });
 
 function resolveNullableString(value: string | null | undefined) {
@@ -569,12 +599,14 @@ export async function criarAcordo(rawInput: unknown): Promise<AgreementOperation
     throw new Error("Cliente nao encontrado.");
   }
 
-  const contract =
+  let contract =
     input.contratoId
       ? context.contracts.find(
           (item) => item.id === input.contratoId && item.cliente_id === client.id,
         ) ?? null
       : null;
+  const shouldCreateContractNow =
+    !contract && Boolean(input.criarContratoAgora || input.novoContrato);
 
   const scope = resolveAgreementScope(context, {
     requestedOperatorId: input.operadorId ?? null,
@@ -582,17 +614,51 @@ export async function criarAcordo(rawInput: unknown): Promise<AgreementOperation
     fallbackOperatorId: contract?.operador_id ?? client.operador_id,
     fallbackTeamId: contract?.equipe_id ?? client.equipe_id,
   });
-  const wallet =
+  const contractWalletId = contract?.carteira_id ?? null;
+  let wallet =
     (input.carteiraId
       ? context.wallets.find((item) => item.id === input.carteiraId)
       : null) ??
-    (contract?.carteira_id
-      ? context.wallets.find((item) => item.id === contract.carteira_id)
+    (input.novoContrato?.carteiraId
+      ? context.wallets.find((item) => item.id === input.novoContrato?.carteiraId)
+      : null) ??
+    (contractWalletId
+      ? context.wallets.find((item) => item.id === contractWalletId)
       : null) ??
     null;
 
   if (!wallet) {
     throw new Error("Selecione uma carteira valida para o acordo.");
+  }
+
+  if (shouldCreateContractNow) {
+    if (!input.novoContrato) {
+      throw new Error("Preencha os dados do contrato para continuar com o acordo.");
+    }
+
+    const createdContract = await criarContratoDuranteAcordo({
+      clientId: client.id,
+      numeroContrato: input.novoContrato.numeroContrato,
+      carteiraId: input.novoContrato.carteiraId,
+      credor: input.novoContrato.credor ?? wallet.credor,
+      credorId: input.novoContrato.credorId ?? wallet.credor_id ?? null,
+      valorOriginal:
+        input.novoContrato.valorOriginal ?? input.valorOriginal ?? input.valorAcordo,
+      valorEmAberto: input.novoContrato.valorEmAberto,
+      dataContrato: input.novoContrato.dataContrato ?? null,
+      dataVencimento: input.novoContrato.dataVencimento ?? null,
+      operadorId: input.novoContrato.operadorId ?? scope.operadorId,
+      equipeId: input.novoContrato.equipeId ?? scope.equipeId,
+      status: input.novoContrato.status ?? null,
+      observacao: input.novoContrato.observacao ?? input.observacao ?? null,
+    });
+
+    if (createdContract.contract) {
+      contract = createdContract.contract;
+      wallet =
+        context.wallets.find((item) => item.id === createdContract.contract?.carteira_id) ??
+        wallet;
+    }
   }
 
   const feePreview = calcularHonorarios({
@@ -629,6 +695,7 @@ export async function criarAcordo(rawInput: unknown): Promise<AgreementOperation
       cliente_id: client.id,
       carteira_id: wallet.id,
       credor: wallet.credor,
+      credor_id: wallet.credor_id ?? null,
       ativo: true,
     },
     { onConflict: "cliente_id,carteira_id" },
@@ -644,6 +711,7 @@ export async function criarAcordo(rawInput: unknown): Promise<AgreementOperation
       .update({
         carteira_id: wallet.id,
         credor: wallet.credor,
+        credor_id: wallet.credor_id ?? null,
         operador_id: scope.operadorId,
         equipe_id: scope.equipeId,
         status: roundCurrency(contract.valor_em_aberto) <= 0 ? "quitado" : "em_acordo",
@@ -816,7 +884,7 @@ export async function darBaixaParcela(rawInput: unknown): Promise<AgreementOpera
     throw new Error(parcelResult.error?.message ?? "Parcela nao encontrada.");
   }
 
-  const agreement = agreementResult.data;
+  let agreement = agreementResult.data;
   const parcel = parcelResult.data;
 
   if (agreement.status === "cancelado") {
@@ -834,11 +902,73 @@ export async function darBaixaParcela(rawInput: unknown): Promise<AgreementOpera
   }
 
   const context = await getClientsContext();
-  const wallet = agreement.carteira_id
+  const client = agreement.cliente_id
+    ? context.clients.find((item) => item.id === agreement.cliente_id) ?? null
+    : null;
+  let wallet = agreement.carteira_id
     ? context.wallets.find((item) => item.id === agreement.carteira_id) ?? null
     : null;
   const resolvedOperatorId = input.operadorId ?? parcel.operador_id ?? agreement.operador_id;
   const resolvedTeamId = parcel.equipe_id ?? agreement.equipe_id;
+
+  if (!agreement.contrato_id) {
+    if (!input.criarContratoAgora || !input.novoContrato) {
+      throw new Error(
+        "Este acordo ainda nao possui contrato. Crie um contrato antes de concluir a baixa.",
+      );
+    }
+
+    if (!client) {
+      throw new Error("Cliente nao encontrado para vincular o novo contrato.");
+    }
+
+    const createdContract = await criarContratoDuranteBaixa({
+      clientId: client.id,
+      agreementId: agreement.id,
+      numeroContrato: input.novoContrato.numeroContrato,
+      carteiraId: input.novoContrato.carteiraId,
+      credor: input.novoContrato.credor ?? wallet?.credor ?? null,
+      credorId: input.novoContrato.credorId ?? wallet?.credor_id ?? null,
+      valorOriginal:
+        input.novoContrato.valorOriginal ??
+        roundCurrency(Math.max(parcel.valor_parcela, agreement.valor_original ?? 0)),
+      valorEmAberto: input.novoContrato.valorEmAberto,
+      dataContrato: input.novoContrato.dataContrato ?? null,
+      dataVencimento: input.novoContrato.dataVencimento ?? parcel.data_vencimento ?? null,
+      operadorId: input.novoContrato.operadorId ?? resolvedOperatorId,
+      equipeId: input.novoContrato.equipeId ?? resolvedTeamId,
+      status: input.novoContrato.status ?? "em_acordo",
+      observacao: input.novoContrato.observacao ?? input.observacao ?? null,
+    });
+
+    if (createdContract.contract) {
+      const { error: linkContractError } = await supabase
+        .from("acordos")
+        .update({
+          contrato_id: createdContract.contract.id,
+          contrato: createdContract.contract.numero_contrato,
+          carteira_id: createdContract.contract.carteira_id ?? agreement.carteira_id,
+          cpf_cnpj: agreement.cpf_cnpj ?? client.cpf_cnpj,
+        })
+        .eq("id", agreement.id);
+
+      if (linkContractError) {
+        throw new Error(linkContractError.message);
+      }
+
+      agreement = {
+        ...agreement,
+        contrato_id: createdContract.contract.id,
+        contrato: createdContract.contract.numero_contrato,
+        carteira_id: createdContract.contract.carteira_id ?? agreement.carteira_id,
+        cpf_cnpj: agreement.cpf_cnpj ?? client.cpf_cnpj,
+      };
+      wallet = agreement.carteira_id
+        ? context.wallets.find((item) => item.id === agreement.carteira_id) ?? wallet
+        : wallet;
+    }
+  }
+
   const feeCalculation = calcularHonorarios({
     valorBase: input.valorPago,
     percentualHonorarios:
@@ -1013,6 +1143,138 @@ export async function darBaixaParcela(rawInput: unknown): Promise<AgreementOpera
   };
 }
 
+export async function alterarClassificacaoParcela(
+  rawInput: UpdateInstallmentRevenueTypeInput,
+) {
+  const profile = await requireActiveProfile([
+    "admin",
+    "gerente",
+    "supervisor",
+    "financeiro",
+  ]);
+  const input = updateInstallmentRevenueTypeSchema.parse(rawInput);
+  const context = await getClientsContext();
+  const parcel = context.installments.find((item) => item.id === input.parcelaId);
+
+  if (!parcel) {
+    throw new Error("Parcela nao encontrada.");
+  }
+
+  const agreement = context.agreements.find((item) => item.id === parcel.acordo_id) ?? null;
+  const previousRevenue = calcularClassificacaoAutomaticaParcela({
+    numeroParcela: parcel.numero_parcela,
+    tipo: parcel.tipo,
+    manualType: parcel.tipo_receita ?? null,
+  });
+
+  if (!isSupabaseConfigured()) {
+    return {
+      parcelId: parcel.id,
+      message: "Modo demonstracao: classificacao validada sem persistencia.",
+      demoMode: true,
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return {
+      parcelId: parcel.id,
+      message: "Modo demonstracao: classificacao validada sem persistencia.",
+      demoMode: true,
+    };
+  }
+
+  const { error: parcelUpdateError } = await supabase
+    .from("acordo_parcelas")
+    .update({
+      tipo_receita: input.tipoReceita,
+      tipo_receita_origem: "manual",
+    })
+    .eq("id", parcel.id);
+
+  if (parcelUpdateError) {
+    throw new Error(parcelUpdateError.message);
+  }
+
+  const { data: linkedWriteOffs, error: linkedWriteOffsError } = await supabase
+    .from("acordo_baixas")
+    .select("id")
+    .eq("parcela_id", parcel.id)
+    .eq("estornada", false);
+
+  if (linkedWriteOffsError) {
+    throw new Error(linkedWriteOffsError.message);
+  }
+
+  const linkedWriteOffIds = (linkedWriteOffs ?? []).map((item) => item.id);
+
+  if (linkedWriteOffIds.length) {
+    const { error: writeOffUpdateError } = await supabase
+      .from("acordo_baixas")
+      .update({
+        tipo_receita: input.tipoReceita,
+        tipo_receita_origem: "manual",
+      })
+      .in("id", linkedWriteOffIds);
+
+    if (writeOffUpdateError) {
+      throw new Error(writeOffUpdateError.message);
+    }
+
+    const { error: paymentUpdateError } = await supabase
+      .from("pagamentos")
+      .update({
+        tipo_receita: input.tipoReceita,
+        tipo_receita_origem: "manual",
+      })
+      .in("baixa_id", linkedWriteOffIds);
+
+    if (paymentUpdateError) {
+      throw new Error(paymentUpdateError.message);
+    }
+  }
+
+  await registrarAuditoria({
+    entidade: "parcela",
+    entidadeId: parcel.id,
+    acao: "parcela_classificacao_alterada",
+    descricao:
+      linkedWriteOffIds.length > 0
+        ? "Classificacao manual da parcela alterada com sincronizacao das baixas vinculadas."
+        : "Classificacao manual da parcela alterada.",
+    acordoId: agreement?.id ?? parcel.acordo_id,
+    parcelaId: parcel.id,
+    clienteId: agreement?.cliente_id ?? null,
+    contratoId: agreement?.contrato_id ?? null,
+    operadorId: parcel.operador_id ?? agreement?.operador_id ?? null,
+    equipeId: parcel.equipe_id ?? agreement?.equipe_id ?? null,
+    carteiraId: agreement?.carteira_id ?? null,
+    usuarioId: profile.id,
+    usuarioNome: profile.nome,
+    origem: "manual",
+    dadosAnteriores: {
+      tipoReceita: previousRevenue.tipoReceita,
+      tipoReceitaOrigem:
+        parcel.tipo_receita_origem ?? previousRevenue.tipoReceitaOrigem,
+    },
+    dadosNovos: {
+      tipoReceita: input.tipoReceita,
+      tipoReceitaOrigem: "manual",
+      baixasSincronizadas: linkedWriteOffIds.length,
+    },
+  });
+
+  return {
+    parcelId: parcel.id,
+    message:
+      linkedWriteOffIds.length > 0
+        ? "Classificacao atualizada e baixas vinculadas sincronizadas."
+        : "Classificacao atualizada com sucesso.",
+    demoMode: false,
+  };
+}
+
 export async function cancelarAcordo(rawInput: unknown): Promise<AgreementOperationResult> {
   const profile = await requireActiveProfile();
 
@@ -1176,3 +1438,9 @@ export function parseWriteOffInput(payload: unknown) {
 export function parseCancelAgreementInput(payload: unknown) {
   return cancelAgreementSchema.parse(payload);
 }
+
+export function parseUpdateInstallmentRevenueTypeInput(payload: unknown) {
+  return updateInstallmentRevenueTypeSchema.parse(payload);
+}
+
+export { calcularClassificacaoAutomaticaParcela };

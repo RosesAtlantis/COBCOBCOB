@@ -88,6 +88,8 @@ export function classificarTipoReceita(
   };
 }
 
+export const calcularClassificacaoAutomaticaParcela = classificarTipoReceita;
+
 export function classificarParcelas(
   drafts: AgreementInstallmentDraft[],
 ): AgreementInstallmentDraft[] {

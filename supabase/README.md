@@ -11,21 +11,25 @@ Este projeto ja possui os SQLs prontos em `supabase/migrations`.
 5. Rode o arquivo [migrations/202606220003_clientes_acordos_baixas.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220003_clientes_acordos_baixas.sql).
 6. Rode o arquivo [migrations/202606220004_acordos_baixas_auditoria.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220004_acordos_baixas_auditoria.sql).
 7. Rode o arquivo [migrations/202606220005_manual_cases_audit_import_reversal_honorarios.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220005_manual_cases_audit_import_reversal_honorarios.sql).
-8. Se quiser dados de exemplo para desenvolvimento, rode [seed/seed.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/seed/seed.sql).
-9. Va em `Authentication > URL Configuration`.
-10. Preencha `Site URL` com a URL publicada na Vercel.
-11. Adicione estas `Redirect URLs`:
+8. Rode o arquivo [migrations/202606220006_cadastro_manual_simplificado_parcelas_classificacao.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220006_cadastro_manual_simplificado_parcelas_classificacao.sql).
+9. Rode o arquivo [migrations/202606220007_credores_cadastro_modal_ranking_menu.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220007_credores_cadastro_modal_ranking_menu.sql).
+10. Rode o arquivo [migrations/202606220008_cadastros_manuais_completos.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220008_cadastros_manuais_completos.sql).
+11. Rode o arquivo [migrations/202606220009_fix_admin_crud_permissions.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220009_fix_admin_crud_permissions.sql).
+12. Se quiser dados de exemplo para desenvolvimento, rode [seed/seed.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/seed/seed.sql).
+13. Va em `Authentication > URL Configuration`.
+14. Preencha `Site URL` com a URL publicada na Vercel.
+15. Adicione estas `Redirect URLs`:
 
 ```text
 https://URL-DA-VERCEL.vercel.app/*
 http://localhost:3000/*
 ```
 
-12. Va em `Authentication > Users`.
-13. Crie o seu usuario manualmente.
-14. Copie o `User ID` criado.
-15. Va em `Table Editor > profiles`.
-16. Crie uma linha manual com:
+16. Va em `Authentication > Users`.
+17. Crie o seu usuario manualmente.
+18. Copie o `User ID` criado.
+19. Va em `Table Editor > profiles`.
+20. Crie uma linha manual com:
 
 ```text
 user_id = ID do usuario criado
@@ -35,7 +39,7 @@ perfil = admin
 ativo = true
 ```
 
-17. Depois configure as variaveis do projeto na Vercel e faca `Redeploy`.
+21. Depois configure as variaveis do projeto na Vercel e faca `Redeploy`.
 
 ## SQLs que precisam ser rodados
 
@@ -46,6 +50,10 @@ Obrigatorios:
 3. [migrations/202606220003_clientes_acordos_baixas.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220003_clientes_acordos_baixas.sql)
 4. [migrations/202606220004_acordos_baixas_auditoria.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220004_acordos_baixas_auditoria.sql)
 5. [migrations/202606220005_manual_cases_audit_import_reversal_honorarios.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220005_manual_cases_audit_import_reversal_honorarios.sql)
+6. [migrations/202606220006_cadastro_manual_simplificado_parcelas_classificacao.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220006_cadastro_manual_simplificado_parcelas_classificacao.sql)
+7. [migrations/202606220007_credores_cadastro_modal_ranking_menu.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220007_credores_cadastro_modal_ranking_menu.sql)
+8. [migrations/202606220008_cadastros_manuais_completos.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220008_cadastros_manuais_completos.sql)
+9. [migrations/202606220009_fix_admin_crud_permissions.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220009_fix_admin_crud_permissions.sql)
 
 Opcional:
 
@@ -85,7 +93,37 @@ Incluem:
 - funcoes auxiliares de papel, equipe e operador
 - funcoes transacionais para criar acordo, gerar parcelas, registrar baixa e estornar recebimentos
 - trilha de auditoria para criacao, cancelamento, baixa, estorno, reversao de importacao e mudanca de status do acordo
-- cadastro manual de casos, contratos, acordos, honorarios e classificacao NOVO/COLCHAO
+- cadastro manual simplificado de casos, contratos em fluxo, honorarios e classificacao NOVO/COLCHAO
+- vinculo seguro de credores com carteiras, contratos e cliente_carteiras via `credor_id`
+- campos extras de cadastro de credor: `codigo`, `documento`, `email`, `telefone` e `observacao`
+- campos manuais de carteira: `codigo` e `descricao`
+- metas com `credor_id`, `ativo` e indices para a central de cadastros
+- policies atualizadas para permitir cadastro manual por Financeiro e Supervisor dentro do escopo correto
+
+## O que a migration 202606220007 faz
+
+- adiciona os novos campos do cadastro mestre de credores
+- cria `credor_id` em `carteiras`, `cliente_carteiras` e `contratos`
+- faz backfill do relacionamento usando o nome textual ja existente
+- preserva o campo `credor` em texto para compatibilidade com relatorios, imports e policies antigas
+- recria a policy `creditors_select` com fallback por `credor_id` e por nome
+
+## O que a migration 202606220008 faz
+
+- adiciona `codigo` e `descricao` em `carteiras`
+- adiciona `credor_id` e `ativo` em `metas`
+- faz backfill de `metas.credor_id` a partir da carteira quando existir
+- cria indices para buscas e filtros da central de cadastros
+- libera Financeiro para gravar `credores`, `carteiras` e `metas`
+- libera Supervisor para gravar `operadores` apenas dentro da propria equipe
+- libera criacao de `contratos` nos fluxos manuais de acordo/baixa sem quebrar o escopo do portal
+
+## O que a migration 202606220009 faz
+
+- reforca as policies de CRUD para `admin` e `gerente` nas tabelas de cadastros
+- mantem `profiles` como cadastro administrativo, com `insert` e `update` centralizados em `admin`
+- preserva leitura de `gerente` e escopo de `supervisor` sem quebrar a navegacao atual
+- reativa explicitamente o RLS nas tabelas principais de administracao
 
 ## SQL exemplo para criar o admin manualmente
 

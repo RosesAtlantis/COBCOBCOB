@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/empty-state";
-import { ManualCaseForm } from "@/components/clientes/manual-case-form";
+import { NovoCasoForm } from "@/components/clientes/novo-caso-form";
 import { PermissionGuard } from "@/components/permission-guard";
 import { Badge } from "@/components/ui/badge";
 import { getNovoClientePageData } from "@/services/clientes-service";
@@ -10,7 +10,7 @@ export default async function NovoClientePage() {
   return (
     <PermissionGuard
       role={data.profile.perfil}
-      allowedRoles={["admin", "gerente", "supervisor"]}
+      allowedRoles={["admin", "gerente", "supervisor", "operador"]}
       fallback={
         <EmptyState
           title="Sem permissao para criar caso manual"
@@ -27,10 +27,9 @@ export default async function NovoClientePage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Cobranca
               </p>
-              <h1 className="text-2xl font-semibold tracking-tight">Novo caso manual</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">Novo caso</h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                Cadastre cliente, vinculos operacionais e contrato inicial no mesmo fluxo,
-                com persistencia real e auditoria desde a origem.
+                Cadastre manualmente um cliente em cobranca com nome, CPF/CNPJ e carteira como minimo obrigatorio.
               </p>
             </div>
 
@@ -47,10 +46,13 @@ export default async function NovoClientePage() {
           </div>
         </section>
 
-        <ManualCaseForm
+        <NovoCasoForm
           operators={data.operators}
           teams={data.teams}
           wallets={data.wallets}
+          creditors={data.creditors}
+          walletCreditors={data.walletCreditors}
+          canManageCreditors={data.canManageCreditors}
         />
       </div>
     </PermissionGuard>

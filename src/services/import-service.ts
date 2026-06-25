@@ -1056,7 +1056,7 @@ async function ensureWallet(
   walletName: string,
   creditorName: string,
 ) {
-  await ensureCreditor(admin, creditorCache, creditorName);
+  const creditorId = await ensureCreditor(admin, creditorCache, creditorName);
 
   const key = buildWalletCacheKey(creditorName, walletName);
   const cached = walletCache.get(key);
@@ -1071,6 +1071,7 @@ async function ensureWallet(
       {
         nome: walletName,
         credor: creditorName,
+        credor_id: creditorId,
         ativo: true,
       },
       {
@@ -1559,6 +1560,7 @@ async function processCobwareImport(
         cliente_id: client.id,
         carteira_id: walletId,
         credor: contract.creditorName,
+        credor_id: creditorCache.get(contract.creditorName.toLowerCase()) ?? null,
         numero_contrato: contract.contract,
         valor_original: contract.originalValue,
         valor_em_aberto: contract.openValue,
@@ -1600,6 +1602,7 @@ async function processCobwareImport(
         cliente_id: client.id,
         carteira_id: walletId,
         credor: contract.creditorName,
+        credor_id: creditorCache.get(contract.creditorName.toLowerCase()) ?? null,
         ativo: true,
         chave_externa: buildExternalKey("cobware-cliente-carteira", [client.id, walletId]),
       });

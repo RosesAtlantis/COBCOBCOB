@@ -9,8 +9,12 @@ import {
   normalizeText,
   roundCurrency,
 } from "@/lib/clientes-utils";
-import { canRegisterAgreementPayments } from "@/lib/permissions";
+import {
+  canEditInstallmentRevenueType,
+  canRegisterAgreementPayments,
+} from "@/lib/permissions";
 import { buildAgreementCenterRows } from "@/services/acordos-service";
+import { calcularClassificacaoAutomaticaParcela } from "@/services/honorarios-service";
 import {
   getClientsContext,
   uniqueOptions,
@@ -73,6 +77,22 @@ function buildInstallmentRows(context: ClientsContext): InstallmentCenterRow[] {
   return agreements.flatMap((agreement) =>
     agreement.parcelasDetalhe.map((installment) => {
       const status = deriveInstallmentStatus(installment);
+      const revenueType = installment.tipo_receita
+        ? installment.tipo_receita
+        : calcularClassificacaoAutomaticaParcela({
+            numeroParcela: installment.numero_parcela,
+            tipo: installment.tipo,
+            manualType: installment.tipo_receita ?? null,
+          }).tipoReceita;
+      const revenueTypeOrigin = installment.tipo_receita_origem
+        ? installment.tipo_receita_origem
+        : installment.tipo_receita
+          ? "manual"
+          : calcularClassificacaoAutomaticaParcela({
+              numeroParcela: installment.numero_parcela,
+              tipo: installment.tipo,
+              manualType: installment.tipo_receita ?? null,
+            }).tipoReceitaOrigem;
       const diasEmAtraso =
         status === "atrasado"
           ? Math.max(
@@ -111,8 +131,8 @@ function buildInstallmentRows(context: ClientsContext): InstallmentCenterRow[] {
         percentualHonorarios: installment.percentual_honorarios ?? null,
         valorHonorariosPrevisto: installment.valor_honorarios_previsto ?? null,
         valorEscritorioPrevisto: installment.valor_escritorio_previsto ?? null,
-        tipoReceita: installment.tipo_receita ?? null,
-        tipoReceitaOrigem: installment.tipo_receita_origem ?? null,
+        tipoReceita: revenueType,
+        tipoReceitaOrigem: revenueTypeOrigin,
       } satisfies InstallmentCenterRow;
     }),
   );
@@ -201,6 +221,9 @@ export async function getParcelasPageData(
     installments,
     agreements,
     canRegisterWriteOff: canRegisterAgreementPayments(context.profile.perfil),
+    canEditInstallmentRevenueType: canEditInstallmentRevenueType(
+      context.profile.perfil,
+    ),
     demoMode: context.demoMode,
   };
 }

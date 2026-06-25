@@ -543,4 +543,26 @@ export async function registrarAuditoria(input: CreateAuditEventInput) {
   };
 }
 
+export async function registrarAuditoriaSegura(input: CreateAuditEventInput) {
+  try {
+    return await registrarAuditoria(input);
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("Falha ao registrar auditoria sem bloquear operacao principal.", {
+        input,
+        error,
+      });
+    }
+
+    return {
+      id: null,
+      demoMode: !isSupabaseConfigured(),
+      warning:
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel registrar o evento de auditoria.",
+    };
+  }
+}
+
 export { registrarAuditoria as criarEventoAuditoria };

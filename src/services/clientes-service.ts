@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
-import { addDays, parseISO, subDays } from "date-fns";
+import { addDays, differenceInCalendarDays, parseISO, subDays } from "date-fns";
 import { z } from "zod";
 
 import { requireActiveProfile } from "@/lib/auth";
@@ -13,6 +13,8 @@ import {
   canCreateAgreements,
   canEditCases,
   canEditContracts,
+  canManageCreditors,
+  canEditInstallmentRevenueType,
   canRegisterAgreementPayments,
   canViewClients,
 } from "@/lib/permissions";
@@ -45,7 +47,10 @@ import type {
   ClientWalletLink,
   ContactAction,
   Contract,
+  Creditor,
   FilterOption,
+  Goal,
+  InstallmentCenterRow,
   ManualCaseInput,
   ManualCaseResult,
   Operator,
@@ -63,6 +68,8 @@ type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 const manualCaseSchema = z.object({
   nome: z.string().trim().min(3, "Informe o nome do cliente."),
   cpfCnpj: z.string().trim().min(11, "Informe o CPF/CNPJ."),
+  credor: z.string().trim().nullable().optional(),
+  credorId: z.string().uuid().nullable().optional(),
   telefone: z.string().trim().nullable().optional(),
   email: z.string().trim().email("E-mail invalido.").nullable().optional().or(z.literal("")),
   endereco: z.string().trim().nullable().optional(),
@@ -70,11 +77,11 @@ const manualCaseSchema = z.object({
   uf: z.string().trim().max(2, "UF invalida.").nullable().optional(),
   cep: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
+  status: z.enum(["em_cobranca", "com_acordo", "quitado", "inativo"]).nullable().optional(),
   carteiraId: z.string().uuid("Carteira invalida."),
-  credor: z.string().trim().nullable().optional(),
-  numeroContrato: z.string().trim().min(1, "Numero do contrato obrigatorio."),
-  valorOriginal: z.coerce.number().min(0, "Valor original invalido."),
-  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
+  numeroContrato: z.string().trim().nullable().optional().or(z.literal("")),
+  valorOriginal: z.coerce.number().min(0, "Valor original invalido.").nullable().optional(),
+  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido.").nullable().optional(),
   dataContrato: z.string().trim().nullable().optional(),
   dataVencimento: z.string().trim().nullable().optional(),
   operadorId: z.string().uuid().nullable().optional(),
@@ -103,6 +110,7 @@ const contractSchema = z.object({
   clientId: z.string().uuid("Cliente invalido."),
   carteiraId: z.string().uuid().nullable().optional(),
   credor: z.string().trim().nullable().optional(),
+  credorId: z.string().uuid().nullable().optional(),
   numeroContrato: z.string().trim().min(1, "Numero do contrato obrigatorio."),
   valorOriginal: z.coerce.number().min(0, "Valor original invalido."),
   valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
@@ -127,7 +135,9 @@ export interface ClientsContext {
   actions: ContactAction[];
   operators: Operator[];
   teams: Team[];
+  creditors: Creditor[];
   wallets: Wallet[];
+  goals: Goal[];
   profiles: PortalProfile[];
 }
 
@@ -153,6 +163,90 @@ function resolveNullableString(value: string | null | undefined) {
 
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function resolveNullableNumber(value: number | null | undefined) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return null;
+  }
+
+  return roundCurrency(value);
+}
+
+function buildCreditorMaps(context: Pick<ClientsContext, "creditors">) {
+  const creditorById = new Map(context.creditors.map((creditor) => [creditor.id, creditor]));
+  const creditorByName = new Map(
+    context.creditors.map((creditor) => [normalizeText(creditor.nome), creditor]),
+  );
+
+  return {
+    creditorById,
+    creditorByName,
+  };
+}
+
+function resolveWalletCreditor(
+  wallet: Wallet | null | undefined,
+  context: Pick<ClientsContext, "creditors">,
+) {
+  if (!wallet) {
+    return {
+      creditorId: null,
+      creditorName: null,
+    };
+  }
+
+  const { creditorById, creditorByName } = buildCreditorMaps(context);
+  const byId = wallet.credor_id ? creditorById.get(wallet.credor_id) : null;
+  const byName = wallet.credor ? creditorByName.get(normalizeText(wallet.credor)) : null;
+  const creditor = byId ?? byName ?? null;
+
+  return {
+    creditorId: creditor?.id ?? wallet.credor_id ?? null,
+    creditorName: creditor?.nome ?? resolveNullableString(wallet.credor),
+  };
+}
+
+function resolveSelectedCreditor(
+  context: Pick<ClientsContext, "creditors">,
+  payload: {
+    wallet?: Wallet | null;
+    creditorId?: string | null;
+    creditorName?: string | null;
+  },
+) {
+  const { creditorById, creditorByName } = buildCreditorMaps(context);
+
+  const selectedById = payload.creditorId ? creditorById.get(payload.creditorId) : null;
+  const selectedByName = payload.creditorName
+    ? creditorByName.get(normalizeText(payload.creditorName))
+    : null;
+
+  if (payload.creditorId && !selectedById) {
+    throw new Error("Credor selecionado nao esta disponivel para este perfil.");
+  }
+
+  const walletCreditor = resolveWalletCreditor(payload.wallet ?? null, context);
+  const resolved = selectedById ?? selectedByName;
+
+  return {
+    creditorId: resolved?.id ?? walletCreditor.creditorId ?? null,
+    creditorName:
+      resolved?.nome ??
+      resolveNullableString(payload.creditorName) ??
+      walletCreditor.creditorName ??
+      null,
+  };
+}
+
+function hasInitialContractData(input: ManualCaseInput) {
+  return Boolean(
+    resolveNullableString(input.numeroContrato) ||
+      resolveNullableNumber(input.valorOriginal) !== null ||
+      resolveNullableNumber(input.valorEmAberto) !== null ||
+      resolveNullableString(input.dataContrato) ||
+      resolveNullableString(input.dataVencimento),
+  );
 }
 
 function resolveScopedAssignment(
@@ -303,12 +397,14 @@ function createMockClientsContext(profile: PortalProfile): ClientsContext {
 
   const walletLinks: ClientWalletLink[] = clients.map((client, index) => {
     const wallet = wallets[index % wallets.length];
+    const walletCreditor = resolveWalletCreditor(wallet, { creditors: base.creditors });
 
     return {
       id: `client-wallet-${client.id}`,
       cliente_id: client.id,
       carteira_id: wallet.id,
-      credor: wallet.credor,
+      credor: walletCreditor.creditorName ?? wallet.credor,
+      credor_id: walletCreditor.creditorId,
       ativo: true,
       chave_externa: null,
       criado_em: client.criado_em,
@@ -322,13 +418,15 @@ function createMockClientsContext(profile: PortalProfile): ClientsContext {
     const teamId = operator.equipe_id;
     const baseValue = 4800 + index * 1250;
     const agreementOpen = index % 2 === 0;
+    const walletCreditor = resolveWalletCreditor(wallet, { creditors: base.creditors });
 
     return [
       {
         id: `contract-${client.id}-1`,
         cliente_id: client.id,
         carteira_id: wallet.id,
-        credor: wallet.credor,
+        credor: walletCreditor.creditorName ?? wallet.credor,
+        credor_id: walletCreditor.creditorId,
         numero_contrato: `CTR-${1000 + index}`,
         valor_original: baseValue,
         valor_em_aberto: agreementOpen ? roundCurrency(baseValue * 0.62) : 0,
@@ -532,7 +630,9 @@ function createMockClientsContext(profile: PortalProfile): ClientsContext {
     actions,
     operators,
     teams,
+    creditors: base.creditors,
     wallets,
+    goals: base.goals,
     profiles: [profile],
   };
 
@@ -572,12 +672,37 @@ function scopeClientsContext(context: ClientsContext, profile: PortalProfile) {
       .filter((item) => agreementIds.has(item.acordo_id))
       .map((item) => item.id),
   );
+  const scopedWalletLinks = context.walletLinks.filter((item) =>
+    clientIds.has(item.cliente_id),
+  );
+  const scopedContracts = context.contracts.filter((item) =>
+    clientIds.has(item.cliente_id),
+  );
+  const scopedWalletIds = new Set(
+    [
+      ...scopedWalletLinks.map((item) => item.carteira_id),
+      ...scopedContracts.map((item) => item.carteira_id).filter(Boolean),
+      ...context.agreements
+        .filter((item) => item.cliente_id && clientIds.has(item.cliente_id))
+        .map((item) => item.carteira_id)
+        .filter(Boolean),
+    ] as string[],
+  );
+  const scopedWallets = context.wallets.filter((wallet) => scopedWalletIds.has(wallet.id));
+  const scopedCreditorIds = new Set(
+    scopedWallets
+      .map((wallet) => wallet.credor_id)
+      .filter((value): value is string => Boolean(value)),
+  );
+  const scopedCreditorNames = new Set(
+    scopedWallets.map((wallet) => normalizeText(wallet.credor)),
+  );
 
   return {
     ...context,
     clients,
-    walletLinks: context.walletLinks.filter((item) => clientIds.has(item.cliente_id)),
-    contracts: context.contracts.filter((item) => clientIds.has(item.cliente_id)),
+    walletLinks: scopedWalletLinks,
+    contracts: scopedContracts,
     agreements: context.agreements.filter(
       (item) => item.cliente_id && clientIds.has(item.cliente_id),
     ),
@@ -614,6 +739,29 @@ function scopeClientsContext(context: ClientsContext, profile: PortalProfile) {
 
       return Boolean(profile.equipe_id === item.id);
     }),
+    creditors: context.creditors.filter(
+      (creditor) =>
+        scopedCreditorIds.has(creditor.id) ||
+        scopedCreditorNames.has(normalizeText(creditor.nome)),
+    ),
+    wallets: scopedWallets,
+    goals: context.goals.filter((goal) => {
+      if (profile.perfil === "supervisor") {
+        return Boolean(
+          (goal.equipe_id && allowedTeamIds.has(goal.equipe_id)) ||
+            (goal.operador_id &&
+              context.operators.some(
+                (operator) =>
+                  operator.id === goal.operador_id &&
+                  Boolean(operator.equipe_id && allowedTeamIds.has(operator.equipe_id)),
+              )) ||
+            (goal.carteira_id && scopedWalletIds.has(goal.carteira_id)) ||
+            (goal.credor_id && scopedCreditorIds.has(goal.credor_id)),
+        );
+      }
+
+      return Boolean(goal.operador_id && allowedOperatorIds.has(goal.operador_id));
+    }),
   };
 }
 
@@ -645,7 +793,9 @@ export const getClientsContext = cache(async (): Promise<ClientsContext> => {
     actionsResult,
     operatorsResult,
     teamsResult,
+    creditorsResult,
     walletsResult,
+    goalsResult,
     profilesResult,
   ] = await Promise.all([
     supabase.from("clientes").select("*").order("nome"),
@@ -673,7 +823,9 @@ export const getClientsContext = cache(async (): Promise<ClientsContext> => {
       .order("data_acionamento", { ascending: false }),
     supabase.from("operadores").select("*").order("nome"),
     supabase.from("equipes").select("*").order("nome"),
+    supabase.from("credores").select("*").order("nome"),
     supabase.from("carteiras").select("*").order("nome"),
+    supabase.from("metas").select("*").order("ano", { ascending: false }),
     supabase.from("profiles").select("*").order("nome"),
   ]);
 
@@ -690,7 +842,9 @@ export const getClientsContext = cache(async (): Promise<ClientsContext> => {
     actions: toRows(actionsResult) as ContactAction[],
     operators: toRows(operatorsResult) as Operator[],
     teams: toRows(teamsResult) as Team[],
+    creditors: toRows(creditorsResult) as Creditor[],
     wallets: toRows(walletsResult) as Wallet[],
+    goals: toRows(goalsResult) as Goal[],
     profiles: mapProfileRows(toRows(profilesResult)),
   };
 });
@@ -700,6 +854,7 @@ export function buildResolvedCollections(context: ClientsContext) {
   const operatorById = new Map(context.operators.map((item) => [item.id, item]));
   const teamById = new Map(context.teams.map((item) => [item.id, item]));
   const profileById = new Map(context.profiles.map((item) => [item.id, item]));
+  const creditorById = new Map(context.creditors.map((item) => [item.id, item]));
   const clientById = new Map(context.clients.map((item) => [item.id, item]));
   const clientByDocument = new Map(
     context.clients.map((item) => [normalizeDocument(item.cpf_cnpj), item]),
@@ -808,6 +963,7 @@ export function buildResolvedCollections(context: ClientsContext) {
     operatorById,
     teamById,
     profileById,
+    creditorById,
     clientById,
     contractsByClient,
     walletLinksByClient,
@@ -824,21 +980,40 @@ export function buildResolvedCollections(context: ClientsContext) {
   };
 }
 
-function buildClientFilterOptions(context: ClientsContext): ClientFilterOptions {
-  return {
-    wallets: uniqueOptions(
-      context.wallets.map((wallet) => ({
+function buildWalletOptions(context: ClientsContext) {
+  return uniqueOptions(
+    context.wallets.map((wallet) => {
+      const resolved = resolveWalletCreditor(wallet, context);
+
+      return {
         value: wallet.id,
         label: wallet.nome,
-        description: wallet.credor,
-      })),
-    ),
-    creditors: uniqueOptions(
-      context.wallets.map((wallet) => ({
-        value: wallet.credor,
-        label: wallet.credor,
-      })),
-    ),
+        description: resolved.creditorName ?? wallet.credor,
+      };
+    }),
+  );
+}
+
+function buildCreditorOptions(context: ClientsContext) {
+  const knownCreditors = context.creditors.map((creditor) => ({
+    value: creditor.nome,
+    label: creditor.nome,
+  }));
+  const walletFallbacks = context.wallets
+    .map((wallet) => resolveWalletCreditor(wallet, context).creditorName ?? wallet.credor)
+    .filter(Boolean)
+    .map((creditorName) => ({
+      value: creditorName,
+      label: creditorName,
+    }));
+
+  return uniqueOptions([...knownCreditors, ...walletFallbacks]);
+}
+
+function buildClientFilterOptions(context: ClientsContext): ClientFilterOptions {
+  return {
+    wallets: buildWalletOptions(context),
+    creditors: buildCreditorOptions(context),
     teams: uniqueOptions(
       context.teams.map((team) => ({
         value: team.id,
@@ -905,6 +1080,9 @@ function buildClientListRows(
       const primaryWallet = primaryWalletId
         ? resolved.walletById.get(primaryWalletId)
         : undefined;
+      const primaryWalletCreditor = primaryWallet
+        ? resolveWalletCreditor(primaryWallet, context).creditorName
+        : null;
       const operatorId =
         client.operador_id ??
         contracts.find((item) => item.operador_id)?.operador_id ??
@@ -930,7 +1108,7 @@ function buildClientListRows(
         cpfCnpj: client.cpf_cnpj,
         carteira: primaryWallet?.nome ?? getPrimaryWalletLabel(null, null),
         credor:
-          primaryWallet?.credor ??
+          primaryWalletCreditor ??
           walletLinks.find((item) => item.ativo)?.credor ??
           contracts.find((item) => item.credor)?.credor ??
           "-",
@@ -984,6 +1162,21 @@ export async function listarClientes(filters: ClientListFilters = {}) {
 export async function buscarClientePorId(clientId: string) {
   const context = await getClientsContext();
   return context.clients.find((item) => item.id === clientId) ?? null;
+}
+
+export async function buscarClientePorCpfCnpj(cpfCnpj: string) {
+  const normalizedDocument = normalizeDocument(cpfCnpj);
+
+  if (!normalizedDocument) {
+    return null;
+  }
+
+  const context = await getClientsContext();
+  return (
+    context.clients.find(
+      (item) => normalizeDocument(item.cpf_cnpj) === normalizedDocument,
+    ) ?? null
+  );
 }
 
 export async function listarContratosCliente(clientId: string) {
@@ -1065,6 +1258,85 @@ export async function listarAcordosCliente(clientId: string) {
   });
 }
 
+function resolveInstallmentRevenueType(
+  installment: AgreementInstallment,
+): ClientPaymentRow["tipoReceita"] {
+  if (installment.tipo_receita) {
+    return installment.tipo_receita;
+  }
+
+  if (installment.tipo === "avista" || installment.tipo === "entrada" || installment.numero_parcela <= 1) {
+    return "NOVO";
+  }
+
+  return "COLCHAO";
+}
+
+function resolveInstallmentRevenueTypeOrigin(
+  installment: AgreementInstallment,
+): ClientPaymentRow["tipoReceitaOrigem"] {
+  if (installment.tipo_receita_origem) {
+    return installment.tipo_receita_origem;
+  }
+
+  return installment.tipo_receita ? "manual" : "automatico";
+}
+
+export async function listarParcelasCliente(clientId: string) {
+  const context = await getClientsContext();
+  const client = context.clients.find((item) => item.id === clientId);
+  const agreements = await listarAcordosCliente(clientId);
+  const today = new Date();
+
+  return agreements
+    .flatMap((agreement) =>
+      agreement.parcelas.map((installment) => {
+        const status = deriveInstallmentStatus(installment);
+
+        return {
+          id: installment.id,
+          agreementId: agreement.id,
+          clientId,
+          walletId: agreement.carteira_id,
+          operatorId: installment.operador_id ?? agreement.operador_id,
+          teamId: installment.equipe_id ?? agreement.equipe_id,
+          cliente: client?.nome ?? "Cliente nao vinculado",
+          cpfCnpj: agreement.cpf_cnpj ?? client?.cpf_cnpj ?? "-",
+          contrato: agreement.contratoNumero,
+          carteira: agreement.carteira,
+          credor: agreement.credor,
+          operador: agreement.operador,
+          equipe: agreement.equipe,
+          numeroParcela: installment.numero_parcela,
+          tipo: installment.tipo,
+          vencimento: installment.data_vencimento,
+          valorParcela: installment.valor_parcela,
+          valorPago: installment.valor_pago,
+          saldo: roundCurrency(
+            Math.max(installment.valor_parcela - installment.valor_pago, 0),
+          ),
+          status,
+          diasEmAtraso:
+            status === "atrasado"
+              ? Math.max(
+                  differenceInCalendarDays(today, parseISO(installment.data_vencimento)),
+                  0,
+                )
+              : 0,
+          dataPagamento: installment.data_pagamento,
+          acordoStatus: agreement.status,
+          observacao: installment.observacao,
+          percentualHonorarios: installment.percentual_honorarios ?? null,
+          valorHonorariosPrevisto: installment.valor_honorarios_previsto ?? null,
+          valorEscritorioPrevisto: installment.valor_escritorio_previsto ?? null,
+          tipoReceita: resolveInstallmentRevenueType(installment),
+          tipoReceitaOrigem: resolveInstallmentRevenueTypeOrigin(installment),
+        } satisfies InstallmentCenterRow;
+      }),
+    )
+    .sort((left, right) => left.vencimento.localeCompare(right.vencimento));
+}
+
 export async function listarBaixasCliente(clientId: string) {
   const context = await getClientsContext();
   const resolved = buildResolvedCollections(context);
@@ -1089,6 +1361,12 @@ export async function listarBaixasCliente(clientId: string) {
       formaPagamento: writeOff.forma_pagamento,
       observacao: writeOff.observacao,
       registradoPor: registeredBy,
+      tipoReceita:
+        writeOff.tipo_receita ??
+        (installment ? resolveInstallmentRevenueType(installment) : null),
+      tipoReceitaOrigem:
+        writeOff.tipo_receita_origem ??
+        (installment ? resolveInstallmentRevenueTypeOrigin(installment) : null),
       origem: "baixa",
     } satisfies ClientPaymentRow;
   });
@@ -1106,6 +1384,8 @@ export async function listarBaixasCliente(clientId: string) {
       formaPagamento: payment.origem_arquivo,
       observacao: payment.origem_arquivo,
       registradoPor: "Importacao",
+      tipoReceita: payment.tipo_receita ?? null,
+      tipoReceitaOrigem: payment.tipo_receita_origem ?? null,
       origem: "pagamento",
     } satisfies ClientPaymentRow));
 
@@ -1142,6 +1422,7 @@ export async function getClienteDetailPageData(
   const resolved = buildResolvedCollections(context);
   const contracts = await listarContratosCliente(clientId);
   const agreements = await listarAcordosCliente(clientId);
+  const installments = await listarParcelasCliente(clientId);
   const payments = await listarBaixasCliente(clientId);
   const { listarHistoricoCliente } = await import("@/services/auditoria-service");
   const auditTrail = await listarHistoricoCliente(clientId);
@@ -1185,6 +1466,7 @@ export async function getClienteDetailPageData(
     walletLinks: resolved.walletLinksByClient.get(clientId) ?? [],
     contracts,
     agreements,
+    installments,
     payments,
     actions,
     auditTrail,
@@ -1200,11 +1482,12 @@ export async function getClienteDetailPageData(
         label: team.nome,
       })),
     ),
-    wallets: uniqueOptions(
-      context.wallets.map((wallet) => ({
-        value: wallet.id,
-        label: wallet.nome,
-        description: wallet.credor,
+    wallets: buildWalletOptions(context),
+    creditors: uniqueOptions(
+      context.creditors.map((creditor) => ({
+        value: creditor.id,
+        label: creditor.nome,
+        description: creditor.codigo ?? undefined,
       })),
     ),
     canCreateAgreement: canCreateAgreements(context.profile.perfil),
@@ -1212,6 +1495,10 @@ export async function getClienteDetailPageData(
     canRegisterWriteOff: canRegisterAgreementPayments(context.profile.perfil),
     canEditCase: canEditCases(context.profile.perfil),
     canEditContracts: canEditContracts(context.profile.perfil),
+    canManageCreditors: canManageCreditors(context.profile.perfil),
+    canEditInstallmentRevenueType: canEditInstallmentRevenueType(
+      context.profile.perfil,
+    ),
     demoMode: context.demoMode,
   };
 }
@@ -1233,28 +1520,79 @@ export async function getNovoClientePageData() {
         label: team.nome,
       })),
     ),
-    wallets: uniqueOptions(
-      context.wallets.map((wallet) => ({
-        value: wallet.id,
-        label: wallet.nome,
-        description: wallet.credor,
+    wallets: buildWalletOptions(context),
+    walletCreditors: context.wallets.map((wallet) => {
+      const resolved = resolveWalletCreditor(wallet, context);
+
+      return {
+        walletId: wallet.id,
+        creditorId: resolved.creditorId,
+        creditorName: resolved.creditorName,
+      };
+    }),
+    creditors: uniqueOptions(
+      context.creditors.map((creditor) => ({
+        value: creditor.id,
+        label: creditor.nome,
+        description: creditor.codigo ?? undefined,
       })),
     ),
+    canManageCreditors: canManageCreditors(context.profile.perfil),
     demoMode: context.demoMode,
   };
 }
 
-export async function criarCasoManual(
+export async function criarCasoManualSimplificado(
   rawInput: ManualCaseInput,
 ): Promise<ManualCaseResult> {
-  const profile = await requireActiveProfile(["admin", "gerente", "supervisor"]);
+  const profile = await requireActiveProfile([
+    "admin",
+    "gerente",
+    "supervisor",
+    "operador",
+  ]);
   const input = manualCaseSchema.parse(rawInput);
   const context = await getClientsContext();
   const wallet = context.wallets.find((item) => item.id === input.carteiraId);
+  const normalizedDocument = normalizeDocument(input.cpfCnpj);
 
   if (!wallet) {
     throw new Error("Carteira nao encontrada para o escopo atual.");
   }
+
+  if (!normalizedDocument) {
+    throw new Error("Informe um CPF/CNPJ valido.");
+  }
+
+  const existingClient =
+    context.clients.find(
+      (item) => normalizeDocument(item.cpf_cnpj) === normalizedDocument,
+    ) ?? null;
+
+  if (existingClient) {
+    return {
+      clientId: existingClient.id,
+      contractId: null,
+      clientExists: true,
+      message:
+        "Ja existe um cliente cadastrado com este CPF/CNPJ. Abra a ficha existente para continuar.",
+      demoMode: context.demoMode,
+    };
+  }
+
+  const shouldCreateInitialContract = hasInitialContractData(input);
+
+  if (shouldCreateInitialContract && !resolveNullableString(input.numeroContrato)) {
+    throw new Error(
+      "Informe o numero do contrato para salvar o contrato inicial opcional.",
+    );
+  }
+
+  const selectedCreditor = resolveSelectedCreditor(context, {
+    wallet,
+    creditorId: input.credorId ?? null,
+    creditorName: input.credor ?? null,
+  });
 
   const scope = resolveScopedAssignment(context, {
     requestedOperatorId: input.operadorId ?? null,
@@ -1264,8 +1602,9 @@ export async function criarCasoManual(
   if (!isSupabaseConfigured()) {
     return {
       clientId: `demo-client-${Date.now()}`,
-      contractId: `demo-contract-${Date.now()}`,
-      message: "Modo demonstracao: caso manual validado sem persistencia no banco.",
+      contractId: shouldCreateInitialContract ? `demo-contract-${Date.now()}` : null,
+      message:
+        "Modo demonstracao: caso manual simplificado validado sem persistencia no banco.",
       demoMode: true,
     };
   }
@@ -1275,8 +1614,9 @@ export async function criarCasoManual(
   if (!supabase) {
     return {
       clientId: `demo-client-${Date.now()}`,
-      contractId: `demo-contract-${Date.now()}`,
-      message: "Modo demonstracao: caso manual validado sem persistencia no banco.",
+      contractId: shouldCreateInitialContract ? `demo-contract-${Date.now()}` : null,
+      message:
+        "Modo demonstracao: caso manual simplificado validado sem persistencia no banco.",
       demoMode: true,
     };
   }
@@ -1285,7 +1625,7 @@ export async function criarCasoManual(
     .from("clientes")
     .insert({
       nome: input.nome,
-      cpf_cnpj: normalizeDocument(input.cpfCnpj),
+      cpf_cnpj: normalizedDocument,
       telefone: resolveNullableString(input.telefone),
       email: resolveNullableString(input.email),
       endereco: resolveNullableString(input.endereco),
@@ -1293,7 +1633,7 @@ export async function criarCasoManual(
       uf: resolveNullableString(input.uf)?.toUpperCase() ?? null,
       cep: resolveNullableString(input.cep),
       observacao: resolveNullableString(input.observacao),
-      status: "em_cobranca",
+      status: input.status ?? "em_cobranca",
       operador_id: scope.operadorId,
       equipe_id: scope.equipeId,
     })
@@ -1301,6 +1641,10 @@ export async function criarCasoManual(
     .single();
 
   if (clientError || !client) {
+    if (clientError?.message?.includes("clientes_cpf_cnpj_uidx")) {
+      throw new Error("Ja existe um cliente cadastrado com este CPF/CNPJ.");
+    }
+
     throw new Error(clientError?.message ?? "Nao foi possivel criar o cliente.");
   }
 
@@ -1308,7 +1652,8 @@ export async function criarCasoManual(
     {
       cliente_id: client.id,
       carteira_id: wallet.id,
-      credor: wallet.credor,
+      credor: selectedCreditor.creditorName ?? wallet.credor,
+      credor_id: selectedCreditor.creditorId,
       ativo: true,
     },
     {
@@ -1320,33 +1665,49 @@ export async function criarCasoManual(
     throw new Error(walletLinkError.message);
   }
 
-  const { data: contract, error: contractError } = await supabase
-    .from("contratos")
-    .insert({
-      cliente_id: client.id,
-      carteira_id: wallet.id,
-      credor: input.credor ?? wallet.credor,
-      numero_contrato: input.numeroContrato,
-      valor_original: roundCurrency(input.valorOriginal),
-      valor_em_aberto: roundCurrency(input.valorEmAberto),
-      data_contrato: resolveNullableString(input.dataContrato),
-      data_vencimento: resolveNullableString(input.dataVencimento),
-      status: roundCurrency(input.valorEmAberto) <= 0 ? "quitado" : "aberto",
-      operador_id: scope.operadorId,
-      equipe_id: scope.equipeId,
-      observacao: resolveNullableString(input.observacao),
-      origem_manual: true,
-    })
-    .select("*")
-    .single();
+  const initialContractNumber = resolveNullableString(input.numeroContrato);
+  const contractPayload = shouldCreateInitialContract
+    ? {
+        cliente_id: client.id,
+        carteira_id: wallet.id,
+        credor: selectedCreditor.creditorName ?? wallet.credor,
+        credor_id: selectedCreditor.creditorId,
+        numero_contrato: initialContractNumber ?? "",
+        valor_original: roundCurrency(
+          resolveNullableNumber(input.valorOriginal) ??
+            resolveNullableNumber(input.valorEmAberto) ??
+            0,
+        ),
+        valor_em_aberto: roundCurrency(
+          resolveNullableNumber(input.valorEmAberto) ??
+            resolveNullableNumber(input.valorOriginal) ??
+            0,
+        ),
+        data_contrato: resolveNullableString(input.dataContrato),
+        data_vencimento: resolveNullableString(input.dataVencimento),
+        status:
+          roundCurrency(
+            resolveNullableNumber(input.valorEmAberto) ??
+              resolveNullableNumber(input.valorOriginal) ??
+              0,
+          ) <= 0
+            ? "quitado"
+            : "aberto",
+        operador_id: scope.operadorId,
+        equipe_id: scope.equipeId,
+        observacao: resolveNullableString(input.observacao),
+        origem_manual: true,
+      }
+    : null;
+  const contractResult = contractPayload
+    ? await supabase.from("contratos").insert(contractPayload).select("*").single()
+    : null;
+  const contract = contractResult?.data ?? null;
+  const contractError = contractResult?.error ?? null;
 
-  if (contractError || !contract) {
-    throw new Error(contractError?.message ?? "Nao foi possivel criar o contrato.");
-  }
+  const { registrarAuditoriaSegura } = await import("@/services/auditoria-service");
 
-  const { registrarAuditoria } = await import("@/services/auditoria-service");
-
-  await registrarAuditoria({
+  await registrarAuditoriaSegura({
     entidade: "cliente",
     entidadeId: client.id,
     acao: "cliente_criado",
@@ -1362,36 +1723,47 @@ export async function criarCasoManual(
       nome: client.nome,
       cpfCnpj: client.cpf_cnpj,
       carteira: wallet.nome,
+      credor: selectedCreditor.creditorName ?? wallet.credor,
     },
   });
 
-  await registrarAuditoria({
-    entidade: "contrato",
-    entidadeId: contract.id,
-    acao: "contrato_criado",
-    descricao: "Contrato inicial criado junto com o caso manual.",
-    clienteId: client.id,
-    contratoId: contract.id,
-    operadorId: contract.operador_id,
-    equipeId: contract.equipe_id,
-    carteiraId: contract.carteira_id,
-    usuarioId: profile.id,
-    usuarioNome: profile.nome,
-    origem: "manual",
-    dadosNovos: {
-      numeroContrato: contract.numero_contrato,
-      valorOriginal: contract.valor_original,
-      valorEmAberto: contract.valor_em_aberto,
-    },
-  });
+  if (contract) {
+    await registrarAuditoriaSegura({
+      entidade: "contrato",
+      entidadeId: contract.id,
+      acao: "contrato_criado",
+      descricao: "Contrato inicial opcional criado junto com o caso manual.",
+      clienteId: client.id,
+      contratoId: contract.id,
+      operadorId: contract.operador_id,
+      equipeId: contract.equipe_id,
+      carteiraId: contract.carteira_id,
+      usuarioId: profile.id,
+      usuarioNome: profile.nome,
+      origem: "manual",
+      dadosNovos: {
+        numeroContrato: contract.numero_contrato,
+        valorOriginal: contract.valor_original,
+        valorEmAberto: contract.valor_em_aberto,
+        credor: contract.credor,
+      },
+    });
+  }
 
   return {
     clientId: client.id,
-    contractId: contract.id,
-    message: "Caso manual criado com sucesso.",
+    contractId: contract?.id ?? null,
+    message: contractError
+      ? "Caso criado com sucesso, mas o contrato inicial opcional nao foi salvo."
+      : contract
+        ? "Caso manual criado com contrato inicial opcional."
+        : "Caso manual criado sem contrato inicial.",
     demoMode: false,
   };
 }
+
+export const criarCasoManual = criarCasoManualSimplificado;
+export const criarCasoRapido = criarCasoManualSimplificado;
 
 export async function atualizarCliente(rawInput: UpdateClientInput) {
   const profile = await requireActiveProfile(["admin", "gerente", "supervisor"]);
@@ -1471,6 +1843,10 @@ export async function atualizarCliente(rawInput: UpdateClientInput) {
       throw new Error("Carteira nao encontrada.");
     }
 
+    const selectedCreditor = resolveSelectedCreditor(context, {
+      wallet,
+    });
+
     await supabase
       .from("cliente_carteiras")
       .update({ ativo: false })
@@ -1480,7 +1856,8 @@ export async function atualizarCliente(rawInput: UpdateClientInput) {
       {
         cliente_id: existing.id,
         carteira_id: wallet.id,
-        credor: wallet.credor,
+        credor: selectedCreditor.creditorName ?? wallet.credor,
+        credor_id: selectedCreditor.creditorId,
         ativo: true,
       },
       { onConflict: "cliente_id,carteira_id" },
@@ -1491,9 +1868,9 @@ export async function atualizarCliente(rawInput: UpdateClientInput) {
     }
   }
 
-  const { registrarAuditoria } = await import("@/services/auditoria-service");
+  const { registrarAuditoriaSegura } = await import("@/services/auditoria-service");
 
-  await registrarAuditoria({
+  await registrarAuditoriaSegura({
     entidade: "cliente",
     entidadeId: existing.id,
     acao: "cliente_atualizado",
@@ -1530,6 +1907,8 @@ export async function atualizarCliente(rawInput: UpdateClientInput) {
 export async function criarContrato(rawInput: UpsertContractInput) {
   return atualizarOuCriarContrato(rawInput, "criar");
 }
+
+export const criarContratoCliente = criarContrato;
 
 export async function atualizarContrato(rawInput: UpsertContractInput) {
   return atualizarOuCriarContrato(rawInput, "atualizar");
@@ -1572,6 +1951,12 @@ async function atualizarOuCriarContrato(
     throw new Error("Carteira nao encontrada.");
   }
 
+  const selectedCreditor = resolveSelectedCreditor(context, {
+    wallet,
+    creditorId: input.credorId ?? existing?.credor_id ?? null,
+    creditorName: input.credor ?? existing?.credor ?? null,
+  });
+
   if (!isSupabaseConfigured()) {
     return {
       contractId: existing?.id ?? `demo-contract-${Date.now()}`,
@@ -1601,7 +1986,8 @@ async function atualizarOuCriarContrato(
   const payload = {
     cliente_id: client.id,
     carteira_id: wallet?.id ?? existing?.carteira_id ?? null,
-    credor: input.credor ?? wallet?.credor ?? existing?.credor ?? null,
+    credor: selectedCreditor.creditorName ?? wallet?.credor ?? existing?.credor ?? null,
+    credor_id: selectedCreditor.creditorId ?? existing?.credor_id ?? null,
     numero_contrato: input.numeroContrato,
     valor_original: roundCurrency(input.valorOriginal),
     valor_em_aberto: roundCurrency(input.valorEmAberto),
@@ -1632,9 +2018,9 @@ async function atualizarOuCriarContrato(
     );
   }
 
-  const { registrarAuditoria } = await import("@/services/auditoria-service");
+  const { registrarAuditoriaSegura } = await import("@/services/auditoria-service");
 
-  await registrarAuditoria({
+  await registrarAuditoriaSegura({
     entidade: "contrato",
     entidadeId: contract.id,
     acao: mode === "criar" ? "contrato_criado" : "contrato_atualizado",

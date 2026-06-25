@@ -42,7 +42,7 @@ function mapProfileRows(rows: Database["public"]["Tables"]["profiles"]["Row"][])
   }));
 }
 
-const getPortalContext = cache(async () => {
+export const getPortalContext = cache(async () => {
   const profile = await requireActiveProfile();
   const demoMode = !isSupabaseConfigured();
 

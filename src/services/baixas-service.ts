@@ -16,6 +16,7 @@ import {
 } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getClientsContext, uniqueOptions, buildResolvedCollections, type ClientsContext } from "@/services/clientes-service";
+import { criarContratoDuranteBaixa } from "@/services/contratos-service";
 import { darBaixaParcela, parseWriteOffInput } from "@/services/acordos-service";
 import type {
   AgreementOperationResult,
@@ -363,3 +364,4 @@ export async function getBaixasPageData(
 }
 
 export { darBaixaParcela, parseWriteOffInput };
+export { criarContratoDuranteBaixa };

@@ -18,12 +18,28 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Performance comparativa e atingimento de meta.",
   },
   "/equipes": {
-    title: "Visao por equipe",
-    subtitle: "Indicadores operacionais por time e supervisao.",
+    title: "Cadastro de equipes",
+    subtitle: "Estruture supervisoes, times ativos e responsaveis.",
   },
   "/carteiras": {
-    title: "Visao por carteira",
-    subtitle: "Recebimento, acordos e recuperacao por carteira.",
+    title: "Cadastro de carteiras",
+    subtitle: "Mantenha carteiras, codigos e vinculos com credores.",
+  },
+  "/credores": {
+    title: "Cadastro de credores",
+    subtitle: "Central mestre para criacao, edicao e status de credores.",
+  },
+  "/operadores": {
+    title: "Cadastro de operadores",
+    subtitle: "Base operacional com equipe, usuario e status.",
+  },
+  "/contratos": {
+    title: "Contratos",
+    subtitle: "Consulta dos contratos e atalhos para cadastro manual.",
+  },
+  "/metas": {
+    title: "Cadastro de metas",
+    subtitle: "Metas mensais por operador, equipe, carteira e credor.",
   },
   "/clientes": {
     title: "Clientes",
@@ -57,9 +73,17 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: "Administracao",
     subtitle: "Cadastros mestres, perfis e configuracoes do portal.",
   },
+  "/admin/usuarios": {
+    title: "Usuarios e Perfis",
+    subtitle: "Controle de acessos, papeis do portal e vinculos operacionais.",
+  },
 };
 
 function getCurrentPageContent(pathname: string) {
+  if (pathname.startsWith("/admin/usuarios")) {
+    return pageTitles["/admin/usuarios"];
+  }
+
   if (pathname.startsWith("/admin/")) {
     return pageTitles["/admin"];
   }

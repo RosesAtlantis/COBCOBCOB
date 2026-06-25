@@ -84,6 +84,7 @@ export default async function AcordosPage({ searchParams }: AcordosPageProps) {
       <AcordosFilters filters={data.filters} options={data.options} />
       <AcordosTable
         rows={data.agreements}
+        wallets={data.options.wallets}
         canCancel={data.canCancelAgreement}
         canRegisterWriteOff={data.canRegisterWriteOff}
       />

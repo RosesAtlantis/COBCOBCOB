@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AcordoForm } from "@/components/acordos/acordo-form";
 import { AcordosTable } from "@/components/acordos/acordos-table";
 import { ClienteForm } from "@/components/clientes/cliente-form";
+import { ClientInstallmentsPanel } from "@/components/clientes/client-installments-panel";
 import { ContractsManager } from "@/components/clientes/contracts-manager";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -134,10 +135,10 @@ export default async function ClienteDetailPage({
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
           <TabsTrigger value="contratos">Contratos</TabsTrigger>
           <TabsTrigger value="acordos">Acordos</TabsTrigger>
-          <TabsTrigger value="baixas">Pagamentos/Baixas</TabsTrigger>
-          <TabsTrigger value="acionamentos">Acionamentos</TabsTrigger>
-          <TabsTrigger value="cadastro">Dados cadastrais</TabsTrigger>
+          <TabsTrigger value="parcelas">Parcelas</TabsTrigger>
+          <TabsTrigger value="baixas">Baixas</TabsTrigger>
           <TabsTrigger value="historico">Historico</TabsTrigger>
+          <TabsTrigger value="cadastro">Dados cadastrais</TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumo" className="space-y-6">
@@ -219,9 +220,12 @@ export default async function ClienteDetailPage({
             clientId={data.client.id}
             contracts={data.contracts}
             wallets={data.wallets}
+            creditors={data.creditors}
             operators={data.operators}
             teams={data.teams}
+            preferredWalletId={data.walletLinks.find((item) => item.ativo)?.carteira_id ?? data.walletLinks[0]?.carteira_id ?? null}
             canEdit={data.canEditContracts}
+            canManageCreditors={data.canManageCreditors}
           />
         </TabsContent>
 
@@ -236,16 +240,36 @@ export default async function ClienteDetailPage({
             clientId={data.client.id}
             clientName={data.client.nome}
             agreements={data.agreements}
+            wallets={data.wallets}
             canCancel={data.canCancelAgreement}
             canRegisterWriteOff={data.canRegisterWriteOff}
           />
         </TabsContent>
 
+        <TabsContent value="parcelas" className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">Parcelas</h2>
+            <p className="text-sm text-muted-foreground">
+              Acompanhe todas as parcelas do cliente com classificacao NOVO/COLCHAO,
+              origem da classificacao, operador e atalho para baixa.
+            </p>
+          </div>
+          <ClientInstallmentsPanel
+            clientName={data.client.nome}
+            agreements={data.agreements}
+            installments={data.installments}
+            wallets={data.wallets}
+            canRegisterWriteOff={data.canRegisterWriteOff}
+            canEditInstallmentRevenueType={data.canEditInstallmentRevenueType}
+          />
+        </TabsContent>
+
         <TabsContent value="baixas" className="space-y-3">
           <div>
-            <h2 className="text-lg font-semibold">Pagamentos e baixas</h2>
+            <h2 className="text-lg font-semibold">Baixas</h2>
             <p className="text-sm text-muted-foreground">
-              Historico financeiro do cliente, incluindo baixas manuais e registros reaproveitados da tabela de pagamentos.
+              Historico financeiro do cliente, incluindo baixas manuais e registros
+              reaproveitados da tabela de pagamentos.
             </p>
           </div>
           <DataTable
@@ -271,31 +295,12 @@ export default async function ClienteDetailPage({
                 render: (row) => formatCurrency(row.valorPago),
               },
               { key: "formaPagamento", header: "Forma" },
-              { key: "registradoPor", header: "Registrado por" },
-            ]}
-          />
-        </TabsContent>
-
-        <TabsContent value="acionamentos" className="space-y-3">
-          <div>
-            <h2 className="text-lg font-semibold">Acionamentos</h2>
-            <p className="text-sm text-muted-foreground">
-              Registro de contatos e tratativas recuperadas da operacao atual.
-            </p>
-          </div>
-          <DataTable
-            rows={data.actions}
-            columns={[
               {
-                key: "data_acionamento",
-                header: "Data",
-                render: (row) => formatDate(row.data_acionamento),
+                key: "tipoReceita",
+                header: "Classificacao",
+                render: (row) => row.tipoReceita ?? "-",
               },
-              { key: "evento", header: "Evento" },
-              { key: "canal", header: "Canal" },
-              { key: "operador", header: "Operador" },
-              { key: "equipe", header: "Equipe" },
-              { key: "descricao", header: "Descricao" },
+              { key: "registradoPor", header: "Registrado por" },
             ]}
           />
         </TabsContent>
@@ -325,9 +330,25 @@ export default async function ClienteDetailPage({
           <div>
             <h2 className="text-lg font-semibold">Historico</h2>
             <p className="text-sm text-muted-foreground">
-              Trilha de auditoria do cliente, contratos, acordos, baixas e alteracoes operacionais.
+              Acionamentos operacionais e trilha de auditoria do cliente, contratos,
+              acordos, parcelas e baixas.
             </p>
           </div>
+          <DataTable
+            rows={data.actions}
+            columns={[
+              {
+                key: "data_acionamento",
+                header: "Data",
+                render: (row) => formatDate(row.data_acionamento),
+              },
+              { key: "evento", header: "Evento" },
+              { key: "canal", header: "Canal" },
+              { key: "operador", header: "Operador" },
+              { key: "equipe", header: "Equipe" },
+              { key: "descricao", header: "Descricao" },
+            ]}
+          />
           <DataTable
             rows={data.auditTrail}
             columns={[

@@ -1,5 +1,43 @@
 import type { AgreementCenterRow, ClientAgreementRow } from "@/types/portal";
 
+export function toAgreementCenterRow(
+  row: ClientAgreementRow,
+  clientName?: string,
+): AgreementCenterRow {
+  return {
+    id: row.id,
+    clientId: row.cliente_id,
+    walletId: row.carteira_id,
+    operatorId: row.operador_id,
+    teamId: row.equipe_id,
+    cliente: clientName ?? "Cliente vinculado",
+    cpfCnpj: row.cpf_cnpj ?? "",
+    contrato: row.contratoNumero,
+    carteira: row.carteira,
+    credor: row.credor,
+    operador: row.operador,
+    equipe: row.equipe,
+    dataAcordo: row.data_acordo,
+    valorOriginal: row.valor_original,
+    valorAcordo: row.valor_acordo,
+    valorPago: row.valor_pago,
+    saldo: row.valorRestante,
+    percentualHonorarios: row.percentual_honorarios ?? null,
+    valorHonorariosPrevisto: row.valor_honorarios_previsto ?? null,
+    valorEscritorioPrevisto: row.valor_escritorio_previsto ?? null,
+    parcelas: row.quantidade_parcelas,
+    parcelasPagas: row.parcelasPagas,
+    parcelasPendentes: row.parcelasPendentes,
+    parcelasAtrasadas: row.parcelasAtrasadas,
+    status: row.status,
+    formaPagamento: row.forma_pagamento,
+    observacao: row.observacao,
+    ultimoPagamentoEm: row.ultimo_pagamento_em,
+    ultimaAtualizacao: row.atualizado_em,
+    parcelasDetalhe: row.parcelas,
+  };
+}
+
 export function toClientAgreementRow(row: AgreementCenterRow): ClientAgreementRow {
   const entrada =
     row.parcelasDetalhe.find((installment) => installment.tipo === "entrada")

@@ -44,6 +44,7 @@ export type AgreementStatus =
 export type AgreementInstallmentType = "entrada" | "parcela" | "avista";
 export type RevenueType = "NOVO" | "COLCHAO";
 export type RevenueTypeOrigin = "automatico" | "manual";
+export type RankingView = "operadores" | "equipes" | "carteiras" | "credores";
 export type AuditOrigin =
   | "manual"
   | "importacao"
@@ -93,6 +94,11 @@ export interface Team {
 export interface Creditor {
   id: string;
   nome: string;
+  codigo?: string | null;
+  documento?: string | null;
+  email?: string | null;
+  telefone?: string | null;
+  observacao?: string | null;
   ativo: boolean;
   criado_em: string;
   atualizado_em: string;
@@ -102,6 +108,9 @@ export interface Wallet {
   id: string;
   nome: string;
   credor: string;
+  codigo?: string | null;
+  descricao?: string | null;
+  credor_id?: string | null;
   percentual_honorarios_padrao?: number | null;
   percentual_escritorio_padrao?: number | null;
   ativo: boolean;
@@ -133,6 +142,7 @@ export interface ClientWalletLink {
   cliente_id: string;
   carteira_id: string;
   credor: string;
+  credor_id?: string | null;
   ativo: boolean;
   chave_externa: string | null;
   criado_em: string;
@@ -144,6 +154,7 @@ export interface Contract {
   cliente_id: string;
   carteira_id: string | null;
   credor: string | null;
+  credor_id?: string | null;
   numero_contrato: string;
   valor_original: number;
   valor_em_aberto: number;
@@ -167,7 +178,9 @@ export interface Goal {
   operador_id: string | null;
   equipe_id: string | null;
   carteira_id: string | null;
+  credor_id?: string | null;
   valor_meta: number;
+  ativo: boolean;
   chave_externa: string | null;
   criado_em: string;
   atualizado_em: string;
@@ -366,6 +379,10 @@ export interface DashboardFilters {
   operatorId?: string;
   walletId?: string;
   creditor?: string;
+  query?: string;
+  revenueType?: RevenueType;
+  agreementStatus?: AgreementStatus;
+  rankingView?: RankingView;
 }
 
 export interface MetricHighlight {
@@ -431,6 +448,81 @@ export interface WalletPerformanceRow {
   operatorRanking: OperatorRankingRow[];
 }
 
+export interface RankingSummaryCards {
+  totalReceived: number;
+  totalOfficeFees: number;
+  totalWriteOffs: number;
+  totalAgreements: number;
+  totalGoal: number;
+  goalCompletion: number;
+}
+
+export interface RankingOperatorRow {
+  position: number;
+  operatorId: string;
+  operator: string;
+  team: string;
+  mainWallet: string;
+  received: number;
+  officeFees: number;
+  agreements: number;
+  writeOffs: number;
+  novo: number;
+  colchao: number;
+  averageTicket: number;
+  goal: number;
+  goalCompletion: number;
+}
+
+export interface RankingTeamRow {
+  position: number;
+  teamId: string;
+  team: string;
+  supervisor: string;
+  activeOperators: number;
+  received: number;
+  officeFees: number;
+  agreements: number;
+  writeOffs: number;
+  novo: number;
+  colchao: number;
+  goal: number;
+  goalCompletion: number;
+}
+
+export interface RankingWalletRow {
+  position: number;
+  walletId: string;
+  wallet: string;
+  creditor: string;
+  received: number;
+  officeFees: number;
+  agreements: number;
+  writeOffs: number;
+  novo: number;
+  colchao: number;
+  averageTicket: number;
+}
+
+export interface RankingCreditorRow {
+  position: number;
+  creditorId: string | null;
+  creditor: string;
+  linkedWallets: number;
+  received: number;
+  officeFees: number;
+  agreements: number;
+  writeOffs: number;
+  novo: number;
+  colchao: number;
+  averageTicket: number;
+}
+
+export interface RankingFilterOptions extends FilterOptions {
+  revenueTypes: FilterOption[];
+  agreementStatuses: FilterOption[];
+}
+
 export interface OperatorOverview {
   collected: number;
   goal: number;
@@ -455,6 +547,170 @@ export interface DashboardPageData {
   teamPerformance: TeamPerformanceRow[];
   walletPerformance: WalletPerformanceRow[];
   demoMode: boolean;
+}
+
+export interface RankingPageData {
+  profile: PortalProfile;
+  filters: DashboardFilters;
+  options: RankingFilterOptions;
+  summary: RankingSummaryCards;
+  operatorRanking: RankingOperatorRow[];
+  teamRanking: RankingTeamRow[];
+  walletRanking: RankingWalletRow[];
+  creditorRanking: RankingCreditorRow[];
+  demoMode: boolean;
+}
+
+export interface CreditorListRow extends Creditor {
+  linkedWalletCount: number;
+  linkedWalletNames: string[];
+}
+
+export interface CreditorsPageData {
+  profile: PortalProfile;
+  creditors: CreditorListRow[];
+  canManage: boolean;
+  demoMode: boolean;
+  summary: {
+    total: number;
+    active: number;
+    inactive: number;
+    linkedWallets: number;
+  };
+}
+
+export interface WalletRegistryRow extends Wallet {
+  creditorName: string;
+  linkedClients: number;
+  linkedContracts: number;
+}
+
+export interface WalletRegistryPageData {
+  profile: PortalProfile;
+  wallets: WalletRegistryRow[];
+  creditors: FilterOption[];
+  canManage: boolean;
+  demoMode: boolean;
+  summary: {
+    total: number;
+    active: number;
+    inactive: number;
+    linkedClients: number;
+  };
+}
+
+export interface OperatorRegistryRow extends Operator {
+  teamName: string;
+  profileId: string | null;
+  userName: string | null;
+  userRole: PortalRole | null;
+}
+
+export interface OperatorRegistryPageData {
+  profile: PortalProfile;
+  operators: OperatorRegistryRow[];
+  teams: FilterOption[];
+  profiles: FilterOption[];
+  canManage: boolean;
+  demoMode: boolean;
+  summary: {
+    total: number;
+    active: number;
+    inactive: number;
+    linkedTeams: number;
+  };
+}
+
+export interface ProfileAuthUserOption extends FilterOption {
+  email: string;
+}
+
+export interface ProfileRegistryRow extends PortalProfile {
+  operatorName: string | null;
+  teamName: string | null;
+}
+
+export interface ProfileRegistryPageData {
+  profile: PortalProfile;
+  profiles: ProfileRegistryRow[];
+  operators: FilterOption[];
+  teams: FilterOption[];
+  authUsers: ProfileAuthUserOption[];
+  canManage: boolean;
+  demoMode: boolean;
+  serviceRoleAvailable: boolean;
+  summary: {
+    total: number;
+    active: number;
+    inactive: number;
+    admins: number;
+  };
+}
+
+export interface TeamRegistryRow extends Team {
+  supervisorName: string | null;
+  operatorsCount: number;
+}
+
+export interface TeamRegistryPageData {
+  profile: PortalProfile;
+  teams: TeamRegistryRow[];
+  supervisors: FilterOption[];
+  canManage: boolean;
+  demoMode: boolean;
+  summary: {
+    total: number;
+    active: number;
+    inactive: number;
+    operators: number;
+  };
+}
+
+export interface GoalRegistryRow extends Goal {
+  operatorName: string | null;
+  teamName: string | null;
+  walletName: string | null;
+  creditorName: string | null;
+}
+
+export interface GoalRegistryPageData {
+  profile: PortalProfile;
+  goals: GoalRegistryRow[];
+  operators: FilterOption[];
+  teams: FilterOption[];
+  wallets: FilterOption[];
+  creditors: FilterOption[];
+  canManage: boolean;
+  demoMode: boolean;
+  summary: {
+    total: number;
+    active: number;
+    inactive: number;
+    currentMonth: number;
+  };
+}
+
+export interface ContractRegistryRow extends Contract {
+  clientName: string;
+  clientDocument: string;
+  walletName: string;
+  creditorName: string;
+  operatorName: string;
+  teamName: string;
+}
+
+export interface ContractRegistryPageData {
+  profile: PortalProfile;
+  contracts: ContractRegistryRow[];
+  canCreateCase: boolean;
+  canEditContracts: boolean;
+  demoMode: boolean;
+  summary: {
+    total: number;
+    active: number;
+    withWallet: number;
+    updatedToday: number;
+  };
 }
 
 export interface TeamPageData {
@@ -568,6 +824,8 @@ export interface ClientPaymentRow {
   formaPagamento: string | null;
   observacao: string | null;
   registradoPor: string;
+  tipoReceita?: RevenueType | string | null;
+  tipoReceitaOrigem?: RevenueTypeOrigin | string | null;
   origem: "baixa" | "pagamento";
 }
 
@@ -584,17 +842,21 @@ export interface ClientDetailPageData {
   walletLinks: ClientWalletLink[];
   contracts: ClientContractRow[];
   agreements: ClientAgreementRow[];
+  installments: InstallmentCenterRow[];
   payments: ClientPaymentRow[];
   actions: ClientActionRow[];
   auditTrail: AuditEvent[];
   operators: FilterOption[];
   teams: FilterOption[];
   wallets: FilterOption[];
+  creditors: FilterOption[];
   canCreateAgreement: boolean;
   canCancelAgreement: boolean;
   canRegisterWriteOff: boolean;
   canEditCase: boolean;
   canEditContracts: boolean;
+  canManageCreditors: boolean;
+  canEditInstallmentRevenueType: boolean;
   demoMode: boolean;
 }
 
@@ -799,6 +1061,7 @@ export interface InstallmentCenterPageData {
   installments: InstallmentCenterRow[];
   agreements: AgreementCenterRow[];
   canRegisterWriteOff: boolean;
+  canEditInstallmentRevenueType?: boolean;
   demoMode: boolean;
 }
 
@@ -948,6 +1211,8 @@ export interface CreateAgreementInput {
   observacao?: string | null;
   status?: AgreementStatus | null;
   parcelasCustomizadas?: AgreementInstallmentDraft[];
+  criarContratoAgora?: boolean;
+  novoContrato?: FlowContractInput | null;
 }
 
 export interface RegisterAgreementWriteOffInput {
@@ -960,6 +1225,8 @@ export interface RegisterAgreementWriteOffInput {
   confirmarAcimaSaldo?: boolean;
   formaPagamento?: string | null;
   observacao?: string | null;
+  criarContratoAgora?: boolean;
+  novoContrato?: FlowContractInput | null;
 }
 
 export interface CancelAgreementInput {
@@ -983,6 +1250,8 @@ export interface AgreementOperationResult {
 export interface ManualCaseInput {
   nome: string;
   cpfCnpj: string;
+  credor?: string | null;
+  credorId?: string | null;
   telefone?: string | null;
   email?: string | null;
   endereco?: string | null;
@@ -990,11 +1259,11 @@ export interface ManualCaseInput {
   uf?: string | null;
   cep?: string | null;
   observacao?: string | null;
+  status?: ClientStatus | null;
   carteiraId: string;
-  credor?: string | null;
-  numeroContrato: string;
-  valorOriginal: number;
-  valorEmAberto: number;
+  numeroContrato?: string | null;
+  valorOriginal?: number | null;
+  valorEmAberto?: number | null;
   dataContrato?: string | null;
   dataVencimento?: string | null;
   operadorId?: string | null;
@@ -1003,7 +1272,8 @@ export interface ManualCaseInput {
 
 export interface ManualCaseResult {
   clientId: string;
-  contractId: string;
+  contractId?: string | null;
+  clientExists?: boolean;
   message: string;
   demoMode: boolean;
 }
@@ -1030,6 +1300,7 @@ export interface UpsertContractInput {
   clientId: string;
   carteiraId?: string | null;
   credor?: string | null;
+  credorId?: string | null;
   numeroContrato: string;
   valorOriginal: number;
   valorEmAberto: number;
@@ -1039,6 +1310,26 @@ export interface UpsertContractInput {
   operadorId?: string | null;
   equipeId?: string | null;
   observacao?: string | null;
+}
+
+export interface FlowContractInput {
+  numeroContrato: string;
+  carteiraId: string;
+  credor?: string | null;
+  credorId?: string | null;
+  valorOriginal?: number | null;
+  valorEmAberto: number;
+  dataContrato?: string | null;
+  dataVencimento?: string | null;
+  operadorId?: string | null;
+  equipeId?: string | null;
+  status?: string | null;
+  observacao?: string | null;
+}
+
+export interface UpdateInstallmentRevenueTypeInput {
+  parcelaId: string;
+  tipoReceita: RevenueType;
 }
 
 export interface ImportLineError {

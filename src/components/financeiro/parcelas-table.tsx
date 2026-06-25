@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { BaixaForm } from "@/components/acordos/baixa-form";
+import { ClassificacaoParcelaForm } from "@/components/acordos/classificacao-parcela-form";
 import { AgreementDetailsDialog } from "@/components/financeiro/agreement-details-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -20,26 +21,43 @@ import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { toClientAgreementRow } from "@/lib/financeiro-adapters";
 import {
   formatDocument,
-  getRevenueTypeLabel,
   getInstallmentStatusLabel,
   getInstallmentStatusVariant,
+  getRevenueTypeLabel,
+  getRevenueTypeOriginLabel,
   resolveAgreementTypeLabel,
 } from "@/lib/clientes-utils";
 import { cn } from "@/lib/utils";
-import type { AgreementCenterRow, InstallmentCenterRow } from "@/types/portal";
+import type {
+  AgreementCenterRow,
+  FilterOption,
+  InstallmentCenterRow,
+} from "@/types/portal";
 
 interface ParcelasTableProps {
   rows: InstallmentCenterRow[];
   agreements: AgreementCenterRow[];
+  wallets: FilterOption[];
   canRegisterWriteOff: boolean;
+  canEditInstallmentRevenueType?: boolean;
+  showClientLink?: boolean;
+}
+
+function getRevenueBadgeVariant(type: InstallmentCenterRow["tipoReceita"]) {
+  return type === "COLCHAO" ? "secondary" : "default";
 }
 
 export function ParcelasCentralTable({
   rows,
   agreements,
+  wallets,
   canRegisterWriteOff,
+  canEditInstallmentRevenueType = false,
+  showClientLink = true,
 }: ParcelasTableProps) {
   const [detailsAgreementId, setDetailsAgreementId] = useState<string | null>(null);
+  const [classificationTarget, setClassificationTarget] =
+    useState<InstallmentCenterRow | null>(null);
   const [writeOffTarget, setWriteOffTarget] = useState<{
     agreement: AgreementCenterRow;
     parcelId: string;
@@ -88,7 +106,13 @@ export function ParcelasCentralTable({
                 Saldo
               </TableHead>
               <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Receita
+                Classificacao
+              </TableHead>
+              <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Origem
+              </TableHead>
+              <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Operador
               </TableHead>
               <TableHead className="h-11 px-4 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Dias atraso
@@ -119,7 +143,7 @@ export function ParcelasCentralTable({
                     <div>
                       <p className="text-sm">{row.contrato}</p>
                       <p className="text-xs text-muted-foreground">
-                        {row.operador} - {row.equipe}
+                        {row.carteira} - {row.credor}
                       </p>
                     </div>
                   </TableCell>
@@ -141,8 +165,19 @@ export function ParcelasCentralTable({
                   <TableCell className="px-4 py-3.5 text-right font-mono text-sm">
                     {formatCurrency(row.saldo)}
                   </TableCell>
-                  <TableCell className="px-4 py-3.5 text-sm">
-                    {getRevenueTypeLabel(row.tipoReceita)}
+                  <TableCell className="px-4 py-3.5">
+                    <Badge variant={getRevenueBadgeVariant(row.tipoReceita)}>
+                      {getRevenueTypeLabel(row.tipoReceita)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 text-sm text-muted-foreground">
+                    {getRevenueTypeOriginLabel(row.tipoReceitaOrigem)}
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5">
+                    <div>
+                      <p className="text-sm">{row.operador}</p>
+                      <p className="text-xs text-muted-foreground">{row.equipe}</p>
+                    </div>
                   </TableCell>
                   <TableCell className="px-4 py-3.5 text-center text-sm">
                     {row.diasEmAtraso > 0 ? formatNumber(row.diasEmAtraso) : "-"}
@@ -154,7 +189,7 @@ export function ParcelasCentralTable({
                   </TableCell>
                   <TableCell className="px-4 py-3.5">
                     <div className="flex flex-wrap justify-end gap-2">
-                      {row.clientId ? (
+                      {showClientLink && row.clientId ? (
                         <Link
                           href={`/clientes/${row.clientId}`}
                           className={cn(
@@ -174,6 +209,17 @@ export function ParcelasCentralTable({
                       >
                         Abrir acordo
                       </Button>
+                      {canEditInstallmentRevenueType ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => setClassificationTarget(row)}
+                        >
+                          Alterar classificacao
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="outline"
@@ -213,10 +259,22 @@ export function ParcelasCentralTable({
         }}
       />
 
+      <ClassificacaoParcelaForm
+        key={classificationTarget?.id ?? "classification"}
+        installment={classificationTarget}
+        open={Boolean(classificationTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setClassificationTarget(null);
+          }
+        }}
+      />
+
       <BaixaForm
         clientId={writeOffTarget?.clientId ?? ""}
         clientName={writeOffTarget?.agreement.cliente ?? undefined}
         agreement={writeOffTarget ? toClientAgreementRow(writeOffTarget.agreement) : null}
+        wallets={wallets}
         initialParcelId={writeOffTarget?.parcelId ?? null}
         open={Boolean(writeOffTarget)}
         onOpenChange={(open) => {

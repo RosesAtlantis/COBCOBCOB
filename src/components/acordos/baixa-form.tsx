@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -29,15 +29,17 @@ import {
   formatDocument,
   getInstallmentStatusLabel,
   getRevenueTypeLabel,
+  getRevenueTypeOriginLabel,
   resolveAgreementTypeLabel,
   roundCurrency,
 } from "@/lib/clientes-utils";
-import type { ClientAgreementRow } from "@/types/portal";
+import type { ClientAgreementRow, FilterOption } from "@/types/portal";
 
 interface BaixaFormProps {
   clientId: string;
   clientName?: string;
   agreement: ClientAgreementRow | null;
+  wallets: FilterOption[];
   initialParcelId?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -47,6 +49,7 @@ interface BaixaFormContentProps {
   clientId: string;
   clientName?: string;
   agreement: ClientAgreementRow;
+  wallets: FilterOption[];
   initialParcelId?: string | null;
   onOpenChange: (open: boolean) => void;
 }
@@ -55,62 +58,123 @@ function inferRevenueType(agreement: ClientAgreementRow, parcelId: string) {
   const installment = agreement.parcelas.find((item) => item.id === parcelId) ?? null;
 
   if (!installment) {
-    return "-";
+    return "Novo";
   }
 
   if (installment.tipo_receita) {
     return getRevenueTypeLabel(installment.tipo_receita);
   }
 
-  if (installment.tipo === "avista" || installment.tipo === "entrada" || installment.numero_parcela <= 1) {
+  if (
+    installment.tipo === "avista" ||
+    installment.tipo === "entrada" ||
+    installment.numero_parcela <= 1
+  ) {
     return "Novo";
   }
 
   return "Colchao";
 }
 
+function inferRevenueTypeOrigin(agreement: ClientAgreementRow, parcelId: string) {
+  const installment = agreement.parcelas.find((item) => item.id === parcelId) ?? null;
+
+  if (!installment) {
+    return "Automatico";
+  }
+
+  return getRevenueTypeOriginLabel(
+    installment.tipo_receita_origem ??
+      (installment.tipo_receita ? "manual" : "automatico"),
+  );
+}
+
+function resolveInitialWalletId(
+  agreement: ClientAgreementRow,
+  wallets: FilterOption[],
+) {
+  if (
+    agreement.carteira_id &&
+    wallets.some((wallet) => wallet.value === agreement.carteira_id)
+  ) {
+    return agreement.carteira_id;
+  }
+
+  return wallets[0]?.value ?? "";
+}
+
 function BaixaFormContent({
   clientId,
   clientName,
   agreement,
+  wallets,
   initialParcelId,
   onOpenChange,
 }: BaixaFormContentProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [parcelId, setParcelId] = useState(() => {
+    const availableInstallments = agreement.parcelas.filter(
+      (item) => !["pago", "cancelado"].includes(item.status),
+    );
+
+    return (
+      availableInstallments.find((item) => item.id === initialParcelId)?.id ??
+      availableInstallments[0]?.id ??
+      ""
+    );
+  });
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [paidValue, setPaidValue] = useState(() => {
+    const installment =
+      agreement.parcelas.find((item) => item.id === initialParcelId) ??
+      agreement.parcelas.find((item) => !["pago", "cancelado"].includes(item.status)) ??
+      null;
+
+    return installment
+      ? String(Math.max(installment.valor_parcela - installment.valor_pago, 0))
+      : "";
+  });
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [note, setNote] = useState("");
+  const [percentualHonorarios, setPercentualHonorarios] = useState(() => {
+    const installment =
+      agreement.parcelas.find((item) => item.id === initialParcelId) ??
+      agreement.parcelas.find((item) => !["pago", "cancelado"].includes(item.status)) ??
+      null;
+
+    if (
+      installment?.percentual_honorarios !== null &&
+      installment?.percentual_honorarios !== undefined
+    ) {
+      return String(installment.percentual_honorarios);
+    }
+
+    return agreement.percentual_honorarios !== null &&
+      agreement.percentual_honorarios !== undefined
+      ? String(agreement.percentual_honorarios)
+      : "";
+  });
+  const [confirmOverpayment, setConfirmOverpayment] = useState(false);
+  const [contractNumber, setContractNumber] = useState(agreement.contratoNumero ?? "");
+  const [contractWalletId, setContractWalletId] = useState(
+    resolveInitialWalletId(agreement, wallets),
+  );
+  const [contractCreditor, setContractCreditor] = useState(
+    agreement.credor ?? wallets.find((wallet) => wallet.value === agreement.carteira_id)?.description ?? "",
+  );
+  const [contractOpenValue, setContractOpenValue] = useState(
+    String(Math.max(agreement.valorRestante, 0)),
+  );
+
   const availableInstallments = agreement.parcelas.filter(
     (item) => !["pago", "cancelado"].includes(item.status),
   );
-  const defaultInstallment =
-    availableInstallments.find((item) => item.id === initialParcelId) ??
+  const selectedInstallment =
+    availableInstallments.find((item) => item.id === parcelId) ??
     availableInstallments[0] ??
     null;
-  const [parcelId, setParcelId] = useState(defaultInstallment?.id ?? "");
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
-  const [paidValue, setPaidValue] = useState(
-    defaultInstallment
-      ? String(
-          Math.max(
-            defaultInstallment.valor_parcela - defaultInstallment.valor_pago,
-            0,
-          ),
-        )
-      : "",
-  );
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [note, setNote] = useState("");
-  const [percentualHonorarios, setPercentualHonorarios] = useState(
-    defaultInstallment?.percentual_honorarios !== null &&
-      defaultInstallment?.percentual_honorarios !== undefined
-      ? String(defaultInstallment.percentual_honorarios)
-      : agreement.percentual_honorarios !== null && agreement.percentual_honorarios !== undefined
-        ? String(agreement.percentual_honorarios)
-        : "",
-  );
-  const [confirmOverpayment, setConfirmOverpayment] = useState(false);
-
-  const selectedInstallment =
-    availableInstallments.find((item) => item.id === parcelId) ?? defaultInstallment;
+  const requiresContractCreation = !agreement.contrato_id;
   const remainingAmount = selectedInstallment
     ? Math.max(selectedInstallment.valor_parcela - selectedInstallment.valor_pago, 0)
     : 0;
@@ -128,7 +192,10 @@ function BaixaFormContent({
   const projectedTransferValue = roundCurrency(Math.max(safePaidValue - projectedOfficeValue, 0));
   const revenueTypeLabel = selectedInstallment
     ? inferRevenueType(agreement, selectedInstallment.id)
-    : "-";
+    : "Novo";
+  const revenueTypeOriginLabel = selectedInstallment
+    ? inferRevenueTypeOrigin(agreement, selectedInstallment.id)
+    : "Automatico";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -158,6 +225,23 @@ function BaixaFormContent({
       return;
     }
 
+    if (requiresContractCreation) {
+      if (!contractNumber.trim()) {
+        toast.error("Informe o numero do contrato para concluir a baixa.");
+        return;
+      }
+
+      if (!contractWalletId) {
+        toast.error("Selecione a carteira do novo contrato.");
+        return;
+      }
+
+      if (!Number.isFinite(Number(contractOpenValue)) || Number(contractOpenValue) <= 0) {
+        toast.error("Informe um valor em aberto valido para o novo contrato.");
+        return;
+      }
+    }
+
     startTransition(() => {
       void (async () => {
         const response = await fetch(`/api/acordos/${agreement.id}/baixas`, {
@@ -172,6 +256,15 @@ function BaixaFormContent({
             confirmarAcimaSaldo: confirmOverpayment || undefined,
             formaPagamento: paymentMethod || null,
             observacao: note || null,
+            criarContratoAgora: requiresContractCreation,
+            novoContrato: requiresContractCreation
+              ? {
+                  numeroContrato: contractNumber,
+                  carteiraId: contractWalletId,
+                  credor: contractCreditor || null,
+                  valorEmAberto: Number(contractOpenValue),
+                }
+              : null,
           }),
         });
         const payload = (await response.json()) as {
@@ -210,7 +303,9 @@ function BaixaFormContent({
         </div>
         <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
           <p className="text-sm text-muted-foreground">Contrato</p>
-          <p className="mt-1 text-base font-semibold">{agreement.contratoNumero}</p>
+          <p className="mt-1 text-base font-semibold">
+            {agreement.contratoNumero || "Nao cadastrado"}
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">{agreement.carteira}</p>
         </div>
         <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
@@ -221,6 +316,87 @@ function BaixaFormContent({
           </p>
         </div>
       </div>
+
+      {requiresContractCreation ? (
+        <div className="rounded-2xl border border-amber-300/50 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="size-4 text-amber-700 dark:text-amber-300" />
+                <p className="text-sm font-semibold">Contrato obrigatorio para concluir a baixa</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Este acordo ainda nao possui contrato vinculado. Cadastre um contrato
+                minimo agora para finalizar a baixa e manter o historico correto.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-2 xl:col-span-2">
+              <Label htmlFor="contractNumber">Numero do contrato</Label>
+              <Input
+                id="contractNumber"
+                value={contractNumber}
+                onChange={(event) => setContractNumber(event.target.value)}
+                className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contractWallet">Carteira</Label>
+              <Select
+                value={contractWalletId || "none"}
+                onValueChange={(value) => {
+                  const nextWalletId = !value || value === "none" ? "" : value;
+                  const nextWallet = wallets.find((wallet) => wallet.value === nextWalletId);
+
+                  setContractWalletId(nextWalletId);
+
+                  if (!contractCreditor.trim()) {
+                    setContractCreditor(nextWallet?.description ?? "");
+                  }
+                }}
+              >
+                <SelectTrigger
+                  id="contractWallet"
+                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                >
+                  <SelectValue placeholder="Selecione a carteira" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Selecione</SelectItem>
+                  {wallets.map((wallet) => (
+                    <SelectItem key={wallet.value} value={wallet.value}>
+                      {wallet.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contractCreditor">Credor</Label>
+              <Input
+                id="contractCreditor"
+                value={contractCreditor}
+                onChange={(event) => setContractCreditor(event.target.value)}
+                className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contractOpenValue">Valor em aberto</Label>
+              <Input
+                id="contractOpenValue"
+                type="number"
+                min="0"
+                step="0.01"
+                value={contractOpenValue}
+                onChange={(event) => setContractOpenValue(event.target.value)}
+                className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="space-y-2 xl:col-span-2">
@@ -247,7 +423,8 @@ function BaixaFormContent({
                 nextInstallment?.percentual_honorarios !== null &&
                   nextInstallment?.percentual_honorarios !== undefined
                   ? String(nextInstallment.percentual_honorarios)
-                  : agreement.percentual_honorarios !== null && agreement.percentual_honorarios !== undefined
+                  : agreement.percentual_honorarios !== null &&
+                      agreement.percentual_honorarios !== undefined
                     ? String(agreement.percentual_honorarios)
                     : "",
               );
@@ -341,14 +518,12 @@ function BaixaFormContent({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-          <p className="text-sm text-muted-foreground">Tipo da parcela</p>
+          <p className="text-sm text-muted-foreground">Parcela</p>
           <p className="mt-1 text-base font-semibold">
+            {selectedInstallment.numero_parcela} -{" "}
             {resolveAgreementTypeLabel(selectedInstallment.tipo)}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Parcela {selectedInstallment.numero_parcela}
           </p>
         </div>
         <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
@@ -359,14 +534,21 @@ function BaixaFormContent({
           </p>
         </div>
         <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+          <p className="text-sm text-muted-foreground">Saldo atual</p>
+          <p className="mt-1 text-base font-semibold">{formatCurrency(remainingAmount)}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Valor da parcela {formatCurrency(selectedInstallment.valor_parcela)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+          <p className="text-sm text-muted-foreground">Classificacao</p>
+          <p className="mt-1 text-base font-semibold">{revenueTypeLabel}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{revenueTypeOriginLabel}</p>
+        </div>
+        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
           <p className="text-sm text-muted-foreground">Operador responsavel</p>
           <p className="mt-1 text-base font-semibold">{agreement.operador}</p>
           <p className="mt-1 text-sm text-muted-foreground">{agreement.equipe}</p>
-        </div>
-        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-          <p className="text-sm text-muted-foreground">Receita</p>
-          <p className="mt-1 text-base font-semibold">{revenueTypeLabel}</p>
-          <p className="mt-1 text-sm text-muted-foreground">Herdada da parcela</p>
         </div>
       </div>
 
@@ -428,18 +610,19 @@ export function BaixaForm({
   clientId,
   clientName,
   agreement,
+  wallets,
   initialParcelId,
   open,
   onOpenChange,
 }: BaixaFormProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>Dar baixa</DialogTitle>
           <DialogDescription>
-            Registre o recebimento com conferencia de saldo, receita e honorarios antes de
-            atualizar a parcela e o historico oficial de baixas.
+            Registre o recebimento com conferencia de saldo, classificacao e
+            honorarios antes de atualizar a parcela e o historico oficial de baixas.
           </DialogDescription>
         </DialogHeader>
 
@@ -449,6 +632,7 @@ export function BaixaForm({
             clientId={clientId}
             clientName={clientName}
             agreement={agreement}
+            wallets={wallets}
             initialParcelId={initialParcelId}
             onOpenChange={onOpenChange}
           />

@@ -119,7 +119,16 @@ export function filterAgreements(dataset: PortalDataset, filters: DashboardFilte
 }
 
 export function filterGoals(dataset: PortalDataset, filters: DashboardFilters) {
+  const walletMap = buildWalletMap(dataset.wallets);
+  const creditorById = new Map(
+    dataset.creditors.map((creditor) => [creditor.id, creditor.nome]),
+  );
+
   return dataset.goals.filter((goal) => {
+    if (!goal.ativo) {
+      return false;
+    }
+
     if (goal.mes !== filters.month || goal.ano !== filters.year) {
       return false;
     }
@@ -134,6 +143,19 @@ export function filterGoals(dataset: PortalDataset, filters: DashboardFilters) {
 
     if (filters.walletId && goal.carteira_id !== filters.walletId) {
       return false;
+    }
+
+    if (filters.creditor) {
+      const walletCreditor = goal.carteira_id
+        ? walletMap.get(goal.carteira_id)?.credor ?? null
+        : null;
+      const directCreditor = goal.credor_id
+        ? creditorById.get(goal.credor_id) ?? null
+        : null;
+
+      if (walletCreditor !== filters.creditor && directCreditor !== filters.creditor) {
+        return false;
+      }
     }
 
     return true;

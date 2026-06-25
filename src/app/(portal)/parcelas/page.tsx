@@ -81,7 +81,9 @@ export default async function ParcelasPage({ searchParams }: ParcelasPageProps) 
       <ParcelasCentralTable
         rows={data.installments}
         agreements={data.agreements}
+        wallets={data.options.wallets}
         canRegisterWriteOff={data.canRegisterWriteOff}
+        canEditInstallmentRevenueType={data.canEditInstallmentRevenueType}
       />
     </div>
   );
