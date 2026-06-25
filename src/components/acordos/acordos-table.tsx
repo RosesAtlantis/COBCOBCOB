@@ -88,7 +88,7 @@ export function AcordosTable({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            clienteId: clientId,
+            cliente_id: clientId,
           }),
         });
         const payload = (await response.json()) as { message?: string };

@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { getApiErrorMessage } from "@/services/cadastros-utils";
 import {
   estornarBaixa,
   parseReverseWriteOffInput,
@@ -20,12 +21,16 @@ export async function POST(request: Request, { params }: RouteContext) {
     });
     const result = await estornarBaixa(payload);
 
-    if (body.clienteId) {
-      revalidatePath(`/clientes/${body.clienteId}`);
+    const clientId = body.cliente_id ?? body.clienteId ?? body.clientId ?? null;
+
+    if (clientId) {
+      revalidatePath(`/clientes/${clientId}`);
     }
 
-    if (body.acordoId) {
-      revalidatePath(`/acordos/${body.acordoId}`);
+    const agreementId = body.acordo_id ?? body.acordoId ?? body.agreementId ?? null;
+
+    if (agreementId) {
+      revalidatePath(`/acordos/${agreementId}`);
     }
 
     revalidatePath("/clientes");
@@ -37,10 +42,7 @@ export async function POST(request: Request, { params }: RouteContext) {
   } catch (error) {
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel estornar a baixa.",
+        message: getApiErrorMessage(error, "Nao foi possivel estornar a baixa."),
       },
       { status: 400 },
     );

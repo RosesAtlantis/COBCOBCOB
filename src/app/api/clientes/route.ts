@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { getApiErrorMessage } from "@/services/cadastros-utils";
 import {
   buscarClientePorCpfCnpj,
   criarCasoManualSimplificado,
@@ -10,7 +11,10 @@ import {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const cpfCnpj = searchParams.get("cpfCnpj");
+    const cpfCnpj =
+      searchParams.get("cpf_cnpj") ??
+      searchParams.get("cpfCnpj") ??
+      searchParams.get("documento");
 
     if (!cpfCnpj) {
       return NextResponse.json({ client: null }, { status: 200 });
@@ -33,10 +37,7 @@ export async function GET(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel consultar o cliente.",
+        message: getApiErrorMessage(error, "Nao foi possivel consultar o cliente."),
       },
       { status: 400 },
     );
@@ -57,10 +58,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel criar o caso manual.",
+        message: getApiErrorMessage(error, "Nao foi possivel criar o caso manual."),
       },
       { status: 400 },
     );

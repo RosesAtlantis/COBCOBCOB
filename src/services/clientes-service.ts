@@ -20,7 +20,14 @@ import {
   canViewClients,
 } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { entityIdSchema } from "@/services/cadastros-utils";
+import {
+  documentFieldSchema,
+  entityIdSchema,
+  optionalDateFieldSchema,
+  optionalPhoneFieldSchema,
+  payloadToRecord,
+  pickPayloadValue,
+} from "@/services/cadastros-utils";
 import {
   deriveAgreementStatus,
   deriveInstallmentStatus,
@@ -30,6 +37,7 @@ import {
   normalizeText,
   roundCurrency,
 } from "@/lib/clientes-utils";
+import { parseCurrencyBR } from "@/lib/validators";
 import type { Database } from "@/types/database";
 import type {
   Agreement,
@@ -69,10 +77,10 @@ type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 const manualCaseSchema = z.object({
   nome: z.string().trim().min(3, "Informe o nome do cliente."),
-  cpfCnpj: z.string().trim().min(11, "Informe o CPF/CNPJ."),
+  cpfCnpj: documentFieldSchema(),
   credor: z.string().trim().nullable().optional(),
   credorId: entityIdSchema("Credor invalido.").nullable().optional(),
-  telefone: z.string().trim().nullable().optional(),
+  telefone: optionalPhoneFieldSchema(),
   email: z.string().trim().email("E-mail invalido.").nullable().optional().or(z.literal("")),
   endereco: z.string().trim().nullable().optional(),
   cidade: z.string().trim().nullable().optional(),
@@ -84,8 +92,8 @@ const manualCaseSchema = z.object({
   numeroContrato: z.string().trim().nullable().optional().or(z.literal("")),
   valorOriginal: z.coerce.number().min(0, "Valor original invalido.").nullable().optional(),
   valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido.").nullable().optional(),
-  dataContrato: z.string().trim().nullable().optional(),
-  dataVencimento: z.string().trim().nullable().optional(),
+  dataContrato: optionalDateFieldSchema("Data do contrato invalida."),
+  dataVencimento: optionalDateFieldSchema("Data de vencimento invalida."),
   operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
   equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
 });
@@ -93,9 +101,9 @@ const manualCaseSchema = z.object({
 const updateClientSchema = z.object({
   clientId: entityIdSchema("Cliente invalido."),
   nome: z.string().trim().min(3).optional(),
-  cpfCnpj: z.string().trim().min(11).optional(),
-  telefone: z.string().trim().nullable().optional(),
-  email: z.string().trim().nullable().optional(),
+  cpfCnpj: documentFieldSchema().optional(),
+  telefone: optionalPhoneFieldSchema(),
+  email: z.string().trim().email("E-mail invalido.").nullable().optional().or(z.literal("")),
   endereco: z.string().trim().nullable().optional(),
   cidade: z.string().trim().nullable().optional(),
   uf: z.string().trim().max(2).nullable().optional(),
@@ -114,15 +122,106 @@ const contractSchema = z.object({
   credor: z.string().trim().nullable().optional(),
   credorId: entityIdSchema("Credor invalido.").nullable().optional(),
   numeroContrato: z.string().trim().min(1, "Numero do contrato obrigatorio."),
-  valorOriginal: z.coerce.number().min(0, "Valor original invalido."),
-  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
-  dataContrato: z.string().trim().nullable().optional(),
-  dataVencimento: z.string().trim().nullable().optional(),
+  valorOriginal: z.coerce.number().min(0, "Valor original invalido.").nullable().optional(),
+  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido.").nullable().optional(),
+  dataContrato: optionalDateFieldSchema("Data do contrato invalida."),
+  dataVencimento: optionalDateFieldSchema("Data de vencimento invalida."),
   status: z.string().trim().nullable().optional(),
   operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
   equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
 });
+
+function normalizeMoneyField(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const parsed = parseCurrencyBR(value as string | number | null | undefined);
+  return parsed === null ? value : parsed;
+}
+
+function normalizeManualCasePayload(payload: unknown) {
+  const record = payloadToRecord(payload);
+
+  return {
+    nome: pickPayloadValue(record, ["nome", "cliente", "nome_cliente"]),
+    cpfCnpj: pickPayloadValue(record, ["cpfCnpj", "cpf_cnpj"]),
+    credor: pickPayloadValue(record, ["credor"]),
+    credorId: pickPayloadValue(record, ["credorId", "credor_id"]),
+    telefone: pickPayloadValue(record, ["telefone"]),
+    email: pickPayloadValue(record, ["email"]),
+    endereco: pickPayloadValue(record, ["endereco"]),
+    cidade: pickPayloadValue(record, ["cidade"]),
+    uf: pickPayloadValue(record, ["uf"]),
+    cep: pickPayloadValue(record, ["cep"]),
+    observacao: pickPayloadValue(record, ["observacao"]),
+    status: pickPayloadValue(record, ["status"]),
+    carteiraId: pickPayloadValue(record, ["carteiraId", "carteira_id"]),
+    numeroContrato: pickPayloadValue(record, ["numeroContrato", "numero_contrato"]),
+    valorOriginal: normalizeMoneyField(
+      pickPayloadValue(record, ["valorOriginal", "valor_original"]),
+    ),
+    valorEmAberto: normalizeMoneyField(
+      pickPayloadValue(record, ["valorEmAberto", "valor_em_aberto"]),
+    ),
+    dataContrato: pickPayloadValue(record, ["dataContrato", "data_contrato"]),
+    dataVencimento: pickPayloadValue(record, ["dataVencimento", "data_vencimento"]),
+    operadorId: pickPayloadValue(record, ["operadorId", "operador_id"]),
+    equipeId: pickPayloadValue(record, ["equipeId", "equipe_id"]),
+  };
+}
+
+function normalizeUpdateClientPayload(payload: unknown) {
+  const record = payloadToRecord(payload);
+
+  return {
+    clientId: pickPayloadValue(record, ["clientId", "clienteId", "cliente_id"]),
+    nome: pickPayloadValue(record, ["nome", "cliente", "nome_cliente"]),
+    cpfCnpj: pickPayloadValue(record, ["cpfCnpj", "cpf_cnpj"]),
+    telefone: pickPayloadValue(record, ["telefone"]),
+    email: pickPayloadValue(record, ["email"]),
+    endereco: pickPayloadValue(record, ["endereco"]),
+    cidade: pickPayloadValue(record, ["cidade"]),
+    uf: pickPayloadValue(record, ["uf"]),
+    cep: pickPayloadValue(record, ["cep"]),
+    observacao: pickPayloadValue(record, ["observacao"]),
+    status: pickPayloadValue(record, ["status"]),
+    carteiraId: pickPayloadValue(record, ["carteiraId", "carteira_id"]),
+    operadorId: pickPayloadValue(record, ["operadorId", "operador_id"]),
+    equipeId: pickPayloadValue(record, ["equipeId", "equipe_id"]),
+  };
+}
+
+function normalizeUpsertContractPayload(payload: unknown) {
+  const record = payloadToRecord(payload);
+
+  return {
+    contractId: pickPayloadValue(record, ["contractId", "contratoId", "contrato_id"]),
+    clientId: pickPayloadValue(record, [
+      "clientId",
+      "clienteId",
+      "cliente_id",
+      "cliente",
+    ]),
+    carteiraId: pickPayloadValue(record, ["carteiraId", "carteira_id"]),
+    credor: pickPayloadValue(record, ["credor"]),
+    credorId: pickPayloadValue(record, ["credorId", "credor_id"]),
+    numeroContrato: pickPayloadValue(record, ["numeroContrato", "numero_contrato"]),
+    valorOriginal: normalizeMoneyField(
+      pickPayloadValue(record, ["valorOriginal", "valor_original"]),
+    ),
+    valorEmAberto: normalizeMoneyField(
+      pickPayloadValue(record, ["valorEmAberto", "valor_em_aberto"]),
+    ),
+    dataContrato: pickPayloadValue(record, ["dataContrato", "data_contrato"]),
+    dataVencimento: pickPayloadValue(record, ["dataVencimento", "data_vencimento"]),
+    status: pickPayloadValue(record, ["status"]),
+    operadorId: pickPayloadValue(record, ["operadorId", "operador_id"]),
+    equipeId: pickPayloadValue(record, ["equipeId", "equipe_id"]),
+    observacao: pickPayloadValue(record, ["observacao"]),
+  };
+}
 
 export interface ClientsContext {
   profile: PortalProfile;
@@ -1203,6 +1302,22 @@ export async function buscarClientePorCpfCnpj(cpfCnpj: string) {
     return null;
   }
 
+  if (isSupabaseConfigured()) {
+    const supabase = await createSupabaseServerClient();
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("id, nome, cpf_cnpj")
+        .eq("cpf_cnpj", normalizedDocument)
+        .maybeSingle();
+
+      if (!error && data) {
+        return data;
+      }
+    }
+  }
+
   const context = await getClientsContext();
   return (
     context.clients.find(
@@ -1585,7 +1700,7 @@ export async function criarCasoManualSimplificado(
     "supervisor",
     "operador",
   ]);
-  const input = manualCaseSchema.parse(rawInput);
+  const input = parseManualCaseInput(rawInput);
   const context = await getClientsContext();
   const wallet = context.wallets.find((item) => item.id === input.carteiraId);
   const normalizedDocument = normalizeDocument(input.cpfCnpj);
@@ -1876,7 +1991,7 @@ export const criarCasoRapido = criarCasoManualSimplificado;
 
 export async function atualizarCliente(rawInput: UpdateClientInput) {
   const profile = await requireActiveProfile(["admin", "gerente", "supervisor"]);
-  const input = updateClientSchema.parse(rawInput);
+  const input = parseUpdateClientInput(rawInput);
   const context = await getClientsContext();
   const existing = context.clients.find((client) => client.id === input.clientId);
 
@@ -2028,7 +2143,7 @@ async function atualizarOuCriarContrato(
   mode: "criar" | "atualizar",
 ) {
   const profile = await requireActiveProfile(["admin", "gerente", "supervisor"]);
-  const input = contractSchema.parse(rawInput);
+  const input = parseUpsertContractInput(rawInput);
   const context = await getClientsContext();
   const client = context.clients.find((row) => row.id === input.clientId);
 
@@ -2060,11 +2175,21 @@ async function atualizarOuCriarContrato(
     throw new Error("Carteira nao encontrada.");
   }
 
+  if (mode === "criar" && !wallet) {
+    throw new Error("Carteira obrigatoria para cadastrar o contrato.");
+  }
+
   const selectedCreditor = resolveSelectedCreditor(context, {
     wallet,
     creditorId: input.credorId ?? existing?.credor_id ?? null,
     creditorName: input.credor ?? existing?.credor ?? null,
   });
+  const resolvedOriginalValue = roundCurrency(
+    input.valorOriginal ?? input.valorEmAberto ?? existing?.valor_original ?? 0,
+  );
+  const resolvedOpenValue = roundCurrency(
+    input.valorEmAberto ?? input.valorOriginal ?? existing?.valor_em_aberto ?? 0,
+  );
 
   if (!isSupabaseConfigured()) {
     const now = new Date().toISOString();
@@ -2076,13 +2201,13 @@ async function atualizarOuCriarContrato(
       credor: selectedCreditor.creditorName ?? wallet?.credor ?? existing?.credor ?? null,
       credor_id: selectedCreditor.creditorId ?? existing?.credor_id ?? null,
       numero_contrato: input.numeroContrato,
-      valor_original: roundCurrency(input.valorOriginal),
-      valor_em_aberto: roundCurrency(input.valorEmAberto),
+      valor_original: resolvedOriginalValue,
+      valor_em_aberto: resolvedOpenValue,
       data_contrato: resolveNullableString(input.dataContrato),
       data_vencimento: resolveNullableString(input.dataVencimento),
       status:
         resolveNullableString(input.status) ??
-        (roundCurrency(input.valorEmAberto) <= 0 ? "quitado" : "aberto"),
+        (resolvedOpenValue <= 0 ? "quitado" : "aberto"),
       operador_id: scope.operadorId,
       equipe_id: scope.equipeId,
       chave_externa: null,
@@ -2123,13 +2248,13 @@ async function atualizarOuCriarContrato(
     credor: selectedCreditor.creditorName ?? wallet?.credor ?? existing?.credor ?? null,
     credor_id: selectedCreditor.creditorId ?? existing?.credor_id ?? null,
     numero_contrato: input.numeroContrato,
-    valor_original: roundCurrency(input.valorOriginal),
-    valor_em_aberto: roundCurrency(input.valorEmAberto),
+    valor_original: resolvedOriginalValue,
+    valor_em_aberto: resolvedOpenValue,
     data_contrato: resolveNullableString(input.dataContrato),
     data_vencimento: resolveNullableString(input.dataVencimento),
     status:
       resolveNullableString(input.status) ??
-      (roundCurrency(input.valorEmAberto) <= 0 ? "quitado" : "aberto"),
+      (resolvedOpenValue <= 0 ? "quitado" : "aberto"),
     operador_id: scope.operadorId,
     equipe_id: scope.equipeId,
     observacao: resolveNullableString(input.observacao),
@@ -2210,13 +2335,13 @@ export async function vincularOperador(params: {
 }
 
 export function parseManualCaseInput(payload: unknown) {
-  return manualCaseSchema.parse(payload);
+  return manualCaseSchema.parse(normalizeManualCasePayload(payload));
 }
 
 export function parseUpdateClientInput(payload: unknown) {
-  return updateClientSchema.parse(payload);
+  return updateClientSchema.parse(normalizeUpdateClientPayload(payload));
 }
 
 export function parseUpsertContractInput(payload: unknown) {
-  return contractSchema.parse(payload);
+  return contractSchema.parse(normalizeUpsertContractPayload(payload));
 }

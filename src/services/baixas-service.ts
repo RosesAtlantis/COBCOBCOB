@@ -15,7 +15,11 @@ import {
   canViewWriteOffCentral,
 } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { entityIdSchema } from "@/services/cadastros-utils";
+import {
+  entityIdSchema,
+  payloadToRecord,
+  pickPayloadValue,
+} from "@/services/cadastros-utils";
 import { getClientsContext, uniqueOptions, buildResolvedCollections, type ClientsContext } from "@/services/clientes-service";
 import { criarContratoDuranteBaixa } from "@/services/contratos-service";
 import { darBaixaParcela, parseWriteOffInput } from "@/services/acordos-service";
@@ -32,6 +36,15 @@ const reverseWriteOffSchema = z.object({
   baixaId: entityIdSchema("Baixa invalida."),
   motivoEstorno: z.string().trim().nullable().optional(),
 });
+
+function normalizeReverseWriteOffPayload(payload: unknown) {
+  const record = payloadToRecord(payload);
+
+  return {
+    baixaId: pickPayloadValue(record, ["baixaId", "baixa_id"]),
+    motivoEstorno: pickPayloadValue(record, ["motivoEstorno", "motivo_estorno"]),
+  };
+}
 
 function resolveNullableString(value: string | null | undefined) {
   if (!value) {
@@ -292,7 +305,7 @@ export async function estornarBaixa(
     throw new Error("Seu perfil nao pode estornar baixas.");
   }
 
-  const input = reverseWriteOffSchema.parse(rawInput);
+  const input = parseReverseWriteOffInput(rawInput);
 
   if (!isSupabaseConfigured()) {
     return {
@@ -343,7 +356,7 @@ export async function estornarBaixa(
 }
 
 export function parseReverseWriteOffInput(payload: unknown) {
-  return reverseWriteOffSchema.parse(payload);
+  return reverseWriteOffSchema.parse(normalizeReverseWriteOffPayload(payload));
 }
 
 export async function getBaixasPageData(

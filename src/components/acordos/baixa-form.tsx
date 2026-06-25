@@ -27,12 +27,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency } from "@/lib/format";
 import {
   formatDocument,
+  getAgreementStatusLabel,
   getInstallmentStatusLabel,
   getRevenueTypeLabel,
   getRevenueTypeOriginLabel,
   resolveAgreementTypeLabel,
   roundCurrency,
 } from "@/lib/clientes-utils";
+import { parseCurrencyBR, parsePercent } from "@/lib/validators";
 import type { ClientAgreementRow, FilterOption } from "@/types/portal";
 
 interface BaixaFormProps {
@@ -160,9 +162,6 @@ function BaixaFormContent({
   const [contractWalletId, setContractWalletId] = useState(
     resolveInitialWalletId(agreement, wallets),
   );
-  const [contractCreditor, setContractCreditor] = useState(
-    agreement.credor ?? wallets.find((wallet) => wallet.value === agreement.carteira_id)?.description ?? "",
-  );
   const [contractOpenValue, setContractOpenValue] = useState(
     String(Math.max(agreement.valorRestante, 0)),
   );
@@ -178,15 +177,18 @@ function BaixaFormContent({
   const remainingAmount = selectedInstallment
     ? Math.max(selectedInstallment.valor_parcela - selectedInstallment.valor_pago, 0)
     : 0;
-  const numericValue = Number(paidValue);
+  const numericValue = parseCurrencyBR(paidValue);
+  const parsedFeePercent = percentualHonorarios.trim()
+    ? parsePercent(percentualHonorarios)
+    : null;
   const feePercent = percentualHonorarios.trim()
-    ? roundCurrency(Number(percentualHonorarios))
+    ? parsedFeePercent ?? Number.NaN
     : roundCurrency(
         selectedInstallment?.percentual_honorarios ??
           agreement.percentual_honorarios ??
           0,
       );
-  const safePaidValue = Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 0;
+  const safePaidValue = numericValue !== null && numericValue > 0 ? numericValue : 0;
   const projectedHonorarios = roundCurrency((safePaidValue * feePercent) / 100);
   const projectedOfficeValue = projectedHonorarios;
   const projectedTransferValue = roundCurrency(Math.max(safePaidValue - projectedOfficeValue, 0));
@@ -210,7 +212,7 @@ function BaixaFormContent({
       return;
     }
 
-    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    if (numericValue === null || numericValue <= 0) {
       toast.error("Informe um valor pago maior que zero.");
       return;
     }
@@ -220,12 +222,22 @@ function BaixaFormContent({
       return;
     }
 
-    if (feePercent < 0 || feePercent > 100) {
+    if (
+      percentualHonorarios.trim() &&
+      (parsedFeePercent === null || feePercent < 0 || feePercent > 100)
+    ) {
       toast.error("O percentual de honorarios deve ficar entre 0 e 100.");
       return;
     }
 
+    if (!paymentMethod.trim()) {
+      toast.error("Informe a forma de pagamento.");
+      return;
+    }
+
     if (requiresContractCreation) {
+      const parsedContractOpenValue = parseCurrencyBR(contractOpenValue);
+
       if (!contractNumber.trim()) {
         toast.error("Informe o numero do contrato para concluir a baixa.");
         return;
@@ -236,7 +248,7 @@ function BaixaFormContent({
         return;
       }
 
-      if (!Number.isFinite(Number(contractOpenValue)) || Number(contractOpenValue) <= 0) {
+      if (parsedContractOpenValue === null || parsedContractOpenValue <= 0) {
         toast.error("Informe um valor em aberto valido para o novo contrato.");
         return;
       }
@@ -248,21 +260,20 @@ function BaixaFormContent({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            clienteId: clientId,
-            parcelaId: parcelId,
-            dataPagamento: paymentDate,
-            valorPago: numericValue,
-            percentualHonorarios: percentualHonorarios.trim() ? feePercent : null,
-            confirmarAcimaSaldo: confirmOverpayment || undefined,
-            formaPagamento: paymentMethod || null,
+            cliente_id: clientId,
+            parcela_id: parcelId,
+            data_pagamento: paymentDate,
+            valor_pago: numericValue,
+            percentual_honorarios: percentualHonorarios.trim() ? feePercent : null,
+            confirmar_acima_saldo: confirmOverpayment || undefined,
+            forma_pagamento: paymentMethod || null,
             observacao: note || null,
-            criarContratoAgora: requiresContractCreation,
-            novoContrato: requiresContractCreation
+            criar_contrato_agora: requiresContractCreation,
+            novo_contrato: requiresContractCreation
               ? {
-                  numeroContrato: contractNumber,
-                  carteiraId: contractWalletId,
-                  credor: contractCreditor || null,
-                  valorEmAberto: Number(contractOpenValue),
+                  numero_contrato: contractNumber,
+                  carteira_id: contractWalletId,
+                  valor_em_aberto: parseCurrencyBR(contractOpenValue),
                 }
               : null,
           }),
@@ -276,7 +287,7 @@ function BaixaFormContent({
           return;
         }
 
-        toast.success("Baixa registrada com sucesso.");
+        toast.success(payload.message ?? "Baixa registrada com sucesso.");
         onOpenChange(false);
         router.refresh();
       })();
@@ -310,7 +321,7 @@ function BaixaFormContent({
         </div>
         <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
           <p className="text-sm text-muted-foreground">Acordo</p>
-          <p className="mt-1 text-base font-semibold">{agreement.id.slice(0, 8)}</p>
+          <p className="mt-1 text-base font-semibold">{getAgreementStatusLabel(agreement.status)}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Saldo total {formatCurrency(agreement.valorRestante)}
           </p>
@@ -332,7 +343,7 @@ function BaixaFormContent({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div className="space-y-2 xl:col-span-2">
               <Label htmlFor="contractNumber">Numero do contrato</Label>
               <Input
@@ -348,13 +359,8 @@ function BaixaFormContent({
                 value={contractWalletId || "none"}
                 onValueChange={(value) => {
                   const nextWalletId = !value || value === "none" ? "" : value;
-                  const nextWallet = wallets.find((wallet) => wallet.value === nextWalletId);
 
                   setContractWalletId(nextWalletId);
-
-                  if (!contractCreditor.trim()) {
-                    setContractCreditor(nextWallet?.description ?? "");
-                  }
                 }}
               >
                 <SelectTrigger
@@ -372,15 +378,6 @@ function BaixaFormContent({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contractCreditor">Credor</Label>
-              <Input
-                id="contractCreditor"
-                value={contractCreditor}
-                onChange={(event) => setContractCreditor(event.target.value)}
-                className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="contractOpenValue">Valor em aberto</Label>

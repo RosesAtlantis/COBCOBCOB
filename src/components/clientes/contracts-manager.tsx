@@ -34,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { parseCurrencyBR } from "@/lib/validators";
 import type { ClientContractRow, FilterOption } from "@/types/portal";
 
 interface ContractsManagerProps {
@@ -111,6 +112,29 @@ export function ContractsManager({
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    const originalValue = parseCurrencyBR(form.valorOriginal);
+    const openValue = parseCurrencyBR(form.valorEmAberto);
+
+    if (!form.numeroContrato.trim()) {
+      toast.error("Informe o numero do contrato.");
+      return;
+    }
+
+    if (!form.carteiraId) {
+      toast.error("Selecione a carteira do contrato.");
+      return;
+    }
+
+    if (form.valorOriginal.trim() && originalValue === null) {
+      toast.error("Informe um valor original valido.");
+      return;
+    }
+
+    if (form.valorEmAberto.trim() && openValue === null) {
+      toast.error("Informe um valor em aberto valido.");
+      return;
+    }
+
     const url = selectedContract
       ? `/api/contratos/${selectedContract.id}`
       : `/api/clientes/${clientId}/contratos`;
@@ -122,15 +146,16 @@ export function ContractsManager({
           method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            carteiraId: form.carteiraId || null,
-            numeroContrato: form.numeroContrato,
-            valorOriginal: Number(form.valorOriginal || 0),
-            valorEmAberto: Number(form.valorEmAberto || 0),
-            dataContrato: form.dataContrato || null,
-            dataVencimento: form.dataVencimento || null,
+            cliente_id: clientId,
+            carteira_id: form.carteiraId || null,
+            numero_contrato: form.numeroContrato,
+            valor_original: originalValue,
+            valor_em_aberto: openValue,
+            data_contrato: form.dataContrato || null,
+            data_vencimento: form.dataVencimento || null,
             status: form.status || null,
-            operadorId: form.operadorId || null,
-            equipeId: form.equipeId || null,
+            operador_id: form.operadorId || null,
+            equipe_id: form.equipeId || null,
             observacao: form.observacao || null,
           }),
         });

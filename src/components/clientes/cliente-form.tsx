@@ -26,6 +26,13 @@ import {
   getClientStatusVariant,
   getPrimaryWalletLabel,
 } from "@/lib/clientes-utils";
+import { maskCepInput, maskCpfCnpjInput, maskPhoneInput } from "@/lib/masks";
+import {
+  isValidCpfCnpj,
+  isValidCpfCnpjLength,
+  isValidPhoneLength,
+  normalizeCpfCnpj,
+} from "@/lib/validators";
 import type { Client, ClientWalletLink, FilterOption } from "@/types/portal";
 
 interface ClienteFormProps {
@@ -69,13 +76,13 @@ export function ClienteForm({
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     nome: client.nome,
-    cpfCnpj: client.cpf_cnpj,
+    cpfCnpj: formatDocument(client.cpf_cnpj),
     email: client.email ?? "",
-    telefone: client.telefone ?? "",
+    telefone: formatPhone(client.telefone),
     endereco: client.endereco ?? "",
     cidade: client.cidade ?? "",
     uf: client.uf ?? "",
-    cep: client.cep ?? "",
+    cep: maskCepInput(client.cep ?? ""),
     observacao: client.observacao ?? "",
     operadorId: client.operador_id ?? "",
     equipeId: client.equipe_id ?? "",
@@ -91,6 +98,28 @@ export function ClienteForm({
   }
 
   function handleSave() {
+    const normalizedDocument = normalizeCpfCnpj(form.cpfCnpj);
+
+    if (form.nome.trim().length < 3) {
+      toast.error("Informe o nome ou a razao social do cliente.");
+      return;
+    }
+
+    if (!isValidCpfCnpjLength(normalizedDocument)) {
+      toast.error("CPF/CNPJ invalido. Informe 11 digitos para CPF ou 14 para CNPJ.");
+      return;
+    }
+
+    if (!isValidCpfCnpj(normalizedDocument)) {
+      toast.error("CPF/CNPJ invalido.");
+      return;
+    }
+
+    if (form.telefone.trim() && !isValidPhoneLength(form.telefone)) {
+      toast.error("Telefone invalido. Informe 10 ou 11 digitos.");
+      return;
+    }
+
     startTransition(() => {
       void (async () => {
         const response = await fetch(`/api/clientes/${client.id}`, {
@@ -98,7 +127,7 @@ export function ClienteForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             nome: form.nome,
-            cpfCnpj: form.cpfCnpj,
+            cpf_cnpj: normalizedDocument,
             email: form.email || null,
             telefone: form.telefone || null,
             endereco: form.endereco || null,
@@ -106,9 +135,9 @@ export function ClienteForm({
             uf: form.uf || null,
             cep: form.cep || null,
             observacao: form.observacao || null,
-            operadorId: form.operadorId || null,
-            equipeId: form.equipeId || null,
-            carteiraId: form.carteiraId || null,
+            operador_id: form.operadorId || null,
+            equipe_id: form.equipeId || null,
+            carteira_id: form.carteiraId || null,
             status: form.status,
           }),
         });
@@ -172,7 +201,8 @@ export function ClienteForm({
                   <Label>CPF/CNPJ</Label>
                   <Input
                     value={form.cpfCnpj}
-                    onChange={(event) => updateField("cpfCnpj", event.target.value)}
+                    inputMode="numeric"
+                    onChange={(event) => updateField("cpfCnpj", maskCpfCnpjInput(event.target.value))}
                     className="h-11 rounded-lg border-border/70 bg-background shadow-none"
                   />
                 </div>
@@ -180,7 +210,8 @@ export function ClienteForm({
                   <Label>Telefone</Label>
                   <Input
                     value={form.telefone}
-                    onChange={(event) => updateField("telefone", event.target.value)}
+                    inputMode="tel"
+                    onChange={(event) => updateField("telefone", maskPhoneInput(event.target.value))}
                     className="h-11 rounded-lg border-border/70 bg-background shadow-none"
                   />
                 </div>
@@ -241,7 +272,8 @@ export function ClienteForm({
                   <Label>CEP</Label>
                   <Input
                     value={form.cep}
-                    onChange={(event) => updateField("cep", event.target.value)}
+                    inputMode="numeric"
+                    onChange={(event) => updateField("cep", maskCepInput(event.target.value))}
                     className="h-11 rounded-lg border-border/70 bg-background shadow-none"
                   />
                 </div>

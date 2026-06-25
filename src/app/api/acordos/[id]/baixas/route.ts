@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { getApiErrorMessage } from "@/services/cadastros-utils";
 import {
   darBaixaParcela,
   parseWriteOffInput,
@@ -16,12 +17,14 @@ export async function POST(request: Request, { params }: RouteContext) {
     const body = await request.json();
     const payload = parseWriteOffInput({
       ...body,
-      acordoId: id,
+      acordo_id: id,
     });
     const result = await darBaixaParcela(payload);
 
-    if (body.clienteId) {
-      revalidatePath(`/clientes/${body.clienteId}`);
+    const clientId = body.cliente_id ?? body.clienteId ?? body.clientId ?? null;
+
+    if (clientId) {
+      revalidatePath(`/clientes/${clientId}`);
     }
 
     revalidatePath("/clientes");
@@ -33,10 +36,7 @@ export async function POST(request: Request, { params }: RouteContext) {
   } catch (error) {
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel registrar a baixa.",
+        message: getApiErrorMessage(error, "Nao foi possivel registrar a baixa."),
       },
       { status: 400 },
     );

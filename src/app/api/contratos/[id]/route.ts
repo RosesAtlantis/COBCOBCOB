@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { getApiErrorMessage } from "@/services/cadastros-utils";
 import {
   atualizarContrato,
   parseUpsertContractInput,
@@ -16,7 +17,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const body = await request.json();
     const payload = parseUpsertContractInput({
       ...body,
-      contractId: id,
+      contrato_id: id,
     });
     const result = await atualizarContrato(payload);
 
@@ -28,10 +29,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   } catch (error) {
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel atualizar o contrato.",
+        message: getApiErrorMessage(error, "Nao foi possivel atualizar o contrato."),
       },
       { status: 400 },
     );

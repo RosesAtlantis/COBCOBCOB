@@ -1305,8 +1305,8 @@ export interface UpsertContractInput {
   credor?: string | null;
   credorId?: string | null;
   numeroContrato: string;
-  valorOriginal: number;
-  valorEmAberto: number;
+  valorOriginal?: number | null;
+  valorEmAberto?: number | null;
   dataContrato?: string | null;
   dataVencimento?: string | null;
   status?: string | null;
@@ -1321,7 +1321,7 @@ export interface FlowContractInput {
   credor?: string | null;
   credorId?: string | null;
   valorOriginal?: number | null;
-  valorEmAberto: number;
+  valorEmAberto?: number | null;
   dataContrato?: string | null;
   dataVencimento?: string | null;
   operadorId?: string | null;

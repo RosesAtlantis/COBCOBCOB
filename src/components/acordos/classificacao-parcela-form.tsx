@@ -63,8 +63,8 @@ export function ClassificacaoParcelaForm({
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              tipoReceita: resolvedTipoReceita,
-              clientId: installment.clientId,
+              tipo_receita: resolvedTipoReceita,
+              cliente_id: installment.clientId,
             }),
           },
         );

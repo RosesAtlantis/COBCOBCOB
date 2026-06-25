@@ -1,5 +1,8 @@
 import { addMonths, parseISO } from "date-fns";
 
+import { formatCpfCnpj, formatPhone as formatPhoneValue } from "@/lib/formatters";
+import { normalizeCpfCnpj } from "@/lib/validators";
+
 import type {
   Agreement,
   AgreementInstallment,
@@ -13,12 +16,8 @@ import type {
   RevenueTypeOrigin,
 } from "@/types/portal";
 
-function onlyDigits(value: string) {
-  return value.replace(/\D+/g, "");
-}
-
 export function normalizeDocument(value: string | null | undefined) {
-  return onlyDigits(value ?? "");
+  return normalizeCpfCnpj(value ?? "");
 }
 
 export function normalizeText(value: string | null | undefined) {
@@ -34,37 +33,11 @@ export function roundCurrency(value: number) {
 }
 
 export function formatDocument(value: string | null | undefined) {
-  const digits = normalizeDocument(value);
-
-  if (digits.length === 11) {
-    return digits.replace(
-      /(\d{3})(\d{3})(\d{3})(\d{2})/,
-      "$1.$2.$3-$4",
-    );
-  }
-
-  if (digits.length === 14) {
-    return digits.replace(
-      /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
-      "$1.$2.$3/$4-$5",
-    );
-  }
-
-  return value ?? "";
+  return formatCpfCnpj(value ?? "");
 }
 
 export function formatPhone(value: string | null | undefined) {
-  const digits = normalizeDocument(value);
-
-  if (digits.length === 11) {
-    return digits.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-  }
-
-  if (digits.length === 10) {
-    return digits.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
-  }
-
-  return value ?? "";
+  return formatPhoneValue(value ?? "");
 }
 
 export function getClientStatusLabel(status: ClientStatus | string) {

@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { getApiErrorMessage } from "@/services/cadastros-utils";
 import {
   criarContrato,
   parseUpsertContractInput,
@@ -16,7 +17,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     const body = await request.json();
     const payload = parseUpsertContractInput({
       ...body,
-      clientId: id,
+      cliente_id: id,
     });
     const result = await criarContrato(payload);
 
@@ -28,10 +29,7 @@ export async function POST(request: Request, { params }: RouteContext) {
   } catch (error) {
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel criar o contrato.",
+        message: getApiErrorMessage(error, "Nao foi possivel criar o contrato."),
       },
       { status: 400 },
     );

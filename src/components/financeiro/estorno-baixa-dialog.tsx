@@ -49,8 +49,8 @@ export function EstornoBaixaDialog({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            acordoId: writeOff.agreementId,
-            clienteId: writeOff.clientId,
+            acordo_id: writeOff.agreementId,
+            cliente_id: writeOff.clientId,
             motivoEstorno: reason || null,
           }),
         });

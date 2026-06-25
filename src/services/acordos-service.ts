@@ -24,7 +24,13 @@ import {
   listarHistoricoAcordo,
   registrarAuditoria,
 } from "@/services/auditoria-service";
-import { entityIdSchema } from "@/services/cadastros-utils";
+import {
+  entityIdSchema,
+  isValidDateInput,
+  optionalDateFieldSchema,
+  payloadToRecord,
+  pickPayloadValue,
+} from "@/services/cadastros-utils";
 import {
   criarContratoDuranteAcordo,
   criarContratoDuranteBaixa,
@@ -54,6 +60,7 @@ import type {
   UpdateInstallmentRevenueTypeInput,
   WriteOffCenterRow,
 } from "@/types/portal";
+import { parseCurrencyBR, parseInteger, parsePercent } from "@/lib/validators";
 
 const flowContractSchema = z.object({
   numeroContrato: z.string().trim().min(1, "Numero do contrato obrigatorio."),
@@ -61,9 +68,9 @@ const flowContractSchema = z.object({
   credor: z.string().trim().nullable().optional(),
   credorId: entityIdSchema("Credor invalido.").nullable().optional(),
   valorOriginal: z.coerce.number().min(0, "Valor original invalido.").nullable().optional(),
-  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
-  dataContrato: z.string().trim().nullable().optional(),
-  dataVencimento: z.string().trim().nullable().optional(),
+  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido.").nullable().optional(),
+  dataContrato: optionalDateFieldSchema("Data do contrato invalida."),
+  dataVencimento: optionalDateFieldSchema("Data de vencimento invalida."),
   operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
   equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
   status: z.string().trim().nullable().optional(),
@@ -76,18 +83,27 @@ const createAgreementSchema = z.object({
   operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
   equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
   carteiraId: entityIdSchema("Carteira invalida.").nullable().optional(),
-  dataAcordo: z.string().min(1, "Data do acordo obrigatoria."),
+  dataAcordo: z
+    .string()
+    .trim()
+    .min(1, "Data do acordo obrigatoria.")
+    .refine((value) => isValidDateInput(value), "Data do acordo invalida."),
   valorOriginal: z.coerce.number().min(0, "Valor original invalido."),
   valorAcordo: z.coerce.number().positive("Valor do acordo obrigatorio."),
   valorEntrada: z.coerce.number().min(0, "Valor de entrada invalido.").default(0),
-  dataVencimentoEntrada: z.string().nullable().optional(),
+  dataVencimentoEntrada: optionalDateFieldSchema("Data de vencimento da entrada invalida."),
   quantidadeParcelas: z.coerce
     .number()
     .int()
-    .min(1, "Quantidade de parcelas deve ser maior ou igual a 1."),
+    .min(1, "Quantidade de parcelas deve ser maior ou igual a 1.")
+    .max(120, "Quantidade de parcelas deve ser menor ou igual a 120."),
   valorParcela: z.coerce.number().positive().nullable().optional(),
-  primeiroVencimento: z.string().nullable().optional(),
-  intervaloMeses: z.coerce.number().int().min(1).nullable().optional(),
+  primeiroVencimento: z
+    .string()
+    .trim()
+    .min(1, "Primeiro vencimento obrigatorio.")
+    .refine((value) => isValidDateInput(value), "Primeiro vencimento invalido."),
+  intervaloMeses: z.coerce.number().int().min(1).max(120).nullable().optional(),
   percentualHonorarios: z.coerce.number().min(0).max(100).nullable().optional(),
   formaPagamento: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
@@ -99,7 +115,11 @@ const createAgreementSchema = z.object({
       z.object({
         numeroParcela: z.coerce.number().int().min(1),
         tipo: z.enum(["entrada", "parcela", "avista"]),
-        dataVencimento: z.string().min(1),
+        dataVencimento: z
+          .string()
+          .trim()
+          .min(1)
+          .refine((value) => isValidDateInput(value), "Data da parcela invalida."),
         valorParcela: z.coerce.number().positive(),
         observacao: z.string().trim().nullable().optional(),
         operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
@@ -113,14 +133,18 @@ const createAgreementSchema = z.object({
 const registerWriteOffSchema = z.object({
   acordoId: entityIdSchema("Acordo invalido."),
   parcelaId: entityIdSchema("Parcela invalida."),
-  dataPagamento: z.string().min(1, "Data de pagamento obrigatoria."),
+  dataPagamento: z
+    .string()
+    .trim()
+    .min(1, "Data de pagamento obrigatoria.")
+    .refine((value) => isValidDateInput(value), "Data de pagamento invalida."),
   valorPago: z.coerce
     .number()
     .min(0.01, "Valor pago deve ser maior que zero."),
   operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
   percentualHonorarios: z.coerce.number().min(0).max(100).nullable().optional(),
   confirmarAcimaSaldo: z.coerce.boolean().optional(),
-  formaPagamento: z.string().trim().nullable().optional(),
+  formaPagamento: z.string().trim().min(1, "Informe a forma de pagamento."),
   observacao: z.string().trim().nullable().optional(),
   criarContratoAgora: z.coerce.boolean().optional(),
   novoContrato: flowContractSchema.nullable().optional(),
@@ -135,6 +159,195 @@ const updateInstallmentRevenueTypeSchema = z.object({
   parcelaId: entityIdSchema("Parcela invalida."),
   tipoReceita: z.enum(["NOVO", "COLCHAO"]),
 });
+
+function normalizeMoneyField(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const parsed = parseCurrencyBR(value as string | number | null | undefined);
+  return parsed === null ? value : parsed;
+}
+
+function normalizeIntegerField(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const parsed = parseInteger(value as string | number | null | undefined);
+  return parsed === null ? value : parsed;
+}
+
+function normalizePercentField(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const parsed = parsePercent(value as string | number | null | undefined);
+  return parsed === null ? value : parsed;
+}
+
+function normalizeFlowContractPayload(payload: unknown) {
+  if (payload === null || payload === undefined) {
+    return undefined;
+  }
+
+  const record = payloadToRecord(payload);
+
+  if (!Object.keys(record).length) {
+    return undefined;
+  }
+
+  return {
+    numeroContrato: pickPayloadValue(record, ["numeroContrato", "numero_contrato"]),
+    carteiraId: pickPayloadValue(record, ["carteiraId", "carteira_id"]),
+    credor: pickPayloadValue(record, ["credor"]),
+    credorId: pickPayloadValue(record, ["credorId", "credor_id"]),
+    valorOriginal: normalizeMoneyField(
+      pickPayloadValue(record, ["valorOriginal", "valor_original"]),
+    ),
+    valorEmAberto: normalizeMoneyField(
+      pickPayloadValue(record, ["valorEmAberto", "valor_em_aberto"]),
+    ),
+    dataContrato: pickPayloadValue(record, ["dataContrato", "data_contrato"]),
+    dataVencimento: pickPayloadValue(record, ["dataVencimento", "data_vencimento"]),
+    operadorId: pickPayloadValue(record, ["operadorId", "operador_id"]),
+    equipeId: pickPayloadValue(record, ["equipeId", "equipe_id"]),
+    status: pickPayloadValue(record, ["status"]),
+    observacao: pickPayloadValue(record, ["observacao"]),
+  };
+}
+
+function normalizeInstallmentDraftPayload(payload: unknown) {
+  const record = payloadToRecord(payload);
+
+  return {
+    numeroParcela: normalizeIntegerField(
+      pickPayloadValue(record, ["numeroParcela", "numero_parcela"]),
+    ),
+    tipo: pickPayloadValue(record, ["tipo"]),
+    dataVencimento: pickPayloadValue(record, ["dataVencimento", "data_vencimento"]),
+    valorParcela: normalizeMoneyField(
+      pickPayloadValue(record, ["valorParcela", "valor_parcela"]),
+    ),
+    observacao: pickPayloadValue(record, ["observacao"]),
+    operadorId: pickPayloadValue(record, ["operadorId", "operador_id"]),
+    tipoReceita: pickPayloadValue(record, ["tipoReceita", "tipo_receita"]),
+    tipoReceitaOrigem: pickPayloadValue(record, [
+      "tipoReceitaOrigem",
+      "tipo_receita_origem",
+    ]),
+  };
+}
+
+function normalizeCreateAgreementPayload(payload: unknown) {
+  const record = payloadToRecord(payload);
+  const parcels = pickPayloadValue(record, ["parcelasCustomizadas", "parcelas_customizadas"]);
+
+  return {
+    clienteId: pickPayloadValue(record, [
+      "clienteId",
+      "cliente_id",
+      "clientId",
+      "cliente",
+    ]),
+    contratoId: pickPayloadValue(record, ["contratoId", "contrato_id"]),
+    operadorId: pickPayloadValue(record, ["operadorId", "operador_id"]),
+    equipeId: pickPayloadValue(record, ["equipeId", "equipe_id"]),
+    carteiraId: pickPayloadValue(record, ["carteiraId", "carteira_id"]),
+    dataAcordo: pickPayloadValue(record, ["dataAcordo", "data_acordo"]),
+    valorOriginal: normalizeMoneyField(
+      pickPayloadValue(record, ["valorOriginal", "valor_original"]),
+    ),
+    valorAcordo: normalizeMoneyField(
+      pickPayloadValue(record, ["valorAcordo", "valor_acordo"]),
+    ),
+    valorEntrada: normalizeMoneyField(
+      pickPayloadValue(record, ["valorEntrada", "valor_entrada"]),
+    ),
+    dataVencimentoEntrada: pickPayloadValue(record, [
+      "dataVencimentoEntrada",
+      "data_vencimento_entrada",
+    ]),
+    quantidadeParcelas: normalizeIntegerField(
+      pickPayloadValue(record, ["quantidadeParcelas", "quantidade_parcelas"]),
+    ),
+    valorParcela: normalizeMoneyField(
+      pickPayloadValue(record, ["valorParcela", "valor_parcela"]),
+    ),
+    primeiroVencimento: pickPayloadValue(record, [
+      "primeiroVencimento",
+      "primeiro_vencimento",
+    ]),
+    intervaloMeses: normalizeIntegerField(
+      pickPayloadValue(record, ["intervaloMeses", "intervalo_meses"]),
+    ),
+    percentualHonorarios: normalizePercentField(
+      pickPayloadValue(record, ["percentualHonorarios", "percentual_honorarios"]),
+    ),
+    formaPagamento: pickPayloadValue(record, ["formaPagamento", "forma_pagamento"]),
+    observacao: pickPayloadValue(record, ["observacao"]),
+    status: pickPayloadValue(record, ["status"]),
+    criarContratoAgora: pickPayloadValue(record, [
+      "criarContratoAgora",
+      "criar_contrato_agora",
+    ]),
+    novoContrato: normalizeFlowContractPayload(
+      pickPayloadValue(record, ["novoContrato", "novo_contrato"]),
+    ),
+    parcelasCustomizadas: Array.isArray(parcels)
+      ? parcels.map((item) => normalizeInstallmentDraftPayload(item))
+      : undefined,
+  };
+}
+
+function normalizeWriteOffPayload(payload: unknown) {
+  const record = payloadToRecord(payload);
+
+  return {
+    acordoId: pickPayloadValue(record, ["acordoId", "acordo_id"]),
+    parcelaId: pickPayloadValue(record, ["parcelaId", "parcela_id"]),
+    dataPagamento: pickPayloadValue(record, ["dataPagamento", "data_pagamento"]),
+    valorPago: normalizeMoneyField(
+      pickPayloadValue(record, ["valorPago", "valor_pago"]),
+    ),
+    operadorId: pickPayloadValue(record, ["operadorId", "operador_id"]),
+    percentualHonorarios: normalizePercentField(
+      pickPayloadValue(record, ["percentualHonorarios", "percentual_honorarios"]),
+    ),
+    confirmarAcimaSaldo: pickPayloadValue(record, [
+      "confirmarAcimaSaldo",
+      "confirmar_acima_saldo",
+    ]),
+    formaPagamento: pickPayloadValue(record, ["formaPagamento", "forma_pagamento"]),
+    observacao: pickPayloadValue(record, ["observacao"]),
+    criarContratoAgora: pickPayloadValue(record, [
+      "criarContratoAgora",
+      "criar_contrato_agora",
+    ]),
+    novoContrato: normalizeFlowContractPayload(
+      pickPayloadValue(record, ["novoContrato", "novo_contrato"]),
+    ),
+  };
+}
+
+function normalizeCancelAgreementPayload(payload: unknown) {
+  const record = payloadToRecord(payload);
+
+  return {
+    acordoId: pickPayloadValue(record, ["acordoId", "acordo_id"]),
+    observacao: pickPayloadValue(record, ["observacao"]),
+  };
+}
+
+function normalizeRevenueTypePayload(payload: unknown) {
+  const record = payloadToRecord(payload);
+
+  return {
+    parcelaId: pickPayloadValue(record, ["parcelaId", "parcela_id"]),
+    tipoReceita: pickPayloadValue(record, ["tipoReceita", "tipo_receita"]),
+  };
+}
 
 function resolveNullableString(value: string | null | undefined) {
   if (!value) {
@@ -572,7 +785,7 @@ export async function criarAcordo(rawInput: unknown): Promise<AgreementOperation
     throw new Error("Seu perfil nao pode cadastrar acordos.");
   }
 
-  const input = createAgreementSchema.parse(rawInput);
+  const input = parseCreateAgreementInput(rawInput);
 
   if (input.valorEntrada > input.valorAcordo) {
     throw new Error("Valor de entrada nao pode ser maior que o valor do acordo.");
@@ -853,7 +1066,7 @@ export async function darBaixaParcela(rawInput: unknown): Promise<AgreementOpera
     throw new Error("Seu perfil nao pode registrar baixas.");
   }
 
-  const input = registerWriteOffSchema.parse(rawInput);
+  const input = parseWriteOffInput(rawInput);
   const supabase = await getSupabaseForAgreementOperations();
 
   if (!supabase) {
@@ -928,12 +1141,14 @@ export async function darBaixaParcela(rawInput: unknown): Promise<AgreementOpera
       agreementId: agreement.id,
       numeroContrato: input.novoContrato.numeroContrato,
       carteiraId: input.novoContrato.carteiraId,
-      credor: input.novoContrato.credor ?? wallet?.credor ?? null,
-      credorId: input.novoContrato.credorId ?? wallet?.credor_id ?? null,
+      credor: wallet?.credor ?? null,
+      credorId: wallet?.credor_id ?? null,
       valorOriginal:
         input.novoContrato.valorOriginal ??
         roundCurrency(Math.max(parcel.valor_parcela, agreement.valor_original ?? 0)),
-      valorEmAberto: input.novoContrato.valorEmAberto,
+      valorEmAberto:
+        input.novoContrato.valorEmAberto ??
+        roundCurrency(Math.max(parcel.valor_parcela - parcel.valor_pago, 0)),
       dataContrato: input.novoContrato.dataContrato ?? null,
       dataVencimento: input.novoContrato.dataVencimento ?? parcel.data_vencimento ?? null,
       operadorId: input.novoContrato.operadorId ?? resolvedOperatorId,
@@ -1153,7 +1368,7 @@ export async function alterarClassificacaoParcela(
     "supervisor",
     "financeiro",
   ]);
-  const input = updateInstallmentRevenueTypeSchema.parse(rawInput);
+  const input = parseUpdateInstallmentRevenueTypeInput(rawInput);
   const context = await getClientsContext();
   const parcel = context.installments.find((item) => item.id === input.parcelaId);
 
@@ -1283,7 +1498,7 @@ export async function cancelarAcordo(rawInput: unknown): Promise<AgreementOperat
     throw new Error("Seu perfil nao pode cancelar acordos.");
   }
 
-  const input = cancelAgreementSchema.parse(rawInput);
+  const input = parseCancelAgreementInput(rawInput);
   const supabase = await getSupabaseForAgreementOperations();
 
   if (!supabase) {
@@ -1429,19 +1644,19 @@ export async function alterarOperadorParcela(params: {
 }
 
 export function parseCreateAgreementInput(payload: unknown) {
-  return createAgreementSchema.parse(payload);
+  return createAgreementSchema.parse(normalizeCreateAgreementPayload(payload));
 }
 
 export function parseWriteOffInput(payload: unknown) {
-  return registerWriteOffSchema.parse(payload);
+  return registerWriteOffSchema.parse(normalizeWriteOffPayload(payload));
 }
 
 export function parseCancelAgreementInput(payload: unknown) {
-  return cancelAgreementSchema.parse(payload);
+  return cancelAgreementSchema.parse(normalizeCancelAgreementPayload(payload));
 }
 
 export function parseUpdateInstallmentRevenueTypeInput(payload: unknown) {
-  return updateInstallmentRevenueTypeSchema.parse(payload);
+  return updateInstallmentRevenueTypeSchema.parse(normalizeRevenueTypePayload(payload));
 }
 
 export { calcularClassificacaoAutomaticaParcela };

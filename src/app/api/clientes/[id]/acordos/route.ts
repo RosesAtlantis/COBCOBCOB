@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { getApiErrorMessage } from "@/services/cadastros-utils";
 import {
   criarAcordo,
   parseCreateAgreementInput,
@@ -16,7 +17,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     const body = await request.json();
     const payload = parseCreateAgreementInput({
       ...body,
-      clienteId: id,
+      cliente_id: id,
     });
     const result = await criarAcordo(payload);
 
@@ -30,10 +31,7 @@ export async function POST(request: Request, { params }: RouteContext) {
   } catch (error) {
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel cadastrar o acordo.",
+        message: getApiErrorMessage(error, "Nao foi possivel cadastrar o acordo."),
       },
       { status: 400 },
     );

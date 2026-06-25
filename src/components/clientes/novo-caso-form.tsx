@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -26,6 +26,15 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDocument } from "@/lib/clientes-utils";
+import { maskCpfCnpjInput, maskPhoneInput } from "@/lib/masks";
+import {
+  detectCpfCnpjType,
+  isValidCpfCnpj,
+  isValidCpfCnpjLength,
+  isValidPhoneLength,
+  normalizeCpfCnpj,
+  parseCurrencyBR,
+} from "@/lib/validators";
 import type { FilterOption } from "@/types/portal";
 
 type SubmitIntent = "save" | "open";
@@ -98,14 +107,16 @@ export function NovoCasoForm({
     setForm((current) => ({ ...current, [key]: value }));
 
     if (key === "cpfCnpj") {
+      setIsCheckingDocument(false);
       setExistingClient(null);
     }
   }
 
-  async function checkExistingClient() {
-    const document = form.cpfCnpj.trim();
+  const checkExistingClient = useCallback(async (documentValue = form.cpfCnpj) => {
+    const document = normalizeCpfCnpj(documentValue);
 
-    if (!document) {
+    if (!isValidCpfCnpjLength(document)) {
+      setIsCheckingDocument(false);
       setExistingClient(null);
       return;
     }
@@ -114,7 +125,7 @@ export function NovoCasoForm({
 
     try {
       const response = await fetch(
-        `/api/clientes?cpfCnpj=${encodeURIComponent(document)}`,
+        `/api/clientes?cpf_cnpj=${encodeURIComponent(document)}`,
         {
           method: "GET",
           cache: "no-store",
@@ -132,7 +143,7 @@ export function NovoCasoForm({
     } finally {
       setIsCheckingDocument(false);
     }
-  }
+  }, [form.cpfCnpj]);
 
   function openExistingClient() {
     if (!existingClient) {
@@ -186,9 +197,41 @@ export function NovoCasoForm({
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (existingClient) {
+    const normalizedDocument = normalizeCpfCnpj(form.cpfCnpj);
+    const parsedOpenValue = parseCurrencyBR(form.valorEmAberto);
+
+    if (form.nome.trim().length < 3) {
+      toast.error("Informe o nome ou a razao social do cliente.");
       setPendingAction(null);
-      toast.error("Este CPF/CNPJ ja possui ficha cadastrada.");
+      return;
+    }
+
+    if (!isValidCpfCnpjLength(normalizedDocument)) {
+      toast.error("CPF/CNPJ invalido. Informe 11 digitos para CPF ou 14 para CNPJ.");
+      setPendingAction(null);
+      return;
+    }
+
+    if (!isValidCpfCnpj(normalizedDocument)) {
+      toast.error("CPF/CNPJ invalido.");
+      setPendingAction(null);
+      return;
+    }
+
+    if (form.telefone.trim() && !isValidPhoneLength(form.telefone)) {
+      toast.error("Telefone invalido. Informe 10 ou 11 digitos.");
+      setPendingAction(null);
+      return;
+    }
+
+    if (
+      mode === "page" &&
+      showInitialContract &&
+      form.valorEmAberto.trim() &&
+      parsedOpenValue === null
+    ) {
+      toast.error("Informe um valor em aberto valido.");
+      setPendingAction(null);
       return;
     }
 
@@ -202,20 +245,20 @@ export function NovoCasoForm({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               nome: form.nome,
-              cpfCnpj: form.cpfCnpj,
-              carteiraId: form.carteiraId,
+              cpf_cnpj: normalizedDocument,
+              carteira_id: form.carteiraId,
               telefone: form.telefone || null,
               email: form.email || null,
-              operadorId: form.operadorId || null,
-              equipeId: form.equipeId || null,
+              operador_id: form.operadorId || null,
+              equipe_id: form.equipeId || null,
               observacao: form.observacao || null,
-              numeroContrato:
+              numero_contrato:
                 mode === "page" && showInitialContract ? form.numeroContrato || null : null,
-              valorEmAberto:
+              valor_em_aberto:
                 mode === "page" && showInitialContract && form.valorEmAberto
-                  ? Number(form.valorEmAberto)
+                  ? parsedOpenValue
                   : null,
-              dataVencimento:
+              data_vencimento:
                 mode === "page" && showInitialContract ? form.dataVencimento || null : null,
             }),
           });
@@ -227,11 +270,7 @@ export function NovoCasoForm({
           };
 
           if (!response.ok || !payload.clientId) {
-            toast.error(
-              payload.message
-                ? `Nao foi possivel salvar. Detalhes: ${payload.message}`
-                : "Nao foi possivel salvar o caso.",
-            );
+            toast.error(payload.message ?? "Nao foi possivel salvar o caso.");
             return;
           }
 
@@ -265,6 +304,26 @@ export function NovoCasoForm({
     mode === "dialog"
       ? "Preencha o essencial para abrir o caso sem sair da lista."
       : "Nome, CPF/CNPJ e carteira bastam para abrir o caso. O restante pode entrar depois, na ficha.";
+  const documentDigits = normalizeCpfCnpj(form.cpfCnpj);
+  const documentType = detectCpfCnpjType(documentDigits);
+
+  useEffect(() => {
+    if (!documentDigits) {
+      return;
+    }
+
+    if (!isValidCpfCnpjLength(documentDigits)) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void checkExistingClient(documentDigits);
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [checkExistingClient, documentDigits]);
 
   return (
     <form ref={formRef} className="space-y-6" onSubmit={handleSubmit}>
@@ -296,9 +355,10 @@ export function NovoCasoForm({
               <Input
                 id="cpfCnpj"
                 value={form.cpfCnpj}
-                onChange={(event) => updateField("cpfCnpj", event.target.value)}
+                inputMode="numeric"
+                onChange={(event) => updateField("cpfCnpj", maskCpfCnpjInput(event.target.value))}
                 onBlur={() => {
-                  void checkExistingClient();
+                  void checkExistingClient(form.cpfCnpj);
                 }}
                 className="h-11 rounded-lg border-border/70 bg-background pr-10 shadow-none"
               />
@@ -306,6 +366,15 @@ export function NovoCasoForm({
                 <Loader2 className="absolute right-3 top-3.5 size-4 animate-spin text-muted-foreground" />
               ) : null}
             </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {documentDigits
+                ? documentType === "INVALIDO"
+                  ? "CPF/CNPJ invalido. Informe 11 digitos para CPF ou 14 para CNPJ."
+                  : isValidCpfCnpj(documentDigits)
+                    ? `Tipo detectado: ${documentType}`
+                    : `Tipo detectado: ${documentType}. Revise os digitos informados.`
+                : "Digite apenas numeros. A mascara e aplicada automaticamente."}
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -398,7 +467,8 @@ export function NovoCasoForm({
               <Input
                 id="telefone"
                 value={form.telefone}
-                onChange={(event) => updateField("telefone", event.target.value)}
+                inputMode="tel"
+                onChange={(event) => updateField("telefone", maskPhoneInput(event.target.value))}
                 className="h-11 rounded-lg border-border/70 bg-background shadow-none"
               />
             </div>
@@ -559,7 +629,7 @@ export function NovoCasoForm({
           type="button"
           variant="outline"
           className="h-11 rounded-lg"
-          disabled={isPending || !form.carteiraId || Boolean(existingClient)}
+          disabled={isPending || !form.carteiraId}
           onClick={() => queueSubmit("save")}
         >
           {isPending && pendingAction === "save" ? (
@@ -572,7 +642,7 @@ export function NovoCasoForm({
         <Button
           type="button"
           className="h-11 rounded-lg"
-          disabled={isPending || !form.carteiraId || Boolean(existingClient)}
+          disabled={isPending || !form.carteiraId}
           onClick={() => queueSubmit("open")}
         >
           {isPending && pendingAction === "open" ? (

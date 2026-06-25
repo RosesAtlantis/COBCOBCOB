@@ -35,6 +35,7 @@ import {
 } from "@/lib/clientes-utils";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { parseCurrencyBR, parsePercent } from "@/lib/validators";
 import type {
   AgreementInstallmentDraft,
   Client,
@@ -195,7 +196,7 @@ export function AcordoForm({
   );
   const previewDifference = roundCurrency(agreementValueNumber - previewTotal);
   const percentualHonorariosNumber = percentualHonorarios.trim()
-    ? roundCurrency(toNumber(percentualHonorarios))
+    ? parsePercent(percentualHonorarios)
     : null;
   const honorariosPrevistos = percentualHonorariosNumber
     ? roundCurrency((agreementValueNumber * percentualHonorariosNumber) / 100)
@@ -344,8 +345,10 @@ export function AcordoForm({
     }
 
     if (
-      percentualHonorariosNumber !== null &&
-      (percentualHonorariosNumber < 0 || percentualHonorariosNumber > 100)
+      percentualHonorarios.trim() &&
+      (percentualHonorariosNumber === null ||
+        percentualHonorariosNumber < 0 ||
+        percentualHonorariosNumber > 100)
     ) {
       toast.error("O percentual de honorarios deve ficar entre 0 e 100.");
       return;
@@ -357,6 +360,8 @@ export function AcordoForm({
     }
 
     if (createContractNow) {
+      const parsedFlowOpenValue = parseCurrencyBR(flowContract.valorEmAberto);
+
       if (!flowContract.numeroContrato.trim()) {
         toast.error("Informe o numero do contrato para continuar.");
         return;
@@ -367,10 +372,7 @@ export function AcordoForm({
         return;
       }
 
-      if (
-        !Number.isFinite(Number(flowContract.valorEmAberto)) ||
-        Number(flowContract.valorEmAberto) <= 0
-      ) {
+      if (parsedFlowOpenValue === null || parsedFlowOpenValue <= 0) {
         toast.error("Informe um valor em aberto valido para o novo contrato.");
         return;
       }
@@ -399,46 +401,47 @@ export function AcordoForm({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contratoId: contractId || null,
-            operadorId: operatorId || null,
-            equipeId: teamId || null,
-            carteiraId: walletId || null,
-            dataAcordo: agreementDate,
-            valorOriginal: originalValueNumber,
-            valorAcordo: agreementValueNumber,
-            valorEntrada: entryValueNumber,
-            dataVencimentoEntrada: hasEntry ? entryDueDate || null : null,
-            quantidadeParcelas: isCashAgreement ? 1 : displayedParcelDrafts.length,
-            valorParcela: displayedParcelDrafts[0]?.valorParcela ?? autoInstallmentValue,
-            primeiroVencimento:
+            cliente_id: client.id,
+            contrato_id: contractId || null,
+            operador_id: operatorId || null,
+            equipe_id: teamId || null,
+            carteira_id: walletId || null,
+            data_acordo: agreementDate,
+            valor_original: originalValueNumber,
+            valor_acordo: agreementValueNumber,
+            valor_entrada: entryValueNumber,
+            data_vencimento_entrada: hasEntry ? entryDueDate || null : null,
+            quantidade_parcelas: isCashAgreement ? 1 : displayedParcelDrafts.length,
+            valor_parcela: displayedParcelDrafts[0]?.valorParcela ?? autoInstallmentValue,
+            primeiro_vencimento:
               (displayedParcelDrafts[0]?.dataVencimento ?? firstDueDate) || null,
-            intervaloMeses: intervalMonthsNumber,
-            percentualHonorarios: percentualHonorariosNumber,
-            formaPagamento: paymentMethod || null,
+            intervalo_meses: intervalMonthsNumber,
+            percentual_honorarios: percentualHonorariosNumber,
+            forma_pagamento: paymentMethod || null,
             observacao: note || null,
             status,
-            criarContratoAgora: createContractNow,
-            novoContrato: createContractNow
+            criar_contrato_agora: createContractNow,
+            novo_contrato: createContractNow
               ? {
-                  numeroContrato: flowContract.numeroContrato,
-                  carteiraId: flowContract.carteiraId,
-                  valorEmAberto: Number(flowContract.valorEmAberto),
-                  valorOriginal: originalValueNumber,
-                  operadorId: operatorId || null,
-                  equipeId: teamId || null,
+                  numero_contrato: flowContract.numeroContrato,
+                  carteira_id: flowContract.carteiraId,
+                  valor_em_aberto: parseCurrencyBR(flowContract.valorEmAberto),
+                  valor_original: originalValueNumber,
+                  operador_id: operatorId || null,
+                  equipe_id: teamId || null,
                   observacao: note || null,
                   status: "em_acordo",
                 }
               : null,
-            parcelasCustomizadas: displayedParcelDrafts.map((installment, index) => ({
-              numeroParcela: index + 1,
+            parcelas_customizadas: displayedParcelDrafts.map((installment, index) => ({
+              numero_parcela: index + 1,
               tipo: installment.tipo,
-              dataVencimento: installment.dataVencimento,
-              valorParcela: installment.valorParcela,
+              data_vencimento: installment.dataVencimento,
+              valor_parcela: installment.valorParcela,
               observacao: installment.observacao ?? null,
-              operadorId: installment.operadorId ?? null,
-              tipoReceita: installment.tipoReceita ?? null,
-              tipoReceitaOrigem: installment.tipoReceita ? "manual" : null,
+              operador_id: installment.operadorId ?? null,
+              tipo_receita: installment.tipoReceita ?? null,
+              tipo_receita_origem: installment.tipoReceita ? "manual" : null,
             })),
           }),
         });

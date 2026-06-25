@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { getApiErrorMessage } from "@/services/cadastros-utils";
 import {
   alterarClassificacaoParcela,
   parseUpdateInstallmentRevenueTypeInput,
@@ -16,12 +17,14 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const body = await request.json();
     const payload = parseUpdateInstallmentRevenueTypeInput({
       ...body,
-      parcelaId: id,
+      parcela_id: id,
     });
     const result = await alterarClassificacaoParcela(payload);
 
-    if (body.clientId) {
-      revalidatePath(`/clientes/${body.clientId}`);
+    const clientId = body.cliente_id ?? body.clienteId ?? body.clientId ?? null;
+
+    if (clientId) {
+      revalidatePath(`/clientes/${clientId}`);
     }
 
     revalidatePath("/clientes");
@@ -34,10 +37,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   } catch (error) {
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel alterar a classificacao da parcela.",
+        message: getApiErrorMessage(
+          error,
+          "Nao foi possivel alterar a classificacao da parcela.",
+        ),
       },
       { status: 400 },
     );

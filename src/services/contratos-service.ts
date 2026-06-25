@@ -7,8 +7,14 @@ import { roundCurrency } from "@/lib/clientes-utils";
 import { isSupabaseConfigured } from "@/lib/env";
 import { canCreateCases, canEditContracts } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { parseCurrencyBR } from "@/lib/validators";
 import { registrarAuditoriaSegura } from "@/services/auditoria-service";
-import { entityIdSchema } from "@/services/cadastros-utils";
+import {
+  entityIdSchema,
+  optionalDateFieldSchema,
+  payloadToRecord,
+  pickPayloadValue,
+} from "@/services/cadastros-utils";
 import {
   buildResolvedCollections,
   criarContrato as criarContratoCliente,
@@ -32,15 +38,50 @@ const flowContractSchema = z.object({
   credor: z.string().trim().nullable().optional(),
   credorId: entityIdSchema("Credor invalido.").nullable().optional(),
   valorOriginal: z.coerce.number().min(0, "Valor original invalido.").nullable().optional(),
-  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido."),
-  dataContrato: z.string().trim().nullable().optional(),
-  dataVencimento: z.string().trim().nullable().optional(),
+  valorEmAberto: z.coerce.number().min(0, "Valor em aberto invalido.").nullable().optional(),
+  dataContrato: optionalDateFieldSchema("Data do contrato invalida."),
+  dataVencimento: optionalDateFieldSchema("Data de vencimento invalida."),
   operadorId: entityIdSchema("Operador invalido.").nullable().optional(),
   equipeId: entityIdSchema("Equipe invalida.").nullable().optional(),
   status: z.string().trim().nullable().optional(),
   observacao: z.string().trim().nullable().optional(),
   origemFluxo: z.enum(["acordo", "baixa"]),
 });
+
+function normalizeMoneyField(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const parsed = parseCurrencyBR(value as string | number | null | undefined);
+  return parsed === null ? value : parsed;
+}
+
+function normalizeFlowContractPayload(payload: unknown) {
+  const record = payloadToRecord(payload);
+
+  return {
+    clientId: pickPayloadValue(record, ["clientId", "clienteId", "cliente_id", "cliente"]),
+    agreementId: pickPayloadValue(record, ["agreementId", "acordoId", "acordo_id"]),
+    numeroContrato: pickPayloadValue(record, ["numeroContrato", "numero_contrato"]),
+    carteiraId: pickPayloadValue(record, ["carteiraId", "carteira_id"]),
+    credor: pickPayloadValue(record, ["credor"]),
+    credorId: pickPayloadValue(record, ["credorId", "credor_id"]),
+    valorOriginal: normalizeMoneyField(
+      pickPayloadValue(record, ["valorOriginal", "valor_original"]),
+    ),
+    valorEmAberto: normalizeMoneyField(
+      pickPayloadValue(record, ["valorEmAberto", "valor_em_aberto"]),
+    ),
+    dataContrato: pickPayloadValue(record, ["dataContrato", "data_contrato"]),
+    dataVencimento: pickPayloadValue(record, ["dataVencimento", "data_vencimento"]),
+    operadorId: pickPayloadValue(record, ["operadorId", "operador_id"]),
+    equipeId: pickPayloadValue(record, ["equipeId", "equipe_id"]),
+    status: pickPayloadValue(record, ["status"]),
+    observacao: pickPayloadValue(record, ["observacao"]),
+    origemFluxo: pickPayloadValue(record, ["origemFluxo", "origem_fluxo"]),
+  };
+}
 
 export interface ContractFlowResult {
   contract: ContractRow | null;
@@ -57,7 +98,9 @@ async function criarContratoNoFluxo(
   allowedRoles: PortalRole[],
 ): Promise<ContractFlowResult> {
   const profile = await requireActiveProfile(allowedRoles);
-  const input = flowContractSchema.parse(rawInput);
+  const input = flowContractSchema.parse(normalizeFlowContractPayload(rawInput));
+  const resolvedOriginalValue = roundCurrency(input.valorOriginal ?? input.valorEmAberto ?? 0);
+  const resolvedOpenValue = roundCurrency(input.valorEmAberto ?? input.valorOriginal ?? 0);
 
   if (!isSupabaseConfigured()) {
     return {
@@ -95,13 +138,13 @@ async function criarContratoNoFluxo(
       credor: input.credor?.trim() || wallet.credor,
       credor_id: input.credorId ?? wallet.credor_id ?? null,
       numero_contrato: input.numeroContrato,
-      valor_original: roundCurrency(input.valorOriginal ?? input.valorEmAberto),
-      valor_em_aberto: roundCurrency(input.valorEmAberto),
+      valor_original: resolvedOriginalValue,
+      valor_em_aberto: resolvedOpenValue,
       data_contrato: input.dataContrato?.trim() || null,
       data_vencimento: input.dataVencimento?.trim() || null,
       status:
         input.status?.trim() ||
-        (roundCurrency(input.valorEmAberto) <= 0 ? "quitado" : "aberto"),
+        (resolvedOpenValue <= 0 ? "quitado" : "aberto"),
       operador_id: input.operadorId ?? null,
       equipe_id: input.equipeId ?? null,
       observacao: input.observacao?.trim() || null,
