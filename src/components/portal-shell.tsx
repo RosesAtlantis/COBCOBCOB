@@ -22,24 +22,20 @@ export function PortalShell({
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      <aside className="hidden h-screen w-[292px] shrink-0 border-r border-border/70 bg-sidebar/75 lg:block">
-        <div className="h-full p-3">
-          <AppSidebar profile={profile} demoMode={demoMode} />
-        </div>
+      <aside className="hidden h-screen w-[296px] shrink-0 border-r border-border/70 bg-sidebar lg:block">
+        <AppSidebar profile={profile} demoMode={demoMode} />
       </aside>
 
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent
           side="left"
-          className="w-[92vw] max-w-[360px] overflow-hidden border-r border-border/70 bg-sidebar p-0"
+          className="w-[88vw] max-w-[320px] overflow-hidden border-r border-border/70 bg-sidebar p-0"
         >
-          <div className="h-full p-3">
-            <AppSidebar
-              profile={profile}
-              demoMode={demoMode}
-              onNavigate={() => setMobileMenuOpen(false)}
-            />
-          </div>
+          <AppSidebar
+            profile={profile}
+            demoMode={demoMode}
+            onNavigate={() => setMobileMenuOpen(false)}
+          />
         </SheetContent>
       </Sheet>
 

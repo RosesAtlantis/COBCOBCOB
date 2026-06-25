@@ -149,6 +149,10 @@ const operatorNavigation: NavigationGroup[] = [
     title: "Operacao",
     items: [clientsItem, agreementsItem, installmentsItem],
   },
+  {
+    title: "Cadastros",
+    items: [newClientItem],
+  },
 ];
 
 const supervisorNavigation: NavigationGroup[] = [
