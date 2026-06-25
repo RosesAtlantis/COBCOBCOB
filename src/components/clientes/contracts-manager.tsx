@@ -12,6 +12,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -34,6 +35,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { formatCurrencyInputValue } from "@/lib/formatters";
+import { maskCurrencyInput } from "@/lib/masks";
 import { parseCurrencyBR } from "@/lib/validators";
 import type { ClientContractRow, FilterOption } from "@/types/portal";
 
@@ -50,6 +53,17 @@ interface ContractsManagerProps {
   canManageWallets?: boolean;
 }
 
+const EMPTY_SELECT_VALUE = "__empty__";
+
+function resolveSelectValue(
+  options: FilterOption[],
+  value: string | null | undefined,
+) {
+  return value && options.some((option) => option.value === value)
+    ? value
+    : EMPTY_SELECT_VALUE;
+}
+
 function buildInitialForm(
   contract: ClientContractRow | null,
   preferredWalletId?: string | null,
@@ -57,8 +71,8 @@ function buildInitialForm(
   return {
     carteiraId: contract?.carteira_id ?? preferredWalletId ?? "",
     numeroContrato: contract?.numero_contrato ?? "",
-    valorOriginal: String(contract?.valor_original ?? 0),
-    valorEmAberto: String(contract?.valor_em_aberto ?? 0),
+    valorOriginal: formatCurrencyInputValue(contract?.valor_original ?? null),
+    valorEmAberto: formatCurrencyInputValue(contract?.valor_em_aberto ?? null),
     dataContrato: contract?.data_contrato ?? "",
     dataVencimento: contract?.data_vencimento ?? "",
     status: contract?.status ?? "aberto",
@@ -106,7 +120,7 @@ export function ContractsManager({
   }
 
   function handleWalletChange(value: string | null) {
-    updateField("carteiraId", !value || value === "none" ? "" : value);
+    updateField("carteiraId", !value || value === EMPTY_SELECT_VALUE ? "" : value);
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -279,180 +293,220 @@ export function ContractsManager({
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
+        <DialogContent className="max-w-[min(820px,calc(100vw-1.5rem))] overflow-hidden p-0">
+          <DialogHeader className="gap-1 border-b border-border/70 px-6 py-5">
             <DialogTitle>{selectedContract ? "Editar contrato" : "Novo contrato"}</DialogTitle>
             <DialogDescription>
-              Atualize saldo, carteira e dados contratuais com auditoria automatica.
-              {selectedContract ? "" : " A carteira principal ja vem sugerida para acelerar o cadastro."}
+              Ajuste contrato, carteira, datas e responsaveis em um formulario mais claro.
             </DialogDescription>
           </DialogHeader>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="space-y-2">
-                <Label>Contrato *</Label>
-                <Input
-                  required
-                  value={form.numeroContrato}
-                  onChange={(event) => updateField("numeroContrato", event.target.value)}
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
+          <form className="flex min-h-0 flex-col" onSubmit={handleSubmit}>
+            <div className="max-h-[72vh] space-y-5 overflow-y-auto overflow-x-hidden px-6 py-5">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.85fr)]">
+                <div className="space-y-2">
+                  <Label htmlFor="contractNumber">Numero do contrato *</Label>
+                  <Input
+                    id="contractNumber"
+                    required
+                    value={form.numeroContrato}
+                    onChange={(event) => updateField("numeroContrato", event.target.value)}
+                    placeholder="Ex.: 12345/2026"
+                    className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label>Carteira *</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="contractWallet">Carteira *</Label>
+                  <Select
+                    value={resolveSelectValue(walletOptions, form.carteiraId)}
+                    onValueChange={handleWalletChange}
+                  >
+                    <SelectTrigger
+                      id="contractWallet"
+                      className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                    >
+                      <SelectValue placeholder="Selecione uma carteira" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={EMPTY_SELECT_VALUE}>
+                        Selecione uma carteira
+                      </SelectItem>
+                      {walletOptions.map((wallet) => (
+                        <SelectItem key={wallet.value} value={wallet.value}>
+                          {wallet.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {canManageWallets ? (
                     <Button
                       type="button"
-                      variant="ghost"
-                      className="h-auto rounded-lg px-2 py-1 text-xs"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-lg"
                       onClick={() => setQuickWalletOpen(true)}
                     >
-                      <Plus className="size-3.5" />
+                      <Plus className="size-4" />
                       Nova carteira
                     </Button>
                   ) : null}
                 </div>
-                <Select value={form.carteiraId || "none"} onValueChange={handleWalletChange}>
-                  <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Selecione</SelectItem>
-                    {walletOptions.map((wallet) => (
-                      <SelectItem key={wallet.value} value={wallet.value}>
-                        {wallet.label}
+
+                <div className="space-y-2">
+                  <Label htmlFor="contractStatus">Status</Label>
+                  <Select
+                    value={form.status}
+                    onValueChange={(value) => updateField("status", value ?? "aberto")}
+                  >
+                    <SelectTrigger
+                      id="contractStatus"
+                      className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="aberto">Aberto</SelectItem>
+                      <SelectItem value="em_acordo">Em acordo</SelectItem>
+                      <SelectItem value="quitado">Quitado</SelectItem>
+                      <SelectItem value="cancelado">Cancelado</SelectItem>
+                      <SelectItem value="inativo">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="contractOriginalValue">Valor original</Label>
+                  <Input
+                    id="contractOriginalValue"
+                    inputMode="decimal"
+                    value={form.valorOriginal}
+                    onChange={(event) =>
+                      updateField("valorOriginal", maskCurrencyInput(event.target.value))
+                    }
+                    placeholder="R$ 0,00"
+                    className="h-11 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="contractOpenValue">Valor em aberto</Label>
+                  <Input
+                    id="contractOpenValue"
+                    inputMode="decimal"
+                    value={form.valorEmAberto}
+                    onChange={(event) =>
+                      updateField("valorEmAberto", maskCurrencyInput(event.target.value))
+                    }
+                    placeholder="R$ 0,00"
+                    className="h-11 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="contractDate">Data do contrato</Label>
+                  <Input
+                    id="contractDate"
+                    type="date"
+                    value={form.dataContrato}
+                    onChange={(event) => updateField("dataContrato", event.target.value)}
+                    className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="contractDueDate">Data de vencimento</Label>
+                  <Input
+                    id="contractDueDate"
+                    type="date"
+                    value={form.dataVencimento}
+                    onChange={(event) => updateField("dataVencimento", event.target.value)}
+                    className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="contractOperator">Operador</Label>
+                  <Select
+                    value={resolveSelectValue(operators, form.operadorId)}
+                    onValueChange={(value) =>
+                      updateField("operadorId", !value || value === EMPTY_SELECT_VALUE ? "" : value)
+                    }
+                  >
+                    <SelectTrigger
+                      id="contractOperator"
+                      className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                    >
+                      <SelectValue placeholder="Sem operador definido" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={EMPTY_SELECT_VALUE}>
+                        Sem operador definido
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                      {operators.map((operator) => (
+                        <SelectItem key={operator.value} value={operator.value}>
+                          {operator.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={form.status}
-                  onValueChange={(value) => updateField("status", value ?? "aberto")}
-                >
-                  <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aberto">Aberto</SelectItem>
-                    <SelectItem value="em_acordo">Em acordo</SelectItem>
-                    <SelectItem value="quitado">Quitado</SelectItem>
-                    <SelectItem value="cancelado">Cancelado</SelectItem>
-                    <SelectItem value="inativo">Inativo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Valor original</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.valorOriginal}
-                  onChange={(event) => updateField("valorOriginal", event.target.value)}
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Valor em aberto</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.valorEmAberto}
-                  onChange={(event) => updateField("valorEmAberto", event.target.value)}
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Data contrato</Label>
-                <Input
-                  type="date"
-                  value={form.dataContrato}
-                  onChange={(event) => updateField("dataContrato", event.target.value)}
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Data vencimento</Label>
-                <Input
-                  type="date"
-                  value={form.dataVencimento}
-                  onChange={(event) => updateField("dataVencimento", event.target.value)}
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Operador</Label>
-                <Select
-                  value={form.operadorId || "none"}
-                  onValueChange={(value) =>
-                    updateField("operadorId", !value || value === "none" ? "" : value)
-                  }
-                >
-                  <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Selecione</SelectItem>
-                    {operators.map((operator) => (
-                      <SelectItem key={operator.value} value={operator.value}>
-                        {operator.label}
+                <div className="space-y-2">
+                  <Label htmlFor="contractTeam">Equipe</Label>
+                  <Select
+                    value={resolveSelectValue(teams, form.equipeId)}
+                    onValueChange={(value) =>
+                      updateField("equipeId", !value || value === EMPTY_SELECT_VALUE ? "" : value)
+                    }
+                  >
+                    <SelectTrigger
+                      id="contractTeam"
+                      className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                    >
+                      <SelectValue placeholder="Sem equipe definida" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={EMPTY_SELECT_VALUE}>
+                        Sem equipe definida
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      {teams.map((team) => (
+                        <SelectItem key={team.value} value={team.value}>
+                          {team.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Equipe</Label>
-                <Select
-                  value={form.equipeId || "none"}
-                  onValueChange={(value) =>
-                    updateField("equipeId", !value || value === "none" ? "" : value)
-                  }
-                >
-                  <SelectTrigger className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Selecione</SelectItem>
-                    {teams.map((team) => (
-                      <SelectItem key={team.value} value={team.value}>
-                        {team.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2 md:col-span-2 xl:col-span-4">
-                <Label>Observacao</Label>
+                <Label htmlFor="contractNote">Observacao</Label>
                 <Textarea
+                  id="contractNote"
                   value={form.observacao}
                   onChange={(event) => updateField("observacao", event.target.value)}
+                  placeholder="Detalhes operacionais, observacoes comerciais e contexto do contrato."
                   className="min-h-24 rounded-lg border-border/70 bg-background shadow-none"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <DialogFooter className="mx-0 mb-0 mt-auto rounded-none border-border/70 bg-muted/30 px-6 py-4">
+              <Button type="button" variant="outline" className="rounded-lg" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
               <Button type="submit" className="rounded-lg" disabled={isPending}>
                 <Save className={`size-4${isPending ? " animate-pulse" : ""}`} />
                 Salvar contrato
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

@@ -34,6 +34,8 @@ import {
   roundCurrency,
 } from "@/lib/clientes-utils";
 import { formatCurrency } from "@/lib/format";
+import { formatCurrencyInputValue } from "@/lib/formatters";
+import { maskCurrencyInput } from "@/lib/masks";
 import { cn } from "@/lib/utils";
 import { parseCurrencyBR, parsePercent } from "@/lib/validators";
 import type {
@@ -59,6 +61,7 @@ interface AcordoFormProps {
 type AgreementMode = "avista" | "entrada_parcelas" | "parcelado";
 
 const today = new Date().toISOString().slice(0, 10);
+const EMPTY_SELECT_VALUE = "__empty__";
 
 function findOptionValue(
   options: FilterOption[],
@@ -73,9 +76,29 @@ function findOptionValue(
   );
 }
 
+function resolveSelectValue(
+  options: FilterOption[],
+  value: string | null | undefined,
+) {
+  return value && options.some((item) => item.value === value)
+    ? value
+    : EMPTY_SELECT_VALUE;
+}
+
+function resolveContractValue(
+  items: ClientContractRow[],
+  value: string | null | undefined,
+) {
+  return value && items.some((item) => item.id === value) ? value : EMPTY_SELECT_VALUE;
+}
+
 function toNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toCurrencyNumber(value: string) {
+  return parseCurrencyBR(value) ?? 0;
 }
 
 function buildAgreementModeLabel(mode: AgreementMode) {
@@ -126,12 +149,14 @@ export function AcordoForm({
   );
   const [agreementDate, setAgreementDate] = useState(today);
   const [originalValue, setOriginalValue] = useState(
-    String(defaultContract?.valor_original ?? 0),
+    formatCurrencyInputValue(defaultContract?.valor_original ?? null),
   );
   const [agreementValue, setAgreementValue] = useState(
-    String(defaultContract?.valor_em_aberto ?? defaultContract?.valor_original ?? 0),
+    formatCurrencyInputValue(
+      defaultContract?.valor_em_aberto ?? defaultContract?.valor_original ?? null,
+    ),
   );
-  const [entryValue, setEntryValue] = useState("0");
+  const [entryValue, setEntryValue] = useState("");
   const [entryDueDate, setEntryDueDate] = useState("");
   const [installmentsCount, setInstallmentsCount] = useState("2");
   const [firstDueDate, setFirstDueDate] = useState("");
@@ -147,11 +172,11 @@ export function AcordoForm({
   const [parcelDrafts, setParcelDrafts] = useState<AgreementInstallmentDraft[]>([]);
   const [hasManualAdjustments, setHasManualAdjustments] = useState(false);
 
-  const agreementValueNumber = roundCurrency(toNumber(agreementValue));
-  const originalValueNumber = roundCurrency(toNumber(originalValue));
+  const agreementValueNumber = roundCurrency(toCurrencyNumber(agreementValue));
+  const originalValueNumber = roundCurrency(toCurrencyNumber(originalValue));
   const isCashAgreement = agreementMode === "avista";
   const hasEntry = agreementMode === "entrada_parcelas";
-  const entryValueNumber = hasEntry ? roundCurrency(toNumber(entryValue)) : 0;
+  const entryValueNumber = hasEntry ? roundCurrency(toCurrencyNumber(entryValue)) : 0;
   const intervalMonthsNumber = Math.max(1, Math.trunc(toNumber(intervalMonths) || 1));
   const installmentsCountNumber = isCashAgreement
     ? 1
@@ -204,8 +229,8 @@ export function AcordoForm({
   const shouldShowCreateContractPrompt = !contractId;
 
   function resetForm(nextContract: ClientContractRow | null = defaultContract) {
-    const nextOpenValue = String(
-      nextContract?.valor_em_aberto ?? nextContract?.valor_original ?? 0,
+    const nextOpenValue = formatCurrencyInputValue(
+      nextContract?.valor_em_aberto ?? nextContract?.valor_original ?? null,
     );
     const nextWalletId = findOptionValue(walletOptions, nextContract?.carteira_id, null);
 
@@ -217,9 +242,9 @@ export function AcordoForm({
     );
     setTeamId(findOptionValue(teams, client.equipe_id, nextContract?.equipe_id ?? null));
     setAgreementDate(today);
-    setOriginalValue(String(nextContract?.valor_original ?? 0));
+    setOriginalValue(formatCurrencyInputValue(nextContract?.valor_original ?? null));
     setAgreementValue(nextOpenValue);
-    setEntryValue("0");
+    setEntryValue("");
     setEntryDueDate("");
     setInstallmentsCount("2");
     setFirstDueDate("");
@@ -239,6 +264,11 @@ export function AcordoForm({
     setContractId(nextValue);
 
     if (!nextContract) {
+      setOriginalValue("");
+      setAgreementValue("");
+      setCreateContractNow(false);
+      setFlowContract(buildFlowContractState(walletId));
+      setHasManualAdjustments(false);
       return;
     }
 
@@ -254,8 +284,10 @@ export function AcordoForm({
       setTeamId(nextContract.equipe_id);
     }
 
-    setOriginalValue(String(nextContract.valor_original));
-    setAgreementValue(String(nextContract.valor_em_aberto || nextContract.valor_original));
+    setOriginalValue(formatCurrencyInputValue(nextContract.valor_original));
+    setAgreementValue(
+      formatCurrencyInputValue(nextContract.valor_em_aberto || nextContract.valor_original),
+    );
     setCreateContractNow(false);
     setFlowContract(buildFlowContractState(nextContract.carteira_id ?? walletId));
     setHasManualAdjustments(false);
@@ -266,13 +298,13 @@ export function AcordoForm({
     setHasManualAdjustments(false);
 
     if (nextMode === "avista") {
-      setEntryValue("0");
+      setEntryValue("");
       setEntryDueDate("");
       setInstallmentsCount("1");
     }
 
     if (nextMode === "parcelado") {
-      setEntryValue("0");
+      setEntryValue("");
       setEntryDueDate("");
 
       if (Math.trunc(toNumber(installmentsCount) || 0) < 2) {
@@ -475,665 +507,763 @@ export function AcordoForm({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-6xl">
-          <DialogHeader>
+        <DialogContent className="max-w-[min(1040px,calc(100vw-1.5rem))] overflow-hidden p-0">
+          <DialogHeader className="gap-1 border-b border-border/70 px-6 py-5">
             <DialogTitle>Novo acordo</DialogTitle>
-            <DialogDescription>
-              Monte o acordo completo, ajuste os valores das parcelas quando precisar e grave
-              tudo de forma auditavel no Supabase.
-            </DialogDescription>
+            <DialogDescription>Defina o modelo, valores e parcelas do acordo.</DialogDescription>
           </DialogHeader>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-semibold">Modelo do acordo</p>
-                <p className="text-sm text-muted-foreground">
-                  Escolha como a negociacao sera estruturada antes de distribuir as parcelas.
-                </p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-3">
-                {(["avista", "entrada_parcelas", "parcelado"] as AgreementMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => handleModeChange(mode)}
-                    className={cn(
-                      "rounded-2xl border px-4 py-4 text-left transition-colors",
-                      agreementMode === mode
-                        ? "border-primary/30 bg-primary/10"
-                        : "border-border/70 bg-background hover:bg-muted/20",
-                    )}
-                  >
-                    <p className="text-sm font-semibold">{buildAgreementModeLabel(mode)}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {mode === "avista"
-                        ? "Uma unica parcela do tipo a vista."
-                        : mode === "entrada_parcelas"
-                          ? "Entrada imediata e parcelas para o saldo."
-                          : "Parcelas sem entrada, com vencimentos recorrentes."}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="space-y-2 xl:col-span-2">
-                <Label htmlFor="clientName">Cliente</Label>
-                <Input
-                  id="clientName"
-                  value={client.nome}
-                  readOnly
-                  className="h-11 rounded-lg border-border/70 bg-muted/25 shadow-none"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="clientDocument">CPF/CNPJ</Label>
-                <Input
-                  id="clientDocument"
-                  value={formatDocument(client.cpf_cnpj)}
-                  readOnly
-                  className="h-11 rounded-lg border-border/70 bg-muted/25 shadow-none"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status inicial</Label>
-                <Select value={status} onValueChange={(value) => setStatus(value ?? "ativo")}>
-                  <SelectTrigger id="status" className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                    <SelectItem value="aguardando_pagamento">Aguardando pagamento</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2 xl:col-span-2">
-                <Label htmlFor="contractId">Contrato</Label>
-                <Select
-                  value={contractId || "none"}
-                  onValueChange={(value) =>
-                    handleContractChange(!value || value === "none" ? "" : value)
-                  }
-                >
-                  <SelectTrigger id="contractId" className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                    <SelectValue placeholder="Selecione o contrato" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem contrato vinculado</SelectItem>
-                    {contracts.map((contract) => (
-                      <SelectItem key={contract.id} value={contract.id}>
-                        {`${contract.numero_contrato} - aberto ${formatCurrency(contract.valor_em_aberto)}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {shouldShowCreateContractPrompt ? (
-                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 xl:col-span-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="size-4 text-amber-600" />
-                        <p className="text-sm font-semibold">
-                          Cliente sem contrato vinculado neste acordo
-                        </p>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Voce pode salvar o acordo sem contrato ou criar um
-                        contrato minimo agora para deixar o fluxo completo desde a origem.
-                      </p>
-                    </div>
-                    <Button
+          <form className="flex min-h-0 flex-col" onSubmit={handleSubmit}>
+            <div className="max-h-[76vh] space-y-6 overflow-y-auto overflow-x-hidden px-6 py-5">
+              <section className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold">Modelo do acordo</p>
+                  <p className="text-sm text-muted-foreground">
+                    Escolha como a negociacao sera estruturada antes de gerar as parcelas.
+                  </p>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-3">
+                  {(["avista", "entrada_parcelas", "parcelado"] as AgreementMode[]).map((mode) => (
+                    <button
+                      key={mode}
                       type="button"
-                      variant={createContractNow ? "default" : "outline"}
-                      className="rounded-lg"
-                      onClick={() => {
-                        setCreateContractNow((current) => !current);
-                        setFlowContract((current) => ({
-                          ...current,
-                          carteiraId: current.carteiraId || walletId,
-                        }));
-                      }}
+                      onClick={() => handleModeChange(mode)}
+                      className={cn(
+                        "min-h-[136px] rounded-2xl border px-4 py-4 text-left transition-colors",
+                        agreementMode === mode
+                          ? "border-primary/30 bg-primary/10"
+                          : "border-border/70 bg-background hover:bg-muted/20",
+                      )}
                     >
-                      {createContractNow ? "Remover contrato em fluxo" : "Criar contrato agora"}
-                    </Button>
+                      <p className="text-sm font-semibold">{buildAgreementModeLabel(mode)}</p>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {mode === "avista"
+                          ? "Valor integral em uma unica parcela."
+                          : mode === "entrada_parcelas"
+                            ? "Entrada inicial e saldo distribuido em parcelas."
+                            : "Parcelamento recorrente sem entrada inicial."}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="space-y-5 rounded-2xl border border-border/70 bg-muted/10 p-5">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Dados principais</p>
+                  <p className="text-sm text-muted-foreground">
+                    Revise contrato, carteira e responsaveis antes de montar o acordo.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
+                  <div className="space-y-2">
+                    <Label htmlFor="clientName">Cliente</Label>
+                    <Input
+                      id="clientName"
+                      value={client.nome}
+                      readOnly
+                      className="h-11 rounded-lg border-border/70 bg-muted/25 shadow-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="clientDocument">CPF/CNPJ</Label>
+                    <Input
+                      id="clientDocument"
+                      value={formatDocument(client.cpf_cnpj)}
+                      readOnly
+                      className="h-11 rounded-lg border-border/70 bg-muted/25 shadow-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status inicial</Label>
+                    <Select value={status} onValueChange={(value) => setStatus(value ?? "ativo")}>
+                      <SelectTrigger
+                        id="status"
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ativo">Ativo</SelectItem>
+                        <SelectItem value="aguardando_pagamento">
+                          Aguardando pagamento
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+                  <div className="space-y-2">
+                    <Label htmlFor="contractId">Contrato</Label>
+                    <Select
+                      value={resolveContractValue(contracts, contractId)}
+                      onValueChange={(value) =>
+                        handleContractChange(
+                          !value || value === EMPTY_SELECT_VALUE ? "" : value,
+                        )
+                      }
+                    >
+                      <SelectTrigger
+                        id="contractId"
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      >
+                        <SelectValue placeholder="Sem contrato vinculado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={EMPTY_SELECT_VALUE}>
+                          Sem contrato vinculado
+                        </SelectItem>
+                        {contracts.map((contract) => (
+                          <SelectItem key={contract.id} value={contract.id}>
+                            {`${contract.numero_contrato} - ${formatCurrency(contract.valor_em_aberto)} em aberto`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  {createContractNow ? (
-                    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                      <div className="space-y-2 xl:col-span-2">
-                        <Label htmlFor="flowContractNumber">Numero do contrato</Label>
-                        <Input
-                          id="flowContractNumber"
-                          value={flowContract.numeroContrato}
-                          onChange={(event) =>
-                            updateFlowContract({ numeroContrato: event.target.value })
-                          }
-                          className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                        />
+                  <div className="space-y-2">
+                    <Label htmlFor="walletId">Carteira</Label>
+                    <Select
+                      value={resolveSelectValue(walletOptions, walletId)}
+                      onValueChange={(value) => {
+                        const nextWalletId =
+                          !value || value === EMPTY_SELECT_VALUE ? "" : value;
+
+                        setWalletId(nextWalletId);
+
+                        if (createContractNow) {
+                          updateFlowContract({
+                            carteiraId: flowContract.carteiraId || nextWalletId,
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        id="walletId"
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      >
+                        <SelectValue placeholder="Selecione uma carteira" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={EMPTY_SELECT_VALUE}>
+                          Selecione uma carteira
+                        </SelectItem>
+                        {walletOptions.map((wallet) => (
+                          <SelectItem key={wallet.value} value={wallet.value}>
+                            {wallet.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {canManageWallets ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg"
+                        onClick={() => setQuickWalletOpen(true)}
+                      >
+                        <Plus className="size-4" />
+                        Nova carteira
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {shouldShowCreateContractPrompt ? (
+                  <div className="rounded-2xl border border-amber-300/70 bg-amber-50/70 p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="size-4 text-amber-700" />
+                          <p className="text-sm font-semibold text-amber-950">
+                            Este cliente ainda nao possui contrato vinculado.
+                          </p>
+                        </div>
+                        <p className="text-sm leading-6 text-amber-900/80">
+                          Voce pode criar um contrato agora para completar o fluxo ou continuar sem
+                          vinculo, se a regra operacional permitir.
+                        </p>
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-3">
+                      <Button
+                        type="button"
+                        variant={createContractNow ? "default" : "outline"}
+                        className="rounded-lg"
+                        onClick={() => {
+                          setCreateContractNow((current) => !current);
+                          setFlowContract((current) => ({
+                            ...current,
+                            carteiraId: current.carteiraId || walletId,
+                          }));
+                        }}
+                      >
+                        {createContractNow ? "Remover contrato em fluxo" : "Criar contrato agora"}
+                      </Button>
+                    </div>
+
+                    {createContractNow ? (
+                      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="flowContractNumber">Numero do contrato</Label>
+                          <Input
+                            id="flowContractNumber"
+                            value={flowContract.numeroContrato}
+                            onChange={(event) =>
+                              updateFlowContract({ numeroContrato: event.target.value })
+                            }
+                            placeholder="Ex.: 12345/2026"
+                            className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                          />
+                        </div>
+                        <div className="space-y-2">
                           <Label htmlFor="flowContractWallet">Carteira</Label>
+                          <Select
+                            value={resolveSelectValue(walletOptions, flowContract.carteiraId)}
+                            onValueChange={(value) => {
+                              const nextWalletId =
+                                !value || value === EMPTY_SELECT_VALUE ? "" : value;
+
+                              updateFlowContract({
+                                carteiraId: nextWalletId,
+                              });
+                            }}
+                          >
+                            <SelectTrigger
+                              id="flowContractWallet"
+                              className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                            >
+                              <SelectValue placeholder="Selecione uma carteira" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={EMPTY_SELECT_VALUE}>
+                                Selecione uma carteira
+                              </SelectItem>
+                              {walletOptions.map((wallet) => (
+                                <SelectItem key={wallet.value} value={wallet.value}>
+                                  {wallet.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           {canManageWallets ? (
                             <Button
                               type="button"
-                              variant="ghost"
-                              className="h-auto rounded-lg px-2 py-1 text-xs"
+                              variant="outline"
+                              size="sm"
+                              className="rounded-lg"
                               onClick={() => setQuickWalletOpen(true)}
                             >
-                              <Plus className="size-3.5" />
+                              <Plus className="size-4" />
                               Nova carteira
                             </Button>
                           ) : null}
                         </div>
-                        <Select
-                          value={flowContract.carteiraId || "none"}
-                          onValueChange={(value) => {
-                            const nextWalletId = !value || value === "none" ? "" : value;
-
-                            updateFlowContract({
-                              carteiraId: nextWalletId,
-                            });
-                          }}
-                        >
-                          <SelectTrigger
-                            id="flowContractWallet"
-                            className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                          >
-                            <SelectValue placeholder="Selecione a carteira" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Selecione</SelectItem>
-                            {walletOptions.map((wallet) => (
-                              <SelectItem key={wallet.value} value={wallet.value}>
-                                {wallet.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="space-y-2">
+                          <Label htmlFor="flowContractOpenValue">Valor em aberto</Label>
+                          <Input
+                            id="flowContractOpenValue"
+                            inputMode="decimal"
+                            value={flowContract.valorEmAberto}
+                            onChange={(event) =>
+                              updateFlowContract({
+                                valorEmAberto: maskCurrencyInput(event.target.value),
+                              })
+                            }
+                            placeholder="R$ 0,00"
+                            className="h-11 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="flowContractOpenValue">Valor em aberto</Label>
-                        <Input
-                          id="flowContractOpenValue"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={flowContract.valorEmAberto}
-                          onChange={(event) =>
-                            updateFlowContract({ valorEmAberto: event.target.value })
-                          }
-                          className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                    ) : null}
+                  </div>
+                ) : null}
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="walletId">Carteira</Label>
-                  {canManageWallets ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-auto rounded-lg px-2 py-1 text-xs"
-                      onClick={() => setQuickWalletOpen(true)}
-                    >
-                      <Plus className="size-3.5" />
-                      Nova carteira
-                    </Button>
-                  ) : null}
-                </div>
-                <Select
-                  value={walletId || "none"}
-                  onValueChange={(value) => {
-                    const nextWalletId = !value || value === "none" ? "" : value;
-
-                    setWalletId(nextWalletId);
-
-                    if (createContractNow) {
-                      updateFlowContract({
-                        carteiraId: flowContract.carteiraId || nextWalletId,
-                      });
-                    }
-                  }}
-                >
-                  <SelectTrigger id="walletId" className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                    <SelectValue placeholder="Selecione a carteira" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Selecione</SelectItem>
-                    {walletOptions.map((wallet) => (
-                      <SelectItem key={wallet.value} value={wallet.value}>
-                        {wallet.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="operatorId">Operador responsavel</Label>
-                <Select
-                  value={operatorId || "none"}
-                  onValueChange={(value) => setOperatorId(!value || value === "none" ? "" : value)}
-                >
-                  <SelectTrigger id="operatorId" className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                    <SelectValue placeholder="Selecione o operador" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Herdar do cliente</SelectItem>
-                    {operators.map((operator) => (
-                      <SelectItem key={operator.value} value={operator.value}>
-                        {operator.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="teamId">Equipe</Label>
-                <Select
-                  value={teamId || "none"}
-                  onValueChange={(value) => setTeamId(!value || value === "none" ? "" : value)}
-                >
-                  <SelectTrigger id="teamId" className="h-11 rounded-lg border-border/70 bg-background shadow-none">
-                    <SelectValue placeholder="Selecione a equipe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Herdar do cliente</SelectItem>
-                    {teams.map((team) => (
-                      <SelectItem key={team.value} value={team.value}>
-                        {team.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="agreementDate">Data do acordo</Label>
-                <Input
-                  id="agreementDate"
-                  type="date"
-                  value={agreementDate}
-                  onChange={(event) => setAgreementDate(event.target.value)}
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="originalValue">Valor original</Label>
-                <Input
-                  id="originalValue"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={originalValue}
-                  onChange={(event) => setOriginalValue(event.target.value)}
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="agreementValue">Valor negociado</Label>
-                <Input
-                  id="agreementValue"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={agreementValue}
-                  onChange={(event) => {
-                    setAgreementValue(event.target.value);
-                    setHasManualAdjustments(false);
-                  }}
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="percentualHonorarios">Honorarios (%)</Label>
-                <Input
-                  id="percentualHonorarios"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={percentualHonorarios}
-                  onChange={(event) => setPercentualHonorarios(event.target.value)}
-                  placeholder="Em branco usa a carteira"
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-
-              {hasEntry ? (
-                <>
+                <div className="grid gap-4 lg:grid-cols-3">
                   <div className="space-y-2">
-                    <Label htmlFor="entryValue">Valor de entrada</Label>
+                    <Label htmlFor="operatorId">Operador responsavel</Label>
+                    <Select
+                      value={resolveSelectValue(operators, operatorId)}
+                      onValueChange={(value) =>
+                        setOperatorId(!value || value === EMPTY_SELECT_VALUE ? "" : value)
+                      }
+                    >
+                      <SelectTrigger
+                        id="operatorId"
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      >
+                        <SelectValue placeholder="Sem operador definido" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={EMPTY_SELECT_VALUE}>
+                          Sem operador definido
+                        </SelectItem>
+                        {operators.map((operator) => (
+                          <SelectItem key={operator.value} value={operator.value}>
+                            {operator.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="teamId">Equipe</Label>
+                    <Select
+                      value={resolveSelectValue(teams, teamId)}
+                      onValueChange={(value) =>
+                        setTeamId(!value || value === EMPTY_SELECT_VALUE ? "" : value)
+                      }
+                    >
+                      <SelectTrigger
+                        id="teamId"
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      >
+                        <SelectValue placeholder="Sem equipe definida" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={EMPTY_SELECT_VALUE}>
+                          Sem equipe definida
+                        </SelectItem>
+                        {teams.map((team) => (
+                          <SelectItem key={team.value} value={team.value}>
+                            {team.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="agreementDate">Data do acordo</Label>
                     <Input
-                      id="entryValue"
+                      id="agreementDate"
+                      type="date"
+                      value={agreementDate}
+                      onChange={(event) => setAgreementDate(event.target.value)}
+                      className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-5 rounded-2xl border border-border/70 bg-muted/10 p-5">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Valores e parcelas</p>
+                  <p className="text-sm text-muted-foreground">
+                    Preencha os valores do acordo e ajuste as datas de vencimento conforme o
+                    modelo selecionado.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="originalValue">Valor original</Label>
+                    <Input
+                      id="originalValue"
+                      inputMode="decimal"
+                      value={originalValue}
+                      onChange={(event) => setOriginalValue(maskCurrencyInput(event.target.value))}
+                      placeholder="R$ 0,00"
+                      className="h-11 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="agreementValue">Valor do acordo</Label>
+                    <Input
+                      id="agreementValue"
+                      inputMode="decimal"
+                      value={agreementValue}
+                      onChange={(event) => {
+                        setAgreementValue(maskCurrencyInput(event.target.value));
+                        setHasManualAdjustments(false);
+                      }}
+                      placeholder="R$ 0,00"
+                      className="h-11 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="percentualHonorarios">Honorarios (%)</Label>
+                    <Input
+                      id="percentualHonorarios"
                       type="number"
                       min="0"
+                      max="100"
                       step="0.01"
-                      value={entryValue}
-                      onChange={(event) => {
-                        setEntryValue(event.target.value);
-                        setHasManualAdjustments(false);
-                      }}
+                      value={percentualHonorarios}
+                      onChange={(event) => setPercentualHonorarios(event.target.value)}
+                      placeholder="Em branco usa a carteira"
                       className="h-11 rounded-lg border-border/70 bg-background shadow-none"
                     />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="entryDueDate">Vencimento da entrada</Label>
-                    <Input
-                      id="entryDueDate"
-                      type="date"
-                      value={entryDueDate}
-                      onChange={(event) => {
-                        setEntryDueDate(event.target.value);
-                        setHasManualAdjustments(false);
-                      }}
-                      className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                    />
-                  </div>
-                </>
-              ) : null}
-
-              {!isCashAgreement ? (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="installmentsCount">Quantidade de parcelas</Label>
-                    <Input
-                      id="installmentsCount"
-                      type="number"
-                      min={hasEntry ? "1" : "2"}
-                      step="1"
-                      value={installmentsCount}
-                      onChange={(event) => {
-                        setInstallmentsCount(event.target.value);
-                        setHasManualAdjustments(false);
-                      }}
-                      className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="intervalMonths">Intervalo em meses</Label>
-                    <Input
-                      id="intervalMonths"
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={intervalMonths}
-                      onChange={(event) => {
-                        setIntervalMonths(event.target.value);
-                        setHasManualAdjustments(false);
-                      }}
-                      className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                    />
-                  </div>
-                </>
-              ) : null}
-
-              <div className="space-y-2">
-                <Label htmlFor="firstDueDate">
-                  {isCashAgreement ? "Vencimento" : "Primeiro vencimento"}
-                </Label>
-                <Input
-                  id="firstDueDate"
-                  type="date"
-                  value={firstDueDate}
-                  onChange={(event) => {
-                    setFirstDueDate(event.target.value);
-                    setHasManualAdjustments(false);
-                  }}
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-
-              <div className="space-y-2 xl:col-span-2">
-                <Label htmlFor="paymentMethod">Forma de pagamento</Label>
-                <Input
-                  id="paymentMethod"
-                  value={paymentMethod}
-                  onChange={(event) => setPaymentMethod(event.target.value)}
-                  placeholder="PIX, boleto, transferencia..."
-                  className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-
-              <div className="space-y-2 xl:col-span-4">
-                <Label htmlFor="note">Observacao</Label>
-                <Textarea
-                  id="note"
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Condicoes comerciais, ressalvas e detalhes operacionais."
-                  className="min-h-24 rounded-lg border-border/70 bg-background shadow-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-4">
-              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                <p className="text-sm text-muted-foreground">Valor negociado</p>
-                <p className="mt-1 text-xl font-semibold">{formatCurrency(agreementValueNumber)}</p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                <p className="text-sm text-muted-foreground">Entrada</p>
-                <p className="mt-1 text-xl font-semibold">{formatCurrency(entryValueNumber)}</p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                <p className="text-sm text-muted-foreground">Saldo parcelado</p>
-                <p className="mt-1 text-xl font-semibold">
-                  {formatCurrency(Math.max(agreementValueNumber - entryValueNumber, 0))}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                <p className="text-sm text-muted-foreground">Honorarios previstos</p>
-                <p className="mt-1 text-xl font-semibold">{formatCurrency(honorariosPrevistos)}</p>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-semibold">Parcelas do acordo</p>
-                  <p className="text-sm text-muted-foreground">
-                    A sugestao inicial pode ser recalculada. Depois disso, voce ajusta valores,
-                    vencimentos, operador e classificacao NOVO/COLCHAO por parcela.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="rounded-lg"
-                  onClick={() => {
-                    setParcelDrafts([]);
-                    setHasManualAdjustments(false);
-                  }}
-                >
-                  <RefreshCcw className="size-4" />
-                  Regerar sugestao
-                </Button>
-              </div>
-
-              {entryPreview ? (
-                <div className="mt-4 rounded-2xl border border-border/70 bg-background px-4 py-3">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold">
-                        Parcela {entryPreview.numeroParcela} - {resolveAgreementTypeLabel(entryPreview.tipo)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Vencimento {entryPreview.dataVencimento}
-                      </p>
-                    </div>
-                    <p className="font-mono text-sm">{formatCurrency(entryPreview.valorParcela)}</p>
                   </div>
                 </div>
-              ) : null}
 
-              <div className="mt-4 space-y-3">
-                {displayedParcelDrafts.length ? (
-                  displayedParcelDrafts.map((installment, index) => (
-                    <div
-                      key={`${installment.numeroParcela}-${index}`}
-                      className="rounded-2xl border border-border/70 bg-background p-4"
-                    >
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div>
-                          <p className="text-sm font-semibold">
-                            Parcela {installment.numeroParcela} - {resolveAgreementTypeLabel(installment.tipo)}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Receita {getRevenueTypeLabel(installment.tipoReceita)} -{" "}
-                            {getRevenueTypeOriginLabel(installment.tipoReceitaOrigem)}
-                          </p>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2 xl:w-[760px] xl:grid-cols-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`due-${index}`}>Vencimento</Label>
-                            <Input
-                              id={`due-${index}`}
-                              type="date"
-                              value={installment.dataVencimento}
-                              onChange={(event) =>
-                                updateInstallmentDraft(index, {
-                                  dataVencimento: event.target.value,
-                                })
-                              }
-                              className="h-10 rounded-lg border-border/70 bg-background shadow-none"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`value-${index}`}>Valor</Label>
-                            <Input
-                              id={`value-${index}`}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={installment.valorParcela}
-                              onChange={(event) =>
-                                updateInstallmentDraft(index, {
-                                  valorParcela: roundCurrency(toNumber(event.target.value)),
-                                })
-                              }
-                              className="h-10 rounded-lg border-border/70 bg-background shadow-none"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`operator-${index}`}>Operador</Label>
-                            <Select
-                              value={installment.operadorId ?? "inherit"}
-                              onValueChange={(value) =>
-                                updateInstallmentDraft(index, {
-                                  operadorId: value === "inherit" ? null : value,
-                                })
-                              }
-                            >
-                              <SelectTrigger
-                                id={`operator-${index}`}
-                                className="h-10 rounded-lg border-border/70 bg-background shadow-none"
-                              >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="inherit">Herdar do acordo</SelectItem>
-                                {operators.map((operator) => (
-                                  <SelectItem key={operator.value} value={operator.value}>
-                                    {operator.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`revenue-${index}`}>Receita</Label>
-                            <Select
-                              value={installment.tipoReceitaOrigem === "manual" ? installment.tipoReceita ?? "NOVO" : "automatico"}
-                              onValueChange={(value) => {
-                                if (value === "automatico") {
-                                  updateInstallmentDraft(index, {
-                                    tipoReceita: null,
-                                    tipoReceitaOrigem: null,
-                                  });
-                                  return;
-                                }
-
-                                updateInstallmentDraft(index, {
-                                  tipoReceita: value as RevenueType,
-                                  tipoReceitaOrigem: "manual",
-                                });
-                              }}
-                            >
-                              <SelectTrigger
-                                id={`revenue-${index}`}
-                                className="h-10 rounded-lg border-border/70 bg-background shadow-none"
-                              >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="automatico">Automatico</SelectItem>
-                                <SelectItem value="NOVO">NOVO</SelectItem>
-                                <SelectItem value="COLCHAO">COLCHAO</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 space-y-2">
-                        <Label htmlFor={`obs-${index}`}>Observacao da parcela</Label>
-                        <Textarea
-                          id={`obs-${index}`}
-                          value={installment.observacao ?? ""}
-                          onChange={(event) =>
-                            updateInstallmentDraft(index, {
-                              observacao: event.target.value || null,
-                            })
-                          }
-                          placeholder="Comprovante esperado, promessa, observacao operacional..."
-                          className="min-h-20 rounded-lg border-border/70 bg-background shadow-none"
-                        />
-                      </div>
+                {hasEntry ? (
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="entryValue">Valor de entrada</Label>
+                      <Input
+                        id="entryValue"
+                        inputMode="decimal"
+                        value={entryValue}
+                        onChange={(event) => {
+                          setEntryValue(maskCurrencyInput(event.target.value));
+                          setHasManualAdjustments(false);
+                        }}
+                        placeholder="R$ 0,00"
+                        className="h-11 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
+                      />
                     </div>
-                  ))
+                    <div className="space-y-2">
+                      <Label htmlFor="entryDueDate">Vencimento da entrada</Label>
+                      <Input
+                        id="entryDueDate"
+                        type="date"
+                        value={entryDueDate}
+                        onChange={(event) => {
+                          setEntryDueDate(event.target.value);
+                          setHasManualAdjustments(false);
+                        }}
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="paymentMethod">Forma de pagamento</Label>
+                      <Input
+                        id="paymentMethod"
+                        value={paymentMethod}
+                        onChange={(event) => setPaymentMethod(event.target.value)}
+                        placeholder="PIX, boleto, transferencia..."
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      />
+                    </div>
+                  </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
-                    Preencha valor, vencimentos e estrutura do acordo para gerar a previa.
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="paymentMethod">Forma de pagamento</Label>
+                      <Input
+                        id="paymentMethod"
+                        value={paymentMethod}
+                        onChange={(event) => setPaymentMethod(event.target.value)}
+                        placeholder="PIX, boleto, transferencia..."
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      />
+                    </div>
                   </div>
                 )}
-              </div>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-                  <p className="text-sm text-muted-foreground">Previa total</p>
-                  <p className="mt-1 font-mono text-lg">{formatCurrency(previewTotal)}</p>
+                {!isCashAgreement ? (
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="installmentsCount">Quantidade de parcelas</Label>
+                      <Input
+                        id="installmentsCount"
+                        type="number"
+                        min={hasEntry ? "1" : "2"}
+                        step="1"
+                        value={installmentsCount}
+                        onChange={(event) => {
+                          setInstallmentsCount(event.target.value);
+                          setHasManualAdjustments(false);
+                        }}
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="intervalMonths">Intervalo em meses</Label>
+                      <Input
+                        id="intervalMonths"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={intervalMonths}
+                        onChange={(event) => {
+                          setIntervalMonths(event.target.value);
+                          setHasManualAdjustments(false);
+                        }}
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="firstDueDate">Primeiro vencimento</Label>
+                      <Input
+                        id="firstDueDate"
+                        type="date"
+                        value={firstDueDate}
+                        onChange={(event) => {
+                          setFirstDueDate(event.target.value);
+                          setHasManualAdjustments(false);
+                        }}
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstDueDate">Vencimento</Label>
+                      <Input
+                        id="firstDueDate"
+                        type="date"
+                        value={firstDueDate}
+                        onChange={(event) => {
+                          setFirstDueDate(event.target.value);
+                          setHasManualAdjustments(false);
+                        }}
+                        className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="note">Observacao</Label>
+                  <Textarea
+                    id="note"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Condicoes comerciais, ressalvas e detalhes operacionais."
+                    className="min-h-24 rounded-lg border-border/70 bg-background shadow-none"
+                  />
                 </div>
-                <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-                  <p className="text-sm text-muted-foreground">Diferenca para o acordo</p>
-                  <p className={cn("mt-1 font-mono text-lg", previewDifference === 0 ? "text-foreground" : "text-destructive")}>
-                    {formatCurrency(previewDifference)}
+              </section>
+
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <p className="text-sm text-muted-foreground">Valor negociado</p>
+                  <p className="mt-1 text-xl font-semibold">{formatCurrency(agreementValueNumber)}</p>
+                </div>
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <p className="text-sm text-muted-foreground">Entrada</p>
+                  <p className="mt-1 text-xl font-semibold">{formatCurrency(entryValueNumber)}</p>
+                </div>
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <p className="text-sm text-muted-foreground">Saldo parcelado</p>
+                  <p className="mt-1 text-xl font-semibold">
+                    {formatCurrency(Math.max(agreementValueNumber - entryValueNumber, 0))}
                   </p>
                 </div>
-                <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-                  <p className="text-sm text-muted-foreground">Modo atual</p>
-                  <p className="mt-1 text-lg font-semibold">{buildAgreementModeLabel(agreementMode)}</p>
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <p className="text-sm text-muted-foreground">Honorarios previstos</p>
+                  <p className="mt-1 text-xl font-semibold">{formatCurrency(honorariosPrevistos)}</p>
                 </div>
-              </div>
+              </section>
+
+              <section className="space-y-4 rounded-2xl border border-border/70 bg-muted/10 p-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Previa das parcelas</p>
+                    <p className="text-sm text-muted-foreground">
+                      Ajuste vencimento, valor, operador e classificacao de cada parcela sem abrir
+                      scroll horizontal no modal.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-lg"
+                    onClick={() => {
+                      setParcelDrafts([]);
+                      setHasManualAdjustments(false);
+                    }}
+                  >
+                    <RefreshCcw className="size-4" />
+                    Regerar sugestao
+                  </Button>
+                </div>
+
+                {entryPreview ? (
+                  <div className="rounded-2xl border border-border/70 bg-background px-4 py-3">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          Parcela {entryPreview.numeroParcela} -{" "}
+                          {resolveAgreementTypeLabel(entryPreview.tipo)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Vencimento {entryPreview.dataVencimento}
+                        </p>
+                      </div>
+                      <p className="font-mono text-sm">{formatCurrency(entryPreview.valorParcela)}</p>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="space-y-3">
+                  {displayedParcelDrafts.length ? (
+                    displayedParcelDrafts.map((installment, index) => (
+                      <div
+                        key={`${installment.numeroParcela}-${index}`}
+                        className="overflow-hidden rounded-2xl border border-border/70 bg-background p-4"
+                      >
+                        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.7fr)]">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              Parcela {installment.numeroParcela} -{" "}
+                              {resolveAgreementTypeLabel(installment.tipo)}
+                            </p>
+                            <p className="text-sm leading-6 text-muted-foreground">
+                              Classificacao {getRevenueTypeLabel(installment.tipoReceita)} -{" "}
+                              {getRevenueTypeOriginLabel(installment.tipoReceitaOrigem)}
+                            </p>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`due-${index}`}>Vencimento</Label>
+                              <Input
+                                id={`due-${index}`}
+                                type="date"
+                                value={installment.dataVencimento}
+                                onChange={(event) =>
+                                  updateInstallmentDraft(index, {
+                                    dataVencimento: event.target.value,
+                                  })
+                                }
+                                className="h-10 rounded-lg border-border/70 bg-background shadow-none"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`value-${index}`}>Valor</Label>
+                              <Input
+                                id={`value-${index}`}
+                                inputMode="decimal"
+                                value={formatCurrencyInputValue(installment.valorParcela)}
+                                onChange={(event) =>
+                                  updateInstallmentDraft(index, {
+                                    valorParcela: roundCurrency(
+                                      parseCurrencyBR(maskCurrencyInput(event.target.value)) ?? 0,
+                                    ),
+                                  })
+                                }
+                                placeholder="R$ 0,00"
+                                className="h-10 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`operator-${index}`}>Operador</Label>
+                              <Select
+                                value={resolveSelectValue(operators, installment.operadorId)}
+                                onValueChange={(value) =>
+                                  updateInstallmentDraft(index, {
+                                    operadorId:
+                                      value === EMPTY_SELECT_VALUE ? null : value,
+                                  })
+                                }
+                              >
+                                <SelectTrigger
+                                  id={`operator-${index}`}
+                                  className="h-10 rounded-lg border-border/70 bg-background shadow-none"
+                                >
+                                  <SelectValue placeholder="Herdar do acordo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={EMPTY_SELECT_VALUE}>
+                                    Herdar do acordo
+                                  </SelectItem>
+                                  {operators.map((operator) => (
+                                    <SelectItem key={operator.value} value={operator.value}>
+                                      {operator.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`revenue-${index}`}>Classificacao</Label>
+                              <Select
+                                value={
+                                  installment.tipoReceitaOrigem === "manual"
+                                    ? installment.tipoReceita ?? "NOVO"
+                                    : "automatico"
+                                }
+                                onValueChange={(value) => {
+                                  if (value === "automatico") {
+                                    updateInstallmentDraft(index, {
+                                      tipoReceita: null,
+                                      tipoReceitaOrigem: null,
+                                    });
+                                    return;
+                                  }
+
+                                  updateInstallmentDraft(index, {
+                                    tipoReceita: value as RevenueType,
+                                    tipoReceitaOrigem: "manual",
+                                  });
+                                }}
+                              >
+                                <SelectTrigger
+                                  id={`revenue-${index}`}
+                                  className="h-10 rounded-lg border-border/70 bg-background shadow-none"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="automatico">Automatica</SelectItem>
+                                  <SelectItem value="NOVO">NOVO</SelectItem>
+                                  <SelectItem value="COLCHAO">COLCHAO</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 space-y-2">
+                          <Label htmlFor={`obs-${index}`}>Observacao da parcela</Label>
+                          <Textarea
+                            id={`obs-${index}`}
+                            value={installment.observacao ?? ""}
+                            onChange={(event) =>
+                              updateInstallmentDraft(index, {
+                                observacao: event.target.value || null,
+                              })
+                            }
+                            placeholder="Comprovante esperado, promessa e observacoes operacionais."
+                            className="min-h-20 rounded-lg border-border/70 bg-background shadow-none"
+                          />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border/70 px-4 py-5 text-sm text-muted-foreground">
+                      Preencha valores, datas e estrutura do acordo para gerar a previa das
+                      parcelas.
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                    <p className="text-sm text-muted-foreground">Previa total</p>
+                    <p className="mt-1 font-mono text-lg">{formatCurrency(previewTotal)}</p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                    <p className="text-sm text-muted-foreground">Diferenca para o acordo</p>
+                    <p
+                      className={cn(
+                        "mt-1 font-mono text-lg",
+                        previewDifference === 0 ? "text-foreground" : "text-destructive",
+                      )}
+                    >
+                      {formatCurrency(previewDifference)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                    <p className="text-sm text-muted-foreground">Modo atual</p>
+                    <p className="mt-1 text-lg font-semibold">
+                      {buildAgreementModeLabel(agreementMode)}
+                    </p>
+                  </div>
+                </div>
+              </section>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="mx-0 mb-0 mt-auto rounded-none border-border/70 bg-muted/30 px-6 py-4">
+              <Button type="button" variant="outline" className="rounded-lg" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
               <Button type="submit" className="rounded-lg" disabled={isPending || !walletId}>
                 {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
                 Salvar acordo

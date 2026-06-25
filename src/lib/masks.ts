@@ -1,4 +1,4 @@
-import { formatCpfCnpj, formatPhone } from "@/lib/formatters";
+import { formatCpfCnpj, formatCurrencyBR, formatPhone } from "@/lib/formatters";
 import { normalizeCpfCnpj, normalizePhone, onlyDigits } from "@/lib/validators";
 
 export function maskCpfCnpjInput(value: string | null | undefined) {
@@ -17,4 +17,14 @@ export function maskCepInput(value: string | null | undefined) {
   }
 
   return digits.replace(/(\d{5})(\d+)/, "$1-$2");
+}
+
+export function maskCurrencyInput(value: string | null | undefined) {
+  const digits = onlyDigits(value ?? "");
+
+  if (!digits) {
+    return "";
+  }
+
+  return formatCurrencyBR(Number.parseInt(digits, 10) / 100);
 }

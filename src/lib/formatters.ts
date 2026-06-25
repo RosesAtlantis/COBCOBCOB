@@ -84,6 +84,23 @@ export function formatCurrencyBR(value: number | null | undefined) {
   return currencyFormatter.format(Number.isFinite(value) ? Number(value) : 0);
 }
 
+export function formatCurrencyInputValue(
+  value: number | null | undefined,
+  options?: { emptyWhenZero?: boolean },
+) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+
+  const numericValue = Number(value);
+
+  if (options?.emptyWhenZero && numericValue === 0) {
+    return "";
+  }
+
+  return formatCurrencyBR(numericValue);
+}
+
 export function formatPercent(value: number | null | undefined) {
   return `${percentFormatter.format(Number.isFinite(value) ? Number(value) : 0)}%`;
 }
