@@ -39,7 +39,7 @@ export function ClientesFilters({ filters, options }: ClientesFiltersProps) {
     const nextUrl = params.size ? `${pathname}?${params.toString()}` : pathname;
 
     startTransition(() => {
-      router.replace(nextUrl);
+      router.replace(nextUrl, { scroll: false });
     });
   }
 
@@ -47,7 +47,7 @@ export function ClientesFilters({ filters, options }: ClientesFiltersProps) {
     const nextFilters: ClientListFilters = {};
     setLocalFilters(nextFilters);
     startTransition(() => {
-      router.replace(pathname);
+      router.replace(pathname, { scroll: false });
     });
   }
 

@@ -77,7 +77,11 @@ export default async function BaixasPage({ searchParams }: BaixasPageProps) {
         />
       </section>
 
-      <BaixasFilters filters={data.filters} options={data.options} />
+      <BaixasFilters
+        key={JSON.stringify(data.filters)}
+        filters={data.filters}
+        options={data.options}
+      />
       <BaixasTable rows={data.writeOffs} canReverseWriteOff={data.canReverseWriteOff} />
     </div>
   );

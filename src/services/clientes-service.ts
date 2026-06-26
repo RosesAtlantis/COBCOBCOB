@@ -45,6 +45,7 @@ import type {
   AgreementWriteOff,
   Client,
   ClientActionRow,
+  ClientAgreementRow,
   ClientContractRow,
   ClientDetailPageData,
   ClientFilterOptions,
@@ -1449,10 +1450,11 @@ function resolveInstallmentRevenueTypeOrigin(
   return installment.tipo_receita ? "manual" : "automatico";
 }
 
-export async function listarParcelasCliente(clientId: string) {
-  const context = await getClientsContext();
-  const client = context.clients.find((item) => item.id === clientId);
-  const agreements = await listarAcordosCliente(clientId);
+function buildClientInstallmentRows(
+  clientId: string,
+  client: Client | undefined,
+  agreements: ClientAgreementRow[],
+) {
   const today = new Date();
 
   return agreements
@@ -1504,10 +1506,11 @@ export async function listarParcelasCliente(clientId: string) {
     .sort((left, right) => left.vencimento.localeCompare(right.vencimento));
 }
 
-export async function listarBaixasCliente(clientId: string) {
-  const context = await getClientsContext();
-  const resolved = buildResolvedCollections(context);
-  const agreements = await listarAcordosCliente(clientId);
+function buildClientPaymentRows(
+  clientId: string,
+  resolved: ReturnType<typeof buildResolvedCollections>,
+  agreements: ClientAgreementRow[],
+) {
   const agreementById = new Map(agreements.map((item) => [item.id, item]));
 
   const writeOffRows = (resolved.writeOffsByClient.get(clientId) ?? []).map((writeOff) => {
@@ -1561,6 +1564,22 @@ export async function listarBaixasCliente(clientId: string) {
   );
 }
 
+export async function listarParcelasCliente(clientId: string) {
+  const context = await getClientsContext();
+  const client = context.clients.find((item) => item.id === clientId);
+  const agreements = await listarAcordosCliente(clientId);
+
+  return buildClientInstallmentRows(clientId, client, agreements);
+}
+
+export async function listarBaixasCliente(clientId: string) {
+  const context = await getClientsContext();
+  const resolved = buildResolvedCollections(context);
+  const agreements = await listarAcordosCliente(clientId);
+
+  return buildClientPaymentRows(clientId, resolved, agreements);
+}
+
 export async function getClientesPageData(
   filters: ClientListFilters = {},
 ): Promise<ClientListPageData> {
@@ -1587,12 +1606,20 @@ export async function getClienteDetailPageData(
   }
 
   const resolved = buildResolvedCollections(context);
-  const contracts = await listarContratosCliente(clientId);
-  const agreements = await listarAcordosCliente(clientId);
-  const installments = await listarParcelasCliente(clientId);
-  const payments = await listarBaixasCliente(clientId);
-  const { listarHistoricoCliente } = await import("@/services/auditoria-service");
-  const auditTrail = await listarHistoricoCliente(clientId);
+  const [contracts, agreements, auditTrail] = await Promise.all([
+    listarContratosCliente(clientId),
+    listarAcordosCliente(clientId),
+    import("@/services/auditoria-service").then(({ listarHistoricoCliente }) =>
+      listarHistoricoCliente(clientId),
+    ),
+  ]);
+  const installments = buildClientInstallmentRows(clientId, client, agreements);
+  const payments = buildClientPaymentRows(clientId, resolved, agreements);
+  const resolvedAgreements = agreements.map((item) => ({
+    ...item,
+    resolvedStatus: item.status,
+    remainingValue: item.valorRestante,
+  }));
   const actions = (resolved.actionsByClient.get(clientId) ?? [])
     .map(({ row }) => ({
       ...row,
@@ -1607,11 +1634,7 @@ export async function getClienteDetailPageData(
     .sort((left, right) => right.data_acionamento.localeCompare(left.data_acionamento)) satisfies ClientActionRow[];
   const summary = buildClientSummaryCards(
     contracts,
-    agreements.map((item) => ({
-      ...item,
-      resolvedStatus: item.status,
-      remainingValue: item.valorRestante,
-    })),
+    resolvedAgreements,
     (resolved.paymentsByClient.get(clientId) ?? []) as Payment[],
   );
 
@@ -1622,11 +1645,7 @@ export async function getClienteDetailPageData(
       status: resolveClientStatus(
         client,
         contracts,
-        agreements.map((item) => ({
-          ...item,
-          resolvedStatus: item.status,
-          remainingValue: item.valorRestante,
-        })),
+        resolvedAgreements,
       ),
     },
     summary,

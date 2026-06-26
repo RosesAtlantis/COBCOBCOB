@@ -42,14 +42,14 @@ export function AcordosFilters({ filters, options }: AcordosFiltersProps) {
     const nextUrl = params.size ? `${pathname}?${params.toString()}` : pathname;
 
     startTransition(() => {
-      router.replace(nextUrl);
+      router.replace(nextUrl, { scroll: false });
     });
   }
 
   function resetFilters() {
     setLocalFilters({});
     startTransition(() => {
-      router.replace(pathname);
+      router.replace(pathname, { scroll: false });
     });
   }
 

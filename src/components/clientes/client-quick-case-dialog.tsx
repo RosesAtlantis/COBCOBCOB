@@ -55,7 +55,6 @@ export function ClientQuickCaseDialog({
             if (action === "open") {
               setOpen(false);
               router.push(`/clientes/${result.clientId}`);
-              router.refresh();
               return;
             }
 

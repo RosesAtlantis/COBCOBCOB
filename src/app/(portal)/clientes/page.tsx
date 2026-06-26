@@ -60,7 +60,11 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         }
       />
 
-      <ClientesFilters filters={data.filters} options={data.options} />
+      <ClientesFilters
+        key={JSON.stringify(data.filters)}
+        filters={data.filters}
+        options={data.options}
+      />
       <ClientesTable rows={data.clients} />
     </div>
   );

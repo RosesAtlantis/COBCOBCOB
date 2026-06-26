@@ -43,7 +43,11 @@ export default async function AuditoriaPage({
         </div>
       </section>
 
-      <AuditoriaFilters filters={data.filters} options={data.options} />
+      <AuditoriaFilters
+        key={JSON.stringify(data.filters)}
+        filters={data.filters}
+        options={data.options}
+      />
       <DataTable
         rows={data.events}
         columns={[

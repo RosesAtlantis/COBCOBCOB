@@ -34,6 +34,8 @@ interface ChartCardProps {
   height?: number;
 }
 
+const DEFAULT_CHART_WIDTH = 720;
+
 function formatTooltipValue(value: number) {
   return value > 1000 ? formatCurrency(value) : formatNumber(value);
 }
@@ -79,7 +81,11 @@ export function ChartCard({
       </CardHeader>
       <CardContent>
         <div style={{ height }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            initialDimension={{ width: DEFAULT_CHART_WIDTH, height }}
+          >
             <ChartComponent data={data} margin={{ left: -10, right: 8, top: 10, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="rgba(148,163,184,0.12)" />
               <XAxis

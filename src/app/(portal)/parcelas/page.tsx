@@ -70,7 +70,11 @@ export default async function ParcelasPage({ searchParams }: ParcelasPageProps) 
         />
       </section>
 
-      <ParcelasFilters filters={data.filters} options={data.options} />
+      <ParcelasFilters
+        key={JSON.stringify(data.filters)}
+        filters={data.filters}
+        options={data.options}
+      />
       <ParcelasCentralTable
         rows={data.installments}
         agreements={data.agreements}

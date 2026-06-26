@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Loader2 } from "lucide-react";
 
@@ -40,19 +40,45 @@ interface AgreementDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const DETAIL_CACHE_TTL_MS = 30_000;
+
 export function AgreementDetailsDialog({
   agreementId,
   open,
   onOpenChange,
 }: AgreementDetailsDialogProps) {
   const [data, setData] = useState<AgreementDetailData | null>(null);
+  const [dataAgreementId, setDataAgreementId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const isLoading = open && Boolean(agreementId) && !data && !error;
+  const cacheRef = useRef(
+    new Map<string, { data: AgreementDetailData; loadedAt: number }>(),
+  );
+  const hasCurrentData = Boolean(data && dataAgreementId === agreementId);
+  const isLoading = open && Boolean(agreementId) && !hasCurrentData && !error;
 
   useEffect(() => {
     let isActive = true;
 
     if (!open || !agreementId) {
+      return;
+    }
+
+    const cachedEntry = cacheRef.current.get(agreementId);
+    const isCacheFresh =
+      cachedEntry &&
+      Date.now() - cachedEntry.loadedAt < DETAIL_CACHE_TTL_MS;
+
+    if (cachedEntry) {
+      setData(cachedEntry.data);
+      setDataAgreementId(agreementId);
+      setError(null);
+    } else if (dataAgreementId !== agreementId) {
+      setData(null);
+      setDataAgreementId(null);
+      setError(null);
+    }
+
+    if (isCacheFresh) {
       return;
     }
 
@@ -73,7 +99,12 @@ export function AgreementDetailsDialog({
           return;
         }
 
+        cacheRef.current.set(agreementId, {
+          data: payload,
+          loadedAt: Date.now(),
+        });
         setData(payload);
+        setDataAgreementId(agreementId);
         setError(null);
       } catch (fetchError) {
         if (!isActive) {
@@ -86,20 +117,20 @@ export function AgreementDetailsDialog({
             : "Nao foi possivel carregar o acordo.",
         );
         setData(null);
+        setDataAgreementId(agreementId);
       }
     })();
 
     return () => {
       isActive = false;
     };
-  }, [agreementId, open]);
+  }, [agreementId, dataAgreementId, open]);
 
   return (
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
-          setData(null);
           setError(null);
         }
 
@@ -126,7 +157,7 @@ export function AgreementDetailsDialog({
             <EmptyState title="Nao foi possivel carregar o acordo" description={error} />
           ) : null}
 
-          {!isLoading && !error && data ? (
+          {!isLoading && !error && hasCurrentData && data ? (
             <div className="space-y-6">
               <section className="dashboard-surface p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

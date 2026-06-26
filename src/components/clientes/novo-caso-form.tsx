@@ -151,7 +151,6 @@ export function NovoCasoForm({
     }
 
     router.push(`/clientes/${existingClient.id}`);
-    router.refresh();
     onCreated?.(
       {
         clientId: existingClient.id,
@@ -190,8 +189,6 @@ export function NovoCasoForm({
     } else {
       router.push("/clientes");
     }
-
-    router.refresh();
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -281,7 +278,6 @@ export function NovoCasoForm({
                 : "Cliente ja cadastrado.",
             );
             router.push(`/clientes/${payload.clientId}`);
-            router.refresh();
             return;
           }
 

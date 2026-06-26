@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import {
+  useDeferredValue,
+  useMemo,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowUpDown,
@@ -383,6 +389,7 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
   const [activeView, setActiveView] = useState<RankingView>(data.filters.rankingView ?? "operadores");
   const [localFilters, setLocalFilters] = useState<DashboardFilters>(data.filters);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [sortState, setSortState] = useState<Record<RankingView, { key: string; direction: SortDirection }>>({
     operadores: { key: "received", direction: "desc" },
     equipes: { key: "received", direction: "desc" },
@@ -405,7 +412,7 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
 
   const visibleRows = useMemo(() => {
     const currentRows = rowsByView[activeView] as unknown as Array<Record<string, unknown>>;
-    const normalizedSearch = search.trim().toLowerCase();
+    const normalizedSearch = deferredSearch.trim().toLowerCase();
     const currentColumns =
       columns[activeView] as unknown as RankingColumn<Record<string, unknown>>[];
     const filtered = !normalizedSearch
@@ -431,7 +438,7 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
         currentSort.direction,
       );
     }) as unknown as RankingRowMap[typeof activeView][];
-  }, [activeView, columns, rowsByView, search, sortState]);
+  }, [activeView, columns, deferredSearch, rowsByView, sortState]);
 
   const topHighlights = visibleRows.slice(0, 3);
 
@@ -444,8 +451,10 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
 
   function applyFilters() {
     const params = createSearchParams(localFilters);
+    const nextUrl = params.size ? `${pathname}?${params.toString()}` : pathname;
+
     startTransition(() => {
-      router.replace(`${pathname}?${params.toString()}`);
+      router.replace(nextUrl, { scroll: false });
     });
   }
 
@@ -457,7 +466,9 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
     };
     setLocalFilters(nextFilters);
     startTransition(() => {
-      router.replace(`${pathname}?${createSearchParams(nextFilters).toString()}`);
+      router.replace(`${pathname}?${createSearchParams(nextFilters).toString()}`, {
+        scroll: false,
+      });
     });
   }
 

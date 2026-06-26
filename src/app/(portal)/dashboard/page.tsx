@@ -101,6 +101,7 @@ export default async function DashboardPage({
   return (
     <div className="space-y-6">
       <FilterBar
+        key={JSON.stringify(data.filters)}
         filters={data.filters}
         options={data.options}
         title="Filtros principais"

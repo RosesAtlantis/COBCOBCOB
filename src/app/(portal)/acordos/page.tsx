@@ -74,7 +74,11 @@ export default async function AcordosPage({ searchParams }: AcordosPageProps) {
         />
       </section>
 
-      <AcordosFilters filters={data.filters} options={data.options} />
+      <AcordosFilters
+        key={JSON.stringify(data.filters)}
+        filters={data.filters}
+        options={data.options}
+      />
       <AcordosTable
         rows={data.agreements}
         wallets={data.options.wallets}

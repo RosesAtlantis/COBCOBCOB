@@ -76,8 +76,10 @@ export function FilterBar({
 
   function applyFilters() {
     const params = createSearchParams(localFilters);
+    const nextUrl = params.size ? `${pathname}?${params.toString()}` : pathname;
+
     startTransition(() => {
-      router.replace(`${pathname}?${params.toString()}`);
+      router.replace(nextUrl, { scroll: false });
     });
   }
 
@@ -89,7 +91,9 @@ export function FilterBar({
     };
     setLocalFilters(nextFilters);
     startTransition(() => {
-      router.replace(`${pathname}?${createSearchParams(nextFilters).toString()}`);
+      router.replace(`${pathname}?${createSearchParams(nextFilters).toString()}`, {
+        scroll: false,
+      });
     });
   }
 

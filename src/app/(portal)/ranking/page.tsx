@@ -10,5 +10,5 @@ export default async function RankingPage({ searchParams }: RankingPageProps) {
   const filters = parseDashboardFilters(await searchParams);
   const data = await getRankingPageData(filters);
 
-  return <RankingPageClient data={data} />;
+  return <RankingPageClient key={JSON.stringify(data.filters)} data={data} />;
 }

@@ -56,7 +56,6 @@ export function LoginForm({ demoMode }: LoginFormProps) {
     }
 
     router.replace(getHomePathByRole(demoRole));
-    router.refresh();
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -80,7 +79,6 @@ export function LoginForm({ demoMode }: LoginFormProps) {
     }
 
     router.replace(result.redirectTo);
-    router.refresh();
   }
 
   return (
