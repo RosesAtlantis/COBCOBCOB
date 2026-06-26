@@ -41,8 +41,8 @@ export function AppSidebar({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="shrink-0 border-b border-sidebar-border px-6 py-5">
+    <div className="flex h-full min-h-0 w-full max-w-full flex-col bg-sidebar text-sidebar-foreground">
+      <div className="shrink-0 border-b border-sidebar-border px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent text-sidebar-foreground/80">
             <PanelLeft className="size-4" />
@@ -55,11 +55,11 @@ export function AppSidebar({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-5">
-        <nav className="space-y-6">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
+        <nav className="space-y-5">
           {groups.map((group) => (
-            <div key={group.title} className="space-y-3">
-              <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/42">
+            <div key={group.title} className="space-y-2.5">
+              <p className="px-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/42">
                 {group.title}
               </p>
               <div className="space-y-1">
@@ -73,7 +73,7 @@ export function AppSidebar({
                       onClick={onNavigate}
                       aria-current={isActive ? "page" : undefined}
                       className={cn(
-                        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
+                        "group flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-sm transition-colors",
                         isActive
                           ? "bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-border"
                           : "text-sidebar-foreground/78 hover:bg-sidebar-accent/80 hover:text-sidebar-foreground",
@@ -111,7 +111,7 @@ export function AppSidebar({
         </nav>
       </div>
 
-      <div className="shrink-0 border-t border-sidebar-border px-6 py-4">
+      <div className="shrink-0 border-t border-sidebar-border px-5 py-4">
         <div className="space-y-1.5">
           <p className="truncate text-sm font-medium">{profile.nome}</p>
           <p className="truncate text-xs text-sidebar-foreground/62">{profile.email}</p>

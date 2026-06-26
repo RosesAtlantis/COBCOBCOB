@@ -35,7 +35,7 @@ export default async function AcordosPage({ searchParams }: AcordosPageProps) {
         }
       />
 
-      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-9">
+      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         <CentralSummaryCard
           label="Ativos"
           value={formatNumber(data.summary.ativos)}

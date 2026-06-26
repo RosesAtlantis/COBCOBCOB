@@ -123,7 +123,7 @@ export function Topbar({ profile, demoMode, onOpenSidebar }: TopbarProps) {
 
   return (
     <header className="sticky top-0 z-20 border-b border-border/70 bg-background/96 backdrop-blur">
-      <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="flex min-h-16 items-center justify-between gap-3 px-3 py-3 sm:px-5 lg:px-6 xl:px-7">
         <div className="flex min-w-0 items-center gap-3">
           <Button
             variant="outline"
@@ -138,29 +138,35 @@ export function Topbar({ profile, demoMode, onOpenSidebar }: TopbarProps) {
             <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Portal BKO
             </p>
-            <p className="truncate text-xl font-semibold tracking-tight">{content.title}</p>
-            <p className="truncate text-sm text-muted-foreground">{content.subtitle}</p>
+            <p className="truncate text-lg font-semibold tracking-tight sm:text-xl">
+              {content.title}
+            </p>
+            <p className="hidden truncate text-sm text-muted-foreground md:block">
+              {content.subtitle}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
           {demoMode ? (
             <Badge
               variant="outline"
-              className="hidden rounded-md border-border/80 bg-card px-2 py-0.5 text-[11px] sm:inline-flex"
+              className="hidden rounded-md border-border/80 bg-card px-2 py-0.5 text-[11px] md:inline-flex"
             >
               Ambiente demo
             </Badge>
           ) : null}
-          <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium">{profile.nome}</p>
-            <p className="text-xs text-muted-foreground">{profile.email}</p>
+          <div className="hidden text-right xl:block">
+            <p className="max-w-[220px] truncate text-sm font-medium">{profile.nome}</p>
+            <p className="max-w-[220px] truncate text-xs text-muted-foreground">
+              {profile.email}
+            </p>
           </div>
-          <Badge className="hidden rounded-md bg-secondary px-2 py-0.5 text-[11px] text-secondary-foreground sm:inline-flex">
+          <Badge className="hidden rounded-md bg-secondary px-2 py-0.5 text-[11px] text-secondary-foreground lg:inline-flex">
             {roleLabels[profile.perfil]}
           </Badge>
           <form action="/auth/signout" method="post">
-            <Button variant="ghost" size="sm" type="submit" className="gap-2">
+            <Button variant="ghost" size="sm" type="submit" className="gap-2 rounded-lg">
               <ShieldCheck className="size-4" />
               Sair
             </Button>

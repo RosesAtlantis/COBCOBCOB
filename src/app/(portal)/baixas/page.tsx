@@ -42,7 +42,7 @@ export default async function BaixasPage({ searchParams }: BaixasPageProps) {
         </div>
       </section>
 
-      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-8">
+      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-4">
         <CentralSummaryCard
           label="Recebido no periodo"
           value={formatCurrency(data.summary.recebidoNoPeriodo)}

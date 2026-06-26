@@ -516,7 +516,7 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             <DateFilter
               month={localFilters.month}
               year={localFilters.year}
@@ -606,7 +606,7 @@ export function RankingPageClient({ data }: RankingPageClientProps) {
         </CardContent>
       </Card>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         <Card className="dashboard-surface">
           <CardContent className="space-y-2 p-5">
             <p className="text-sm text-muted-foreground">Valor recebido</p>

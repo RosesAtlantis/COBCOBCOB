@@ -786,7 +786,7 @@ function BaixaFormContent({
               title="Resumo financeiro"
               description="Conferencia final da parcela antes de registrar o recebimento."
             />
-            <div className="grid gap-4 lg:grid-cols-4">
+            <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
               <InfoCard
                 label="Honorarios calculados"
                 value={formatCurrency(projectedHonorarios)}
@@ -815,7 +815,7 @@ function BaixaFormContent({
               title="Resumo da parcela"
               description="Visual amigavel para identificar rapidamente o item que sera baixado."
             />
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <InfoCard
                 label="Parcela"
                 value={buildInstallmentTitle(selectedInstallment)}
@@ -930,7 +930,7 @@ export function BaixaForm({
 }: BaixaFormProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-5xl gap-0 overflow-hidden p-0 sm:max-w-5xl [&>button]:right-4 [&>button]:top-4">
+      <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] max-w-5xl gap-0 overflow-hidden p-0 sm:w-[calc(100vw-2rem)] [&>button]:right-4 [&>button]:top-4">
         <DialogHeader className="shrink-0 border-b border-border/70 px-5 py-5 pr-14 sm:px-6">
           <DialogTitle>Dar baixa</DialogTitle>
           <DialogDescription>

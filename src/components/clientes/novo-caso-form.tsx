@@ -457,7 +457,7 @@ export function NovoCasoForm({
           </button>
         </CardHeader>
         {showMoreInfo ? (
-          <CardContent className="grid gap-4 pt-5 md:grid-cols-2 xl:grid-cols-4">
+          <CardContent className="grid gap-4 pt-5 md:grid-cols-2 xl:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="telefone">Telefone</Label>
               <Input

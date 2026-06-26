@@ -183,7 +183,13 @@ export function CarteiraFormDialog({
         </DialogTrigger>
       ) : null}
 
-      <DialogContent className={compact ? "sm:max-w-lg" : "sm:max-w-3xl"}>
+      <DialogContent
+        className={
+          compact
+            ? "w-[calc(100vw-1rem)] max-w-lg overflow-x-hidden sm:w-[calc(100vw-2rem)]"
+            : "w-[calc(100vw-1rem)] max-w-3xl overflow-x-hidden sm:w-[calc(100vw-2rem)]"
+        }
+      >
         <DialogHeader>
           <DialogTitle>{form.id ? "Editar carteira" : "Nova carteira"}</DialogTitle>
           <DialogDescription>
@@ -193,7 +199,7 @@ export function CarteiraFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="space-y-4 overflow-x-hidden" onSubmit={handleSubmit}>
           <div className={compact ? "grid gap-4" : "grid gap-4 md:grid-cols-2"}>
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="wallet-name">Nome da carteira *</Label>

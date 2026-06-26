@@ -132,11 +132,11 @@ export function FilterBar({
         <div
           className={cn(
             "grid gap-3 md:grid-cols-2",
-            visibleFilterCount <= 4
-              ? "xl:grid-cols-4"
-              : visibleFilterCount === 5
-                ? "xl:grid-cols-5"
-                : "xl:grid-cols-5 2xl:grid-cols-6",
+            visibleFilterCount <= 2
+              ? "xl:grid-cols-2"
+              : visibleFilterCount <= 3
+                ? "xl:grid-cols-3"
+                : "xl:grid-cols-3 2xl:grid-cols-4",
           )}
         >
           <DateFilter

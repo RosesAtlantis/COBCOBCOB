@@ -102,7 +102,7 @@ export default async function ClienteDetailPage({
         </div>
       </section>
 
-      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-6">
+      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         <SummaryCard
           label="Valor em aberto"
           value={formatCurrency(data.summary.valorEmAberto)}

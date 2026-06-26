@@ -173,7 +173,7 @@ export function MetaFormDialog({
         </DialogTrigger>
       ) : null}
 
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl overflow-x-hidden sm:w-[calc(100vw-2rem)]">
         <DialogHeader>
           <DialogTitle>{form.id ? "Editar meta" : "Nova meta"}</DialogTitle>
           <DialogDescription>
@@ -182,7 +182,7 @@ export function MetaFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="space-y-4 overflow-x-hidden" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div className="space-y-2">
               <Label>Mes *</Label>

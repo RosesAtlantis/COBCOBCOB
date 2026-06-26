@@ -582,7 +582,7 @@ export function AcordoForm({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="h-[min(90vh,960px)] gap-0 overflow-hidden p-0 sm:max-w-6xl">
+        <DialogContent className="h-[min(90vh,960px)] w-[calc(100vw-1rem)] max-w-5xl gap-0 overflow-hidden p-0 sm:w-[calc(100vw-2rem)]">
           <form className="flex h-full min-h-0 flex-col" onSubmit={handleSubmit}>
             <DialogHeader className="shrink-0 gap-1 border-b border-border/70 bg-background px-6 py-5 pr-14">
               <DialogTitle>Novo acordo</DialogTitle>
@@ -1250,7 +1250,7 @@ export function AcordoForm({
                   />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
                   <div className="rounded-2xl border border-border/70 bg-background px-4 py-4">
                     <p className="text-sm text-muted-foreground">Valor negociado</p>
                     <p className="mt-1 text-xl font-semibold">{formatCurrency(agreementValueNumber)}</p>
@@ -1318,7 +1318,7 @@ export function AcordoForm({
                         key={`${installment.numeroParcela}-${index}`}
                         className="overflow-hidden rounded-2xl border border-border/70 bg-background p-4"
                       >
-                        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.7fr)]">
+                        <div className="grid gap-4 2xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.7fr)]">
                           <div className="space-y-1">
                             <p className="text-sm font-semibold">
                               Parcela {installment.numeroParcela} -{" "}
@@ -1329,7 +1329,7 @@ export function AcordoForm({
                               {getRevenueTypeOriginLabel(installment.tipoReceitaOrigem)}
                             </p>
                           </div>
-                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                             <div className="space-y-2">
                               <Label htmlFor={`due-${index}`}>Vencimento</Label>
                               <Input

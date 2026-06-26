@@ -35,7 +35,7 @@ export default async function ParcelasPage({ searchParams }: ParcelasPageProps) 
         }
       />
 
-      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-8">
+      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-4">
         <CentralSummaryCard
           label="Pendentes"
           value={formatNumber(data.summary.pendentes)}

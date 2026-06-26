@@ -21,15 +21,15 @@ export function PortalShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      <aside className="hidden h-screen w-[296px] shrink-0 border-r border-border/70 bg-sidebar lg:block">
+    <div className="flex min-h-screen overflow-hidden bg-background text-foreground">
+      <aside className="hidden h-screen w-[272px] shrink-0 border-r border-border/70 bg-sidebar xl:w-[280px] lg:block">
         <AppSidebar profile={profile} demoMode={demoMode} />
       </aside>
 
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent
           side="left"
-          className="w-[88vw] max-w-[320px] overflow-hidden border-r border-border/70 bg-sidebar p-0"
+          className="w-[88vw] max-w-[300px] overflow-hidden border-r border-border/70 bg-sidebar p-0"
         >
           <AppSidebar
             profile={profile}
@@ -39,13 +39,15 @@ export function PortalShell({
         </SheetContent>
       </Sheet>
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col overflow-x-hidden">
         <Topbar
           demoMode={demoMode}
           profile={profile}
           onOpenSidebar={() => setMobileMenuOpen(true)}
         />
-        <main className="flex-1 px-4 pb-8 pt-5 sm:px-6 lg:px-8">{children}</main>
+        <main className="min-w-0 flex-1 px-3 pb-6 pt-4 sm:px-5 sm:pb-8 lg:px-6 xl:px-7">
+          {children}
+        </main>
       </div>
     </div>
   );

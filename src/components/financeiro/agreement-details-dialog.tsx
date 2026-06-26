@@ -137,7 +137,7 @@ export function AgreementDetailsDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="max-w-5xl overflow-hidden p-0">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-5xl overflow-hidden p-0 sm:w-[calc(100vw-2rem)]">
         <DialogHeader className="border-b border-border/70 px-6 py-5">
           <DialogTitle>Detalhes do acordo</DialogTitle>
           <DialogDescription>
@@ -196,7 +196,7 @@ export function AgreementDetailsDialog({
                 </div>
               </section>
 
-              <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-8">
+              <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-4">
                 <div className="dashboard-surface p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     Valor acordo

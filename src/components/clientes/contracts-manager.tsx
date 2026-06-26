@@ -293,7 +293,7 @@ export function ContractsManager({
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[min(820px,calc(100vw-1.5rem))] overflow-hidden p-0">
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-4xl overflow-hidden p-0 sm:w-[calc(100vw-2rem)]">
           <DialogHeader className="gap-1 border-b border-border/70 px-6 py-5">
             <DialogTitle>{selectedContract ? "Editar contrato" : "Novo contrato"}</DialogTitle>
             <DialogDescription>
@@ -303,7 +303,7 @@ export function ContractsManager({
 
           <form className="flex min-h-0 flex-col" onSubmit={handleSubmit}>
             <div className="max-h-[72vh] space-y-5 overflow-y-auto overflow-x-hidden px-6 py-5">
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.85fr)]">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="contractNumber">Numero do contrato *</Label>
                   <Input

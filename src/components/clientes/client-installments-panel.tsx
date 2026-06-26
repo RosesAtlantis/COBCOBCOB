@@ -124,7 +124,7 @@ export function ClientInstallmentsPanel({
             </Button>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             <div className="space-y-2">
               <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Status

@@ -36,7 +36,7 @@ export function ClientQuickCaseDialog({
       <DialogTrigger render={<Button className="rounded-lg" />}>
         Novo caso
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-4xl overflow-x-hidden sm:w-[calc(100vw-2rem)]">
         <DialogHeader>
           <DialogTitle>Novo caso</DialogTitle>
           <DialogDescription>
