@@ -20,7 +20,6 @@ import {
   getAgreementStatusVariant,
   getClientStatusLabel,
   getClientStatusVariant,
-  getPrimaryWalletLabel,
 } from "@/lib/clientes-utils";
 import { getClienteDetailPageData } from "@/services/clientes-service";
 
@@ -63,8 +62,8 @@ export default async function ClienteDetailPage({
   const primaryContract = data.contracts[0] ?? null;
   const primaryWallet =
     primaryContract?.carteira ??
-    getPrimaryWalletLabel(undefined, data.walletLinks[0]?.credor ?? null);
-  const primaryCreditor = primaryContract?.credor ?? data.walletLinks[0]?.credor ?? "-";
+    data.wallets.find((item) => item.value === data.walletLinks[0]?.carteira_id)?.label ??
+    "-";
   const teamName = primaryContract?.equipe ?? "-";
   const operatorName = primaryContract?.operador ?? "-";
 
@@ -87,7 +86,6 @@ export default async function ClienteDetailPage({
             </div>
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
               <span>Carteira principal: {primaryWallet}</span>
-              <span>Credor: {primaryCreditor}</span>
               <span>Operador: {operatorName}</span>
             </div>
           </div>
@@ -98,9 +96,7 @@ export default async function ClienteDetailPage({
             operators={data.operators}
             teams={data.teams}
             wallets={data.wallets}
-            creditors={data.creditors}
             canCreate={data.canCreateAgreement}
-            canManageCreditors={data.canManageCreditors}
             canManageWallets={data.canManageWallets}
           />
         </div>
@@ -151,15 +147,12 @@ export default async function ClienteDetailPage({
                 <div>
                   <p className="text-sm font-semibold">Panorama do cliente</p>
                   <p className="text-sm text-muted-foreground">
-                    Leitura rapida da ficha, com foco em carteira, credor e filas ativas.
+                    Leitura rapida da ficha, com foco em carteira e filas ativas.
                   </p>
                 </div>
                 <div className="space-y-3">
                   <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm">
                     Carteira principal: <span className="font-medium">{primaryWallet}</span>
-                  </div>
-                  <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm">
-                    Credor: <span className="font-medium">{primaryCreditor}</span>
                   </div>
                   <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm">
                     Equipe: <span className="font-medium">{teamName}</span>
@@ -322,7 +315,6 @@ export default async function ClienteDetailPage({
             operatorName={operatorName}
             teamName={teamName}
             primaryWallet={primaryWallet}
-            primaryCreditor={primaryCreditor}
             operators={data.operators}
             teams={data.teams}
             wallets={data.wallets}

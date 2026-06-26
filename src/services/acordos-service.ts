@@ -384,6 +384,20 @@ function resolveAgreementModel(
   return "parcelado";
 }
 
+function resolveDueDay(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split("-").map((part) => Number(part));
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return day;
+}
+
 function resolveAgreementScope(
   context: ClientsContext,
   payload: {
@@ -911,6 +925,9 @@ export async function criarAcordo(rawInput: unknown): Promise<AgreementOperation
     generatedInstallments.find((installment) => installment.tipo !== "entrada") ??
     generatedInstallments[0] ??
     null;
+  const firstDueDate = resolveNullableString(
+    firstBalanceInstallment?.dataVencimento ?? input.primeiroVencimento ?? null,
+  );
   const resolvedAgreementStatus =
     resolveNullableString(input.status) ??
     (generatedInstallments[0]?.tipo === "entrada" || generatedInstallments.length === 1
@@ -934,18 +951,19 @@ export async function criarAcordo(rawInput: unknown): Promise<AgreementOperation
       input.valorEntrada > 0 ? resolveNullableString(input.dataVencimentoEntrada) : null,
     quantidade_parcelas: input.quantidadeParcelas,
     valor_parcela: roundCurrency(firstBalanceInstallment?.valorParcela ?? 0),
-    primeiro_vencimento: resolveNullableString(
-      firstBalanceInstallment?.dataVencimento ?? input.primeiroVencimento ?? null,
-    ),
+    primeiro_vencimento: firstDueDate,
     forma_pagamento: resolveNullableString(input.formaPagamento),
     modelo_acordo: agreementModel,
     tipo_acordo: agreementModel,
+    dia_vencimento: resolveDueDay(firstDueDate),
     percentual_honorarios: feePreview.percentualHonorarios,
     valor_honorarios_previsto: feePreview.valorHonorarios,
     valor_escritorio_previsto: feePreview.valorEscritorio,
     status: resolvedAgreementStatus,
     observacao: resolveNullableString(input.observacao),
+    origem: "portal_bko",
     criado_por: profile.id,
+    atualizado_por: profile.id,
     valor_pago: 0,
     intervalo_meses: input.intervaloMeses ?? 1,
     origem_manual: true,
@@ -1197,16 +1215,20 @@ export async function darBaixaParcela(rawInput: unknown): Promise<AgreementOpera
     if (createdContract.contract) {
       const { error: linkContractError } = await supabase
         .from("acordos")
-        .update({
-          contrato_id: createdContract.contract.id,
-          contrato: createdContract.contract.numero_contrato,
-          carteira_id: createdContract.contract.carteira_id ?? agreement.carteira_id,
-          credor_id: createdContract.contract.credor_id ?? wallet?.credor_id ?? agreement.credor_id,
-          credor: resolveNullableString(
-            createdContract.contract.credor ?? wallet?.credor ?? agreement.credor ?? null,
-          ),
-          cpf_cnpj: agreement.cpf_cnpj ?? client.cpf_cnpj,
-        })
+        .update(
+          omitUndefined({
+            contrato_id: createdContract.contract.id,
+            contrato: createdContract.contract.numero_contrato,
+            carteira_id: createdContract.contract.carteira_id ?? agreement.carteira_id,
+            credor_id:
+              createdContract.contract.credor_id ?? wallet?.credor_id ?? agreement.credor_id,
+            credor: resolveNullableString(
+              createdContract.contract.credor ?? wallet?.credor ?? agreement.credor ?? null,
+            ),
+            cpf_cnpj: agreement.cpf_cnpj ?? client.cpf_cnpj,
+            atualizado_por: profile.id,
+          }),
+        )
         .eq("id", agreement.id);
 
       if (linkContractError) {
@@ -1222,6 +1244,7 @@ export async function darBaixaParcela(rawInput: unknown): Promise<AgreementOpera
         credor:
           createdContract.contract.credor ?? wallet?.credor ?? agreement.credor ?? null,
         cpf_cnpj: agreement.cpf_cnpj ?? client.cpf_cnpj,
+        atualizado_por: profile.id,
       };
       wallet = agreement.carteira_id
         ? context.wallets.find((item) => item.id === agreement.carteira_id) ?? wallet

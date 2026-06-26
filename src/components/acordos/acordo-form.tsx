@@ -51,9 +51,7 @@ interface AcordoFormProps {
   operators: FilterOption[];
   teams: FilterOption[];
   wallets: FilterOption[];
-  creditors: FilterOption[];
   canCreate: boolean;
-  canManageCreditors?: boolean;
   canManageWallets?: boolean;
 }
 

@@ -242,13 +242,16 @@ export interface Agreement {
   valor_honorarios_previsto?: number | null;
   valor_escritorio_previsto?: number | null;
   intervalo_meses?: number | null;
+  dia_vencimento?: number | null;
   origem_manual?: boolean | null;
+  origem?: string | null;
   data_vencimento_entrada: string | null;
   primeiro_vencimento: string | null;
   forma_pagamento: string | null;
   status: AgreementStatus | string;
   observacao: string | null;
   criado_por: string | null;
+  atualizado_por?: string | null;
   chave_externa: string | null;
   importacao_id: string | null;
   ultimo_pagamento_em: string | null;

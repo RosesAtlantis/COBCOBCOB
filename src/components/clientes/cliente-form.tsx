@@ -24,7 +24,6 @@ import {
   formatPhone,
   getClientStatusLabel,
   getClientStatusVariant,
-  getPrimaryWalletLabel,
 } from "@/lib/clientes-utils";
 import { maskCepInput, maskCpfCnpjInput, maskPhoneInput } from "@/lib/masks";
 import {
@@ -41,7 +40,6 @@ interface ClienteFormProps {
   operatorName: string;
   teamName: string;
   primaryWallet: string;
-  primaryCreditor: string;
   operators: FilterOption[];
   teams: FilterOption[];
   wallets: FilterOption[];
@@ -65,7 +63,6 @@ export function ClienteForm({
   operatorName,
   teamName,
   primaryWallet,
-  primaryCreditor,
   operators,
   teams,
   wallets,
@@ -390,7 +387,6 @@ export function ClienteForm({
           ) : (
             <>
               <Field label="Carteira principal" value={primaryWallet} />
-              <Field label="Credor" value={primaryCreditor} />
               <Field label="Equipe" value={teamName} />
               <Field label="Operador responsavel" value={operatorName} />
             </>
@@ -409,7 +405,8 @@ export function ClienteForm({
                     key={walletLink.id}
                     className="rounded-xl border border-border/70 bg-muted/20 px-3 py-3 text-sm"
                   >
-                    {getPrimaryWalletLabel(primaryWallet, walletLink.credor)}
+                    {wallets.find((wallet) => wallet.value === walletLink.carteira_id)?.label ??
+                      primaryWallet}
                   </div>
                 ))
               ) : (

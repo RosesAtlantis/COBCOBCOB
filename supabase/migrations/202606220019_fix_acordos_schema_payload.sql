@@ -17,6 +17,7 @@ alter table public.acordos
   add column if not exists quantidade_parcelas integer not null default 1,
   add column if not exists valor_parcela numeric(14,2) not null default 0,
   add column if not exists primeiro_vencimento date,
+  add column if not exists dia_vencimento integer,
   add column if not exists forma_pagamento text,
   add column if not exists modelo_acordo text,
   add column if not exists tipo_acordo text,
@@ -25,7 +26,9 @@ alter table public.acordos
   add column if not exists valor_escritorio_previsto numeric(14,2),
   add column if not exists status text not null default 'ativo',
   add column if not exists observacao text,
+  add column if not exists origem text,
   add column if not exists criado_por uuid,
+  add column if not exists atualizado_por uuid,
   add column if not exists criado_em timestamptz not null default now(),
   add column if not exists atualizado_em timestamptz not null default now(),
   add column if not exists valor_pago numeric(14,2) not null default 0,
@@ -59,10 +62,16 @@ create index if not exists acordos_data_acordo_idx
 create index if not exists acordos_primeiro_vencimento_idx
   on public.acordos (primeiro_vencimento);
 
+create index if not exists acordos_dia_vencimento_idx
+  on public.acordos (dia_vencimento);
+
 create index if not exists acordos_status_idx
   on public.acordos (status);
 
 create index if not exists acordos_tipo_acordo_idx
   on public.acordos (tipo_acordo);
+
+create index if not exists acordos_origem_idx
+  on public.acordos (origem);
 
 select pg_notify('pgrst', 'reload schema');
