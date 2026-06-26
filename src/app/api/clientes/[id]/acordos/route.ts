@@ -2,10 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { getApiErrorMessage } from "@/services/cadastros-utils";
-import {
-  criarAcordo,
-  parseCreateAgreementInput,
-} from "@/services/acordos-service";
+import { criarAcordo } from "@/services/acordos-service";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -15,11 +12,10 @@ export async function POST(request: Request, { params }: RouteContext) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const payload = parseCreateAgreementInput({
+    const result = await criarAcordo({
       ...body,
       cliente_id: id,
     });
-    const result = await criarAcordo(payload);
 
     revalidatePath("/clientes");
     revalidatePath(`/clientes/${id}`);

@@ -590,6 +590,8 @@ function createMockClientsContext(profile: PortalProfile): ClientsContext {
         id: `agreement-${client.id}`,
         cliente_id: client.id,
         contrato_id: contract.id,
+        credor_id: contract.credor_id ?? null,
+        credor: contract.credor,
         data_acordo: agreementDate,
         operador_id: client.operador_id,
         equipe_id: client.equipe_id,
@@ -602,6 +604,8 @@ function createMockClientsContext(profile: PortalProfile): ClientsContext {
         quantidade_parcelas: quantity,
         valor_parcela: roundCurrency((value - entry) / quantity),
         valor_pago: index % 2 === 0 ? entry : 0,
+        modelo_acordo: entry > 0 ? "entrada_parcelas" : quantity === 1 ? "avista" : "parcelado",
+        tipo_acordo: entry > 0 ? "entrada_parcelas" : quantity === 1 ? "avista" : "parcelado",
         data_vencimento_entrada:
           entry > 0 ? addDays(parseISO(agreementDate), 5).toISOString().slice(0, 10) : null,
         primeiro_vencimento: addDays(parseISO(agreementDate), 30).toISOString().slice(0, 10),

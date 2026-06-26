@@ -16,21 +16,23 @@ Este projeto ja possui os SQLs prontos em `supabase/migrations`.
 10. Rode o arquivo [migrations/202606220008_cadastros_manuais_completos.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220008_cadastros_manuais_completos.sql).
 11. Rode o arquivo [migrations/202606220009_fix_admin_crud_permissions.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220009_fix_admin_crud_permissions.sql).
 12. Rode o arquivo [migrations/202606220011_unifica_credor_carteira_e_filtros.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220011_unifica_credor_carteira_e_filtros.sql).
-13. Se quiser dados de exemplo para desenvolvimento, rode [seed/seed.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/seed/seed.sql).
-14. Va em `Authentication > URL Configuration`.
-15. Preencha `Site URL` com a URL publicada na Vercel.
-16. Adicione estas `Redirect URLs`:
+13. Rode o arquivo [migrations/202606220017_validations_performance_schema_indexes.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220017_validations_performance_schema_indexes.sql).
+14. Rode o arquivo [migrations/202606220019_fix_acordos_schema_payload.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220019_fix_acordos_schema_payload.sql).
+15. Se quiser dados de exemplo para desenvolvimento, rode [seed/seed.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/seed/seed.sql).
+16. Va em `Authentication > URL Configuration`.
+17. Preencha `Site URL` com a URL publicada na Vercel.
+18. Adicione estas `Redirect URLs`:
 
 ```text
 https://URL-DA-VERCEL.vercel.app/*
 http://localhost:3000/*
 ```
 
-17. Va em `Authentication > Users`.
-18. Crie o seu usuario manualmente.
-19. Copie o `User ID` criado.
-20. Va em `Table Editor > profiles`.
-21. Crie uma linha manual com:
+19. Va em `Authentication > Users`.
+20. Crie o seu usuario manualmente.
+21. Copie o `User ID` criado.
+22. Va em `Table Editor > profiles`.
+23. Crie uma linha manual com:
 
 ```text
 user_id = ID do usuario criado
@@ -40,7 +42,7 @@ perfil = admin
 ativo = true
 ```
 
-22. Depois configure as variaveis do projeto na Vercel e faca `Redeploy`.
+24. Depois configure as variaveis do projeto na Vercel e faca `Redeploy`.
 
 ## SQLs que precisam ser rodados
 
@@ -56,6 +58,8 @@ Obrigatorios:
 8. [migrations/202606220008_cadastros_manuais_completos.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220008_cadastros_manuais_completos.sql)
 9. [migrations/202606220009_fix_admin_crud_permissions.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220009_fix_admin_crud_permissions.sql)
 10. [migrations/202606220011_unifica_credor_carteira_e_filtros.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220011_unifica_credor_carteira_e_filtros.sql)
+11. [migrations/202606220017_validations_performance_schema_indexes.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220017_validations_performance_schema_indexes.sql)
+12. [migrations/202606220019_fix_acordos_schema_payload.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220019_fix_acordos_schema_payload.sql)
 
 Opcional:
 
@@ -135,6 +139,18 @@ Incluem:
 - sincroniza `cliente_carteiras.credor` e `contratos.credor` com o nome atual da carteira
 - atualiza `metas.credor_id` quando a carteira ja possui esse relacionamento legado
 - recria a policy `wallets_write`, reforca RLS da tabela e dispara `pg_notify('pgrst', 'reload schema')`
+
+## O que a migration 202606220017 faz
+
+- reforca validacoes e colunas usadas pelos fluxos principais
+- adiciona indices para reduzir consultas custosas no portal
+- consolida parte do schema esperado pelo front antes das correcoes finais de acordos
+
+## O que a migration 202606220019 faz
+
+- garante as colunas usadas pelo insert/update de `public.acordos`, incluindo `credor_id`, `credor`, `modelo_acordo`, `tipo_acordo` e `data_vencimento_entrada`
+- cria indices seguros para cliente, contrato, carteira, credor, operador, equipe, datas e status
+- dispara `pg_notify('pgrst', 'reload schema')` para limpar o schema cache do PostgREST/Supabase
 
 ## SQL exemplo para criar o admin manualmente
 

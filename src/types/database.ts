@@ -352,6 +352,8 @@ export interface Database {
           id: string;
           cliente_id: string | null;
           contrato_id: string | null;
+          credor_id: string | null;
+          credor: string | null;
           data_acordo: string;
           operador_id: string | null;
           equipe_id: string | null;
@@ -364,6 +366,8 @@ export interface Database {
           quantidade_parcelas: number;
           valor_parcela: number;
           valor_pago: number;
+          modelo_acordo: string | null;
+          tipo_acordo: string | null;
           percentual_honorarios: number | null;
           valor_honorarios_previsto: number | null;
           valor_escritorio_previsto: number | null;
@@ -385,6 +389,8 @@ export interface Database {
           id?: string;
           cliente_id?: string | null;
           contrato_id?: string | null;
+          credor_id?: string | null;
+          credor?: string | null;
           data_acordo: string;
           operador_id?: string | null;
           equipe_id?: string | null;
@@ -397,6 +403,8 @@ export interface Database {
           quantidade_parcelas?: number;
           valor_parcela?: number;
           valor_pago?: number;
+          modelo_acordo?: string | null;
+          tipo_acordo?: string | null;
           percentual_honorarios?: number | null;
           valor_honorarios_previsto?: number | null;
           valor_escritorio_previsto?: number | null;
