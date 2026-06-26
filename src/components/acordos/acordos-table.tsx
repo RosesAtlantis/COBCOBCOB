@@ -36,6 +36,7 @@ interface AcordosTableProps {
   clientName: string;
   agreements: ClientAgreementRow[];
   wallets: FilterOption[];
+  operators: FilterOption[];
   canCancel: boolean;
   canRegisterWriteOff: boolean;
 }
@@ -45,6 +46,7 @@ export function AcordosTable({
   clientName,
   agreements,
   wallets,
+  operators,
   canCancel,
   canRegisterWriteOff,
 }: AcordosTableProps) {
@@ -243,6 +245,7 @@ export function AcordosTable({
         clientName={clientName}
         agreement={writeOffAgreement}
         wallets={wallets}
+        operators={operators}
         open={Boolean(writeOffAgreement)}
         onOpenChange={(open) => {
           if (!open) {

@@ -42,6 +42,7 @@ import type { AgreementCenterRow, FilterOption } from "@/types/portal";
 interface AcordosTableProps {
   rows: AgreementCenterRow[];
   wallets: FilterOption[];
+  operators: FilterOption[];
   canCancel: boolean;
   canRegisterWriteOff: boolean;
 }
@@ -49,6 +50,7 @@ interface AcordosTableProps {
 export function AcordosTable({
   rows,
   wallets,
+  operators,
   canCancel,
   canRegisterWriteOff,
 }: AcordosTableProps) {
@@ -283,6 +285,7 @@ export function AcordosTable({
         clientName={writeOffAgreement?.cliente ?? undefined}
         agreement={writeOffAgreement ? toClientAgreementRow(writeOffAgreement) : null}
         wallets={wallets}
+        operators={operators}
         open={Boolean(writeOffAgreement)}
         onOpenChange={(open) => {
           if (!open) {

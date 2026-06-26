@@ -27,6 +27,7 @@ interface ClientInstallmentsPanelProps {
   agreements: ClientAgreementRow[];
   installments: InstallmentCenterRow[];
   wallets: FilterOption[];
+  operators: FilterOption[];
   canRegisterWriteOff: boolean;
   canEditInstallmentRevenueType: boolean;
 }
@@ -36,6 +37,7 @@ export function ClientInstallmentsPanel({
   agreements,
   installments,
   wallets,
+  operators,
   canRegisterWriteOff,
   canEditInstallmentRevenueType,
 }: ClientInstallmentsPanelProps) {
@@ -235,6 +237,7 @@ export function ClientInstallmentsPanel({
         rows={filteredInstallments}
         agreements={agreementRows}
         wallets={wallets}
+        operators={operators}
         canRegisterWriteOff={canRegisterWriteOff}
         canEditInstallmentRevenueType={canEditInstallmentRevenueType}
         showClientLink={false}

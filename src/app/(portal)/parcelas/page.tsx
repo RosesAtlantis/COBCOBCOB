@@ -79,6 +79,7 @@ export default async function ParcelasPage({ searchParams }: ParcelasPageProps) 
         rows={data.installments}
         agreements={data.agreements}
         wallets={data.options.wallets}
+        operators={data.options.operators}
         canRegisterWriteOff={data.canRegisterWriteOff}
         canEditInstallmentRevenueType={data.canEditInstallmentRevenueType}
       />

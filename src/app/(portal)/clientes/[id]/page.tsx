@@ -238,6 +238,7 @@ export default async function ClienteDetailPage({
             clientName={data.client.nome}
             agreements={data.agreements}
             wallets={data.wallets}
+            operators={data.operators}
             canCancel={data.canCancelAgreement}
             canRegisterWriteOff={data.canRegisterWriteOff}
           />
@@ -256,6 +257,7 @@ export default async function ClienteDetailPage({
             agreements={data.agreements}
             installments={data.installments}
             wallets={data.wallets}
+            operators={data.operators}
             canRegisterWriteOff={data.canRegisterWriteOff}
             canEditInstallmentRevenueType={data.canEditInstallmentRevenueType}
           />

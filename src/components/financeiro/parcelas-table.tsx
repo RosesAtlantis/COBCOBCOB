@@ -38,6 +38,7 @@ interface ParcelasTableProps {
   rows: InstallmentCenterRow[];
   agreements: AgreementCenterRow[];
   wallets: FilterOption[];
+  operators: FilterOption[];
   canRegisterWriteOff: boolean;
   canEditInstallmentRevenueType?: boolean;
   showClientLink?: boolean;
@@ -51,6 +52,7 @@ export function ParcelasCentralTable({
   rows,
   agreements,
   wallets,
+  operators,
   canRegisterWriteOff,
   canEditInstallmentRevenueType = false,
   showClientLink = true,
@@ -275,6 +277,7 @@ export function ParcelasCentralTable({
         clientName={writeOffTarget?.agreement.cliente ?? undefined}
         agreement={writeOffTarget ? toClientAgreementRow(writeOffTarget.agreement) : null}
         wallets={wallets}
+        operators={operators}
         initialParcelId={writeOffTarget?.parcelId ?? null}
         open={Boolean(writeOffTarget)}
         onOpenChange={(open) => {

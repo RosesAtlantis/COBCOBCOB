@@ -82,6 +82,7 @@ export default async function AcordosPage({ searchParams }: AcordosPageProps) {
       <AcordosTable
         rows={data.agreements}
         wallets={data.options.wallets}
+        operators={data.options.operators}
         canCancel={data.canCancelAgreement}
         canRegisterWriteOff={data.canRegisterWriteOff}
       />
