@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ import { maskCurrencyInput } from "@/lib/masks";
 import {
   formatDocument,
   getAgreementStatusLabel,
+  getAgreementStatusVariant,
   getInstallmentStatusLabel,
   getInstallmentStatusVariant,
   getRevenueTypeOriginLabel,
@@ -173,18 +174,6 @@ function buildInstallmentFriendlyLabel(
   return `${buildInstallmentTitle(installment)} - Venc. ${formatDate(installment.data_vencimento)} - ${formatCurrency(currentBalance)} - ${inferRevenueTypeCode(agreement, installment.id)}`;
 }
 
-function findOptionLabel(
-  options: FilterOption[],
-  value: string | null | undefined,
-  fallback?: string | null,
-) {
-  const option = value
-    ? options.find((item) => item.value === value) ?? null
-    : null;
-
-  return option?.label ?? sanitizeText(fallback);
-}
-
 function resolveInitialOperatorId(
   agreement: ClientAgreementRow,
   installment: AgreementInstallment | null,
@@ -222,44 +211,21 @@ function ReadonlyValue({
   );
 }
 
-function SectionHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description?: string;
-}) {
-  return (
-    <div className="space-y-1">
-      <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
-      {description ? (
-        <p className="text-sm text-muted-foreground">{description}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function InfoCard({
+function CompactField({
   label,
   value,
-  subtitle,
-  extra,
+  align = "left",
 }: {
   label: string;
-  value: string;
-  subtitle?: string;
-  extra?: ReactNode;
+  value: ReactNode;
+  align?: "left" | "right";
 }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-border/70 bg-muted/20 p-5">
+    <div className="min-w-0 space-y-1">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-2 truncate text-base font-semibold">{value}</p>
-      {subtitle ? (
-        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-      ) : null}
-      {extra ? <div className="mt-3">{extra}</div> : null}
+      <div className={align === "right" ? "text-right" : "text-left"}>{value}</div>
     </div>
   );
 }
@@ -326,6 +292,7 @@ function BaixaFormContent({
   const [operatorId, setOperatorId] = useState(() =>
     resolveInitialOperatorId(agreement, initialInstallment, operators),
   );
+  const [showParcelDetails, setShowParcelDetails] = useState(false);
   const [confirmOverpayment, setConfirmOverpayment] = useState(false);
   const [contractNumber, setContractNumber] = useState(agreement.contratoNumero ?? "");
   const [contractWalletId, setContractWalletId] = useState(
@@ -360,22 +327,12 @@ function BaixaFormContent({
   const safePaidValue = numericValue !== null && numericValue > 0 ? numericValue : 0;
   const projectedHonorarios = roundCurrency((safePaidValue * feePercent) / 100);
   const projectedOfficeValue = projectedHonorarios;
-  const projectedTransferValue = roundCurrency(
-    Math.max(safePaidValue - projectedOfficeValue, 0),
-  );
-  const safeFeePercent = Number.isFinite(feePercent) ? roundCurrency(feePercent) : 0;
   const revenueTypeCode = selectedInstallment
     ? inferRevenueTypeCode(agreement, selectedInstallment.id)
     : "NOVO";
   const revenueTypeOriginLabel = selectedInstallment
     ? inferRevenueTypeOrigin(agreement, selectedInstallment.id)
     : "Automatico";
-  const operatorLabel = findOptionLabel(
-    operators,
-    operatorId,
-    agreement.operador,
-  );
-  const parcelBalanceAfterPayment = Math.max(remainingAmount - safePaidValue, 0);
   const parsedContractOpenValue = parseCurrencyBR(contractOpenValue);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -486,31 +443,48 @@ function BaixaFormContent({
   return (
     <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={handleSubmit}>
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-5 sm:px-6">
-        <div className="space-y-6">
-          <section className="space-y-4">
-            <SectionHeader
-              title="Resumo do cliente e do acordo"
-              description="Leitura rapida antes de registrar a baixa."
-            />
-            <div className="grid gap-4 xl:grid-cols-3">
-              <InfoCard
+        <div className="space-y-5">
+          <section className="rounded-2xl border border-border/70 bg-muted/10 p-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <CompactField
                 label="Cliente"
-                value={sanitizeText(clientName, "Cliente vinculado")}
-                subtitle={`CPF/CNPJ: ${sanitizeText(formatDocument(agreement.cpf_cnpj))}`}
+                value={
+                  <p className="truncate text-sm font-semibold">
+                    {sanitizeText(clientName, "Cliente vinculado")}
+                  </p>
+                }
               />
-              <InfoCard
+              <CompactField
+                label="CPF/CNPJ"
+                value={
+                  <p className="truncate text-sm text-muted-foreground">
+                    {sanitizeText(formatDocument(agreement.cpf_cnpj))}
+                  </p>
+                }
+              />
+              <CompactField
                 label="Contrato"
-                value={sanitizeText(agreement.contratoNumero, "Nao cadastrado")}
-                subtitle={`Carteira: ${sanitizeText(agreement.carteira)}`}
+                value={
+                  <p className="truncate text-sm font-medium">
+                    {sanitizeText(agreement.contratoNumero, "Nao cadastrado")}
+                  </p>
+                }
               />
-              <InfoCard
-                label="Acordo"
-                value={getAgreementStatusLabel(agreement.status)}
-                subtitle={`Saldo total: ${formatCurrency(agreement.valorRestante)}`}
-                extra={
-                  <Badge variant="secondary" className="rounded-md px-2.5 py-1">
-                    {agreement.parcelasPendentes} pendente(s)
+              <CompactField
+                label="Status"
+                value={
+                  <Badge variant={getAgreementStatusVariant(agreement.status)}>
+                    {getAgreementStatusLabel(agreement.status)}
                   </Badge>
+                }
+              />
+              <CompactField
+                label="Saldo do acordo"
+                align="right"
+                value={
+                  <p className="font-mono text-sm font-semibold whitespace-nowrap">
+                    {formatCurrency(agreement.valorRestante)}
+                  </p>
                 }
               />
             </div>
@@ -518,23 +492,18 @@ function BaixaFormContent({
 
           {requiresContractCreation ? (
             <section className="rounded-2xl border border-amber-300/50 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="size-4 text-amber-700 dark:text-amber-300" />
-                    <p className="text-sm font-semibold">
-                      Contrato obrigatorio para concluir a baixa
-                    </p>
-                  </div>
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300" />
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-semibold">Contrato obrigatorio para concluir a baixa</p>
                   <p className="text-sm text-muted-foreground">
-                    Este acordo ainda nao possui contrato vinculado. Cadastre o minimo
-                    necessario agora para preservar o historico corretamente.
+                    Cadastre os dados minimos do contrato para preservar o historico.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                <div className="space-y-2 lg:col-span-2">
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="space-y-2 md:col-span-2 xl:col-span-1">
                   <Label htmlFor="contractNumber">Numero do contrato</Label>
                   <Input
                     id="contractNumber"
@@ -585,12 +554,7 @@ function BaixaFormContent({
           ) : null}
 
           <section className="space-y-4">
-            <SectionHeader
-              title="Dados da baixa"
-              description="Preencha apenas os campos necessarios e confira o saldo da parcela."
-            />
-
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.95fr)]">
               <div className="min-w-0 space-y-2">
                 <Label htmlFor="parcelId">Parcela</Label>
                 <Select
@@ -643,6 +607,34 @@ function BaixaFormContent({
                 </Select>
               </div>
 
+              <div className="rounded-2xl border border-border/70 bg-muted/10 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Resumo da parcela
+                </p>
+                <div className="mt-2 grid gap-2 text-sm sm:grid-cols-3 xl:grid-cols-1">
+                  <div>
+                    <span className="text-muted-foreground">Saldo: </span>
+                    <span className="font-mono font-semibold whitespace-nowrap">
+                      {formatCurrency(remainingAmount)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Classificacao:</span>
+                    <Badge variant={getRevenueBadgeVariant(revenueTypeCode)}>
+                      {revenueTypeCode}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Status:</span>
+                    <Badge variant={getInstallmentStatusVariant(selectedInstallment.status)}>
+                      {getInstallmentStatusLabel(selectedInstallment.status)}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="paymentDate">Data de pagamento</Label>
                 <Input
@@ -673,13 +665,8 @@ function BaixaFormContent({
                   placeholder="R$ 0,00"
                   className="h-11 rounded-lg border-border/70 bg-background text-right font-mono shadow-none"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Saldo atual da parcela: {formatCurrency(remainingAmount)}
-                </p>
               </div>
-            </div>
 
-            <div className="grid gap-4 lg:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="paymentMethod">Forma de pagamento</Label>
                 <Select
@@ -701,7 +688,9 @@ function BaixaFormContent({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="percentualHonorarios">Honorarios (%)</Label>
                 <Input
@@ -720,48 +709,6 @@ function BaixaFormContent({
                 <Label>Valor honorarios</Label>
                 <ReadonlyValue value={formatCurrency(projectedHonorarios)} align="right" />
               </div>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Classificacao</Label>
-                <div className="rounded-lg border border-border/70 bg-muted/15 px-3 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={getRevenueBadgeVariant(revenueTypeCode)}>
-                      {revenueTypeCode}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {revenueTypeOriginLabel}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="operatorId">Operador responsavel</Label>
-                {operators.length ? (
-                  <Select
-                    value={resolveSelectValue(operators, operatorId)}
-                    onValueChange={(value) => setOperatorId(value ?? "")}
-                  >
-                    <SelectTrigger
-                      id="operatorId"
-                      className="h-11 rounded-lg border-border/70 bg-background shadow-none"
-                    >
-                      <SelectValue placeholder="Selecione o operador" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {operators.map((operator) => (
-                        <SelectItem key={operator.value} value={operator.value}>
-                          {operator.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <ReadonlyValue value="Sem operador definido" />
-                )}
-              </div>
 
               <div className="space-y-2">
                 <Label>Valor escritorio</Label>
@@ -776,91 +723,7 @@ function BaixaFormContent({
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
                 placeholder="Comprovante, ajuste operacional, motivo da diferenca ou contexto da baixa."
-                className="min-h-28 rounded-lg border-border/70 bg-background shadow-none"
-              />
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <SectionHeader
-              title="Resumo financeiro"
-              description="Conferencia final da parcela antes de registrar o recebimento."
-            />
-            <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
-              <InfoCard
-                label="Honorarios calculados"
-                value={formatCurrency(projectedHonorarios)}
-                subtitle={`Percentual aplicado: ${safeFeePercent}%`}
-              />
-              <InfoCard
-                label="Valor escritorio"
-                value={formatCurrency(projectedOfficeValue)}
-                subtitle="Valor previsto para o escritorio"
-              />
-              <InfoCard
-                label="Valor repassado"
-                value={formatCurrency(projectedTransferValue)}
-                subtitle="Recebimento menos escritorio"
-              />
-              <InfoCard
-                label="Saldo apos baixa"
-                value={formatCurrency(parcelBalanceAfterPayment)}
-                subtitle="Sem considerar excedente manual"
-              />
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <SectionHeader
-              title="Resumo da parcela"
-              description="Visual amigavel para identificar rapidamente o item que sera baixado."
-            />
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <InfoCard
-                label="Parcela"
-                value={buildInstallmentTitle(selectedInstallment)}
-                subtitle={resolveAgreementTypeLabel(selectedInstallment.tipo)}
-              />
-              <InfoCard
-                label="Vencimento"
-                value={formatDate(selectedInstallment.data_vencimento)}
-                subtitle={`Status: ${getInstallmentStatusLabel(selectedInstallment.status)}`}
-              />
-              <InfoCard
-                label="Valor original"
-                value={formatCurrency(selectedInstallment.valor_parcela)}
-                subtitle={`Pago ate agora: ${formatCurrency(selectedInstallment.valor_pago)}`}
-              />
-              <InfoCard
-                label="Saldo atual"
-                value={formatCurrency(remainingAmount)}
-                subtitle={`Baixa prevista: ${formatCurrency(safePaidValue)}`}
-              />
-              <InfoCard
-                label="Classificacao"
-                value={revenueTypeCode}
-                subtitle={`Origem: ${revenueTypeOriginLabel}`}
-                extra={<Badge variant={getRevenueBadgeVariant(revenueTypeCode)}>{revenueTypeCode}</Badge>}
-              />
-              <InfoCard
-                label="Status"
-                value={getInstallmentStatusLabel(selectedInstallment.status)}
-                subtitle="Situacao atual da parcela"
-                extra={
-                  <Badge variant={getInstallmentStatusVariant(selectedInstallment.status)}>
-                    {getInstallmentStatusLabel(selectedInstallment.status)}
-                  </Badge>
-                }
-              />
-              <InfoCard
-                label="Operador"
-                value={operatorLabel}
-                subtitle={`Equipe: ${sanitizeText(agreement.equipe)}`}
-              />
-              <InfoCard
-                label="Observacao"
-                value={sanitizeText(note, "Sem observacao informada")}
-                subtitle="Texto que sera gravado junto da baixa"
+                className="min-h-24 rounded-lg border-border/70 bg-background shadow-none"
               />
             </div>
           </section>
@@ -873,8 +736,7 @@ function BaixaFormContent({
                     Valor acima do saldo da parcela
                   </p>
                   <p className="text-sm text-destructive/80">
-                    O valor informado excede o saldo atual. Ative a confirmacao para
-                    continuar conscientemente.
+                    Ative a confirmacao apenas se a baixa realmente precisa exceder o saldo.
                   </p>
                 </div>
                 <Button
@@ -883,13 +745,121 @@ function BaixaFormContent({
                   className="rounded-lg"
                   onClick={() => setConfirmOverpayment((current) => !current)}
                 >
-                  {confirmOverpayment
-                    ? "Confirmacao ativa"
-                    : "Permitir valor acima do saldo"}
+                  {confirmOverpayment ? "Confirmacao ativa" : "Permitir valor acima do saldo"}
                 </Button>
               </div>
             </section>
           ) : null}
+
+          <section className="overflow-hidden rounded-2xl border border-border/70 bg-muted/10">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+              onClick={() => setShowParcelDetails((current) => !current)}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Detalhes da parcela</p>
+                <p className="text-sm text-muted-foreground">
+                  Informacoes auxiliares e operador responsavel.
+                </p>
+              </div>
+              {showParcelDetails ? (
+                <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+              )}
+            </button>
+
+            {showParcelDetails ? (
+              <div className="border-t border-border/70 px-4 py-4">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <CompactField
+                    label="Valor original"
+                    value={
+                      <p className="font-mono text-sm font-semibold">
+                        {formatCurrency(selectedInstallment.valor_parcela)}
+                      </p>
+                    }
+                  />
+                  <CompactField
+                    label="Valor ja pago"
+                    value={
+                      <p className="font-mono text-sm font-semibold">
+                        {formatCurrency(selectedInstallment.valor_pago)}
+                      </p>
+                    }
+                  />
+                  <CompactField
+                    label="Saldo"
+                    value={
+                      <p className="font-mono text-sm font-semibold">
+                        {formatCurrency(remainingAmount)}
+                      </p>
+                    }
+                  />
+                  <CompactField
+                    label="Vencimento"
+                    value={<p className="text-sm font-medium">{formatDate(selectedInstallment.data_vencimento)}</p>}
+                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="operatorId">Operador responsavel</Label>
+                    {operators.length ? (
+                      <Select
+                        value={resolveSelectValue(operators, operatorId)}
+                        onValueChange={(value) => setOperatorId(value ?? "")}
+                      >
+                        <SelectTrigger
+                          id="operatorId"
+                          className="h-11 rounded-lg border-border/70 bg-background shadow-none"
+                        >
+                          <SelectValue placeholder="Selecione o operador" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {operators.map((operator) => (
+                            <SelectItem key={operator.value} value={operator.value}>
+                              {operator.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <ReadonlyValue value="Sem operador definido" />
+                    )}
+                  </div>
+                  <CompactField
+                    label="Origem da classificacao"
+                    value={
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={getRevenueBadgeVariant(revenueTypeCode)}>
+                          {revenueTypeCode}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {revenueTypeOriginLabel}
+                        </span>
+                      </div>
+                    }
+                  />
+                  <CompactField
+                    label="Status"
+                    value={
+                      <Badge variant={getInstallmentStatusVariant(selectedInstallment.status)}>
+                        {getInstallmentStatusLabel(selectedInstallment.status)}
+                      </Badge>
+                    }
+                  />
+                  <CompactField
+                    label="Tipo da parcela"
+                    value={
+                      <p className="text-sm font-medium">
+                        {buildInstallmentTitle(selectedInstallment)} -{" "}
+                        {resolveAgreementTypeLabel(selectedInstallment.tipo)}
+                      </p>
+                    }
+                  />
+                </div>
+              </div>
+            ) : null}
+          </section>
         </div>
       </div>
 
@@ -930,13 +900,10 @@ export function BaixaForm({
 }: BaixaFormProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] max-w-5xl gap-0 overflow-hidden p-0 sm:w-[calc(100vw-2rem)] [&>button]:right-4 [&>button]:top-4">
+      <DialogContent className="max-h-[85vh] w-[calc(100vw-1rem)] max-w-4xl gap-0 overflow-hidden p-0 sm:w-[calc(100vw-2rem)] [&>button]:right-4 [&>button]:top-4">
         <DialogHeader className="shrink-0 border-b border-border/70 px-5 py-5 pr-14 sm:px-6">
           <DialogTitle>Dar baixa</DialogTitle>
-          <DialogDescription>
-            Registre o recebimento com conferencia de saldo, classificacao,
-            honorarios e historico oficial da parcela.
-          </DialogDescription>
+          <DialogDescription>Registre o recebimento de uma parcela.</DialogDescription>
         </DialogHeader>
 
         {agreement ? (

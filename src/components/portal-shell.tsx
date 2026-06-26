@@ -21,8 +21,8 @@ export function PortalShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen overflow-hidden bg-background text-foreground">
-      <aside className="hidden h-screen w-[272px] shrink-0 border-r border-border/70 bg-sidebar xl:w-[280px] lg:block">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground lg:grid lg:grid-cols-[272px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="hidden h-screen overflow-hidden border-r border-border/70 bg-sidebar lg:sticky lg:top-0 lg:block">
         <AppSidebar profile={profile} demoMode={demoMode} />
       </aside>
 
