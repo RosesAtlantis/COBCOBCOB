@@ -195,6 +195,8 @@ export interface Payment {
   baixa_id: string | null;
   acordo_id: string | null;
   cliente_id: string | null;
+  contrato_id?: string | null;
+  parcela_id?: string | null;
   data_pagamento: string;
   operador_id: string | null;
   equipe_id: string | null;
@@ -205,17 +207,22 @@ export interface Payment {
   valor_honorario: number;
   percentual_honorarios?: number | null;
   valor_escritorio?: number | null;
+  forma_pagamento?: string | null;
   tipo_receita?: RevenueType | string | null;
   tipo_receita_origem?: RevenueTypeOrigin | string | null;
   registrado_por?: string | null;
   origem_arquivo: string | null;
+  origem_manual?: boolean | null;
+  origem?: string | null;
   chave_externa: string | null;
   importacao_id: string | null;
+  atualizado_por?: string | null;
   estornado: boolean;
   estornado_em: string | null;
   estornado_por: string | null;
   motivo_estorno: string | null;
   criado_em: string;
+  atualizado_em?: string;
 }
 
 export interface Agreement {
@@ -416,6 +423,16 @@ export interface DashboardSummary {
   agreementCount: number;
   averageTicket: number;
   monthlyDelta: number;
+  receivableTotal: number;
+  remainingGoal: number;
+  lastMonthCollected: number;
+  collectedToday: number;
+  projectedMonthEnd: number;
+  requiredDailyPace: number;
+  averagePerOperatorDay: number;
+  officeFeesCollected: number;
+  paymentCount: number;
+  activeOperators: number;
   bestOperator?: MetricHighlight;
   bestTeam?: MetricHighlight;
   bestWallet?: MetricHighlight;
@@ -754,6 +771,8 @@ export interface ClientListFilters {
   query?: string;
   walletId?: string;
   creditor?: string;
+  city?: string;
+  state?: string;
   teamId?: string;
   operatorId?: string;
   status?: ClientStatus;
@@ -762,6 +781,8 @@ export interface ClientListFilters {
 export interface ClientFilterOptions {
   wallets: FilterOption[];
   creditors: FilterOption[];
+  cities: FilterOption[];
+  states: FilterOption[];
   teams: FilterOption[];
   operators: FilterOption[];
   statuses: FilterOption[];
@@ -771,15 +792,19 @@ export interface ClientListRow {
   id: string;
   nome: string;
   cpfCnpj: string;
+  cidade: string | null;
+  uf: string | null;
   carteira: string;
   credor: string;
   equipe: string;
   operador: string;
   contratos: number;
+  acordosAtivos: number;
   valorEmAberto: number;
   valorEmAcordo: number;
   valorPago: number;
   status: ClientStatus;
+  ultimoPagamento: string | null;
   ultimaAtualizacao: string;
 }
 

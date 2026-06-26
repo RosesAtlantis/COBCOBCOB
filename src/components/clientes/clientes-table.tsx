@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -10,14 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import {
   formatDocument,
   getClientStatusLabel,
   getClientStatusVariant,
 } from "@/lib/clientes-utils";
+import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { ClientListRow } from "@/types/portal";
 
 interface ClientesTableProps {
@@ -41,31 +41,16 @@ export function ClientesTable({ rows }: ClientesTableProps) {
           <TableHeader className="bg-muted/30">
             <TableRow className="border-border/70 hover:bg-transparent">
               <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Nome / Razao social
+                Cliente
               </TableHead>
               <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                CPF/CNPJ
+                Operacao
               </TableHead>
               <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Carteira
+                Cobranca
               </TableHead>
               <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Credor
-              </TableHead>
-              <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Contratos
-              </TableHead>
-              <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Valor em aberto
-              </TableHead>
-              <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Valor em acordo
-              </TableHead>
-              <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Status
-              </TableHead>
-              <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Ultima atualizacao
+                Situacao
               </TableHead>
               <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Acoes
@@ -75,37 +60,68 @@ export function ClientesTable({ rows }: ClientesTableProps) {
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.id} className="border-border/60 hover:bg-muted/15">
-                <TableCell className="px-4 py-3.5">
-                  <div>
+                <TableCell className="px-4 py-3.5 align-top">
+                  <div className="min-w-[220px] space-y-1">
                     <p className="font-medium">{row.nome}</p>
                     <p className="text-xs text-muted-foreground">
-                      {row.operador} • {row.equipe}
+                      {formatDocument(row.cpfCnpj)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {[row.cidade, row.uf].filter(Boolean).join(" / ") || "Localidade nao informada"}
                     </p>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-3.5 text-sm text-muted-foreground">
-                  {formatDocument(row.cpfCnpj)}
+                <TableCell className="px-4 py-3.5 align-top">
+                  <div className="min-w-[220px] space-y-1">
+                    <p className="text-sm font-medium">{row.carteira}</p>
+                    <p className="text-xs text-muted-foreground">{row.credor}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {row.operador} / {row.equipe}
+                    </p>
+                  </div>
                 </TableCell>
-                <TableCell className="px-4 py-3.5 text-sm">{row.carteira}</TableCell>
-                <TableCell className="px-4 py-3.5 text-sm">{row.credor}</TableCell>
-                <TableCell className="px-4 py-3.5 text-right">
-                  {formatNumber(row.contratos)}
+                <TableCell className="px-4 py-3.5 align-top">
+                  <div className="min-w-[280px] space-y-2">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>Contratos: {formatNumber(row.contratos)}</span>
+                      <span>Acordos ativos: {formatNumber(row.acordosAtivos)}</span>
+                    </div>
+                    <div className="grid gap-2 text-sm sm:grid-cols-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                          Em aberto
+                        </p>
+                        <p className="font-mono">{formatCurrency(row.valorEmAberto)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                          Em acordo
+                        </p>
+                        <p className="font-mono">{formatCurrency(row.valorEmAcordo)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                          Pago
+                        </p>
+                        <p className="font-mono">{formatCurrency(row.valorPago)}</p>
+                      </div>
+                    </div>
+                  </div>
                 </TableCell>
-                <TableCell className="px-4 py-3.5 text-right font-mono text-sm">
-                  {formatCurrency(row.valorEmAberto)}
+                <TableCell className="px-4 py-3.5 align-top">
+                  <div className="space-y-2">
+                    <Badge variant={getClientStatusVariant(row.status)}>
+                      {getClientStatusLabel(row.status)}
+                    </Badge>
+                    <div className="text-xs text-muted-foreground">
+                      <p>
+                        Ultimo pagamento: {row.ultimoPagamento ? formatDate(row.ultimoPagamento) : "-"}
+                      </p>
+                      <p>Atualizado em {formatDate(row.ultimaAtualizacao)}</p>
+                    </div>
+                  </div>
                 </TableCell>
-                <TableCell className="px-4 py-3.5 text-right font-mono text-sm">
-                  {formatCurrency(row.valorEmAcordo)}
-                </TableCell>
-                <TableCell className="px-4 py-3.5">
-                  <Badge variant={getClientStatusVariant(row.status)}>
-                    {getClientStatusLabel(row.status)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="px-4 py-3.5 text-sm text-muted-foreground">
-                  {formatDate(row.ultimaAtualizacao)}
-                </TableCell>
-                <TableCell className="px-4 py-3.5 text-right">
+                <TableCell className="px-4 py-3.5 text-right align-top">
                   <Link
                     href={`/clientes/${row.id}`}
                     className={cn(buttonVariants({ size: "sm" }), "rounded-lg")}

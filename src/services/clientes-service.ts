@@ -1170,6 +1170,24 @@ function buildClientFilterOptions(context: ClientsContext): ClientFilterOptions 
   return {
     wallets: buildWalletOptions(context),
     creditors: buildCreditorOptions(context),
+    cities: uniqueOptions(
+      context.clients
+        .map((client) => resolveNullableString(client.cidade))
+        .filter((value): value is string => Boolean(value))
+        .map((value) => ({
+          value,
+          label: value,
+        })),
+    ),
+    states: uniqueOptions(
+      context.clients
+        .map((client) => resolveNullableString(client.uf)?.toUpperCase() ?? null)
+        .filter((value): value is string => Boolean(value))
+        .map((value) => ({
+          value,
+          label: value,
+        })),
+    ),
     teams: uniqueOptions(
       context.teams.map((team) => ({
         value: team.id,
@@ -1262,6 +1280,8 @@ function buildClientListRows(
         id: client.id,
         nome: client.nome,
         cpfCnpj: client.cpf_cnpj,
+        cidade: resolveNullableString(client.cidade),
+        uf: resolveNullableString(client.uf)?.toUpperCase() ?? null,
         carteira: primaryWallet?.nome ?? getPrimaryWalletLabel(null, null),
         credor:
           primaryWalletCreditor ??
@@ -1271,10 +1291,12 @@ function buildClientListRows(
         equipe: teamId ? resolved.teamById.get(teamId)?.nome ?? "-" : "-",
         operador: operatorId ? resolved.operatorById.get(operatorId)?.nome ?? "-" : "-",
         contratos: contracts.length,
+        acordosAtivos: summary.acordosAtivos,
         valorEmAberto: summary.valorEmAberto,
         valorEmAcordo: summary.valorEmAcordo,
         valorPago: summary.valorPago,
         status,
+        ultimoPagamento: summary.ultimoPagamento,
         ultimaAtualizacao: lastUpdated ?? client.atualizado_em,
       } satisfies ClientListRow;
     })
@@ -1304,7 +1326,9 @@ function buildClientListRows(
         (!filters.teamId || teamId === filters.teamId) &&
         (!filters.operatorId || operatorId === filters.operatorId) &&
         (!filters.walletId || walletId === filters.walletId) &&
-        (!filters.creditor || normalizeText(row.credor) === normalizeText(filters.creditor))
+        (!filters.creditor || normalizeText(row.credor) === normalizeText(filters.creditor)) &&
+        (!filters.city || normalizeText(row.cidade) === normalizeText(filters.city)) &&
+        (!filters.state || normalizeText(row.uf) === normalizeText(filters.state))
       );
     })
     .sort((left, right) => right.ultimaAtualizacao.localeCompare(left.ultimaAtualizacao));

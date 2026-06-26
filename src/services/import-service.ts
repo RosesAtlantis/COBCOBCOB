@@ -10,6 +10,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { canImport, canReverseImports } from "@/lib/permissions";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { buildPaymentMutationPayload } from "@/services/pagamentos-service";
 import type { Database } from "@/types/database";
 import type {
   ImportLineError,
@@ -1751,19 +1752,30 @@ async function processCobwareImport(
       }
 
       return {
-        baixa_id: writeOff.id,
-        acordo_id: agreement.id,
-        cliente_id: agreement.cliente_id,
-        data_pagamento: payment.paymentDate,
-        operador_id: agreement.operador_id,
-        equipe_id: agreement.equipe_id,
-        carteira_id: agreement.carteira_id,
-        cpf_cnpj: payment.cpfCnpj,
-        contrato: payment.contract,
-        valor_pago: payment.paidValue,
-        valor_honorario: payment.feeValue,
-        origem_arquivo: file.name,
-        importacao_id: importId,
+        ...buildPaymentMutationPayload({
+          baixaId: writeOff.id,
+          acordoId: agreement.id,
+          clienteId: agreement.cliente_id,
+          contratoId: agreement.contrato_id,
+          parcelaId: writeOff.parcela_id,
+          dataPagamento: payment.paymentDate,
+          operadorId: agreement.operador_id,
+          equipeId: agreement.equipe_id,
+          carteiraId: agreement.carteira_id,
+          cpfCnpj: payment.cpfCnpj,
+          contrato: payment.contract,
+          valorPago: payment.paidValue,
+          valorHonorario: payment.feeValue,
+          formaPagamento: writeOff.forma_pagamento,
+          tipoReceita: writeOff.tipo_receita,
+          tipoReceitaOrigem: writeOff.tipo_receita_origem,
+          origemArquivo: file.name,
+          origemManual: false,
+          origem: "importacao",
+          importacaoId: importId,
+          registradoPor: profile.id,
+          atualizadoPor: profile.id,
+        }),
         chave_externa: payment.externalKey,
       };
     });
@@ -1971,16 +1983,23 @@ export async function processImport(
 
           const { data, error } = await admin.from("pagamentos").upsert(
             {
-              data_pagamento: paymentDate,
-              operador_id: operatorId,
-              equipe_id: teamId,
-              carteira_id: walletId,
-              cpf_cnpj: asString(row.cpf_cnpj) || null,
-              contrato: asString(row.contrato) || null,
-              valor_pago: paidValue,
-              valor_honorario: Number.isFinite(feeValue) ? feeValue : 0,
-              origem_arquivo: file.name,
-              importacao_id: importId,
+              ...buildPaymentMutationPayload({
+                dataPagamento: paymentDate,
+                operadorId: operatorId,
+                equipeId: teamId,
+                carteiraId: walletId,
+                cpfCnpj: asString(row.cpf_cnpj) || null,
+                contrato: asString(row.contrato) || null,
+                valorPago: paidValue,
+                valorHonorario: Number.isFinite(feeValue) ? feeValue : 0,
+                formaPagamento: asString(row.forma_pagamento) || null,
+                origemArquivo: file.name,
+                origemManual: false,
+                origem: "importacao",
+                importacaoId: importId,
+                registradoPor: profile.id,
+                atualizadoPor: profile.id,
+              }),
               chave_externa: externalKey,
             },
             {

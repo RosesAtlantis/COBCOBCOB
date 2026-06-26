@@ -18,21 +18,22 @@ Este projeto ja possui os SQLs prontos em `supabase/migrations`.
 12. Rode o arquivo [migrations/202606220011_unifica_credor_carteira_e_filtros.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220011_unifica_credor_carteira_e_filtros.sql).
 13. Rode o arquivo [migrations/202606220017_validations_performance_schema_indexes.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220017_validations_performance_schema_indexes.sql).
 14. Rode o arquivo [migrations/202606220019_fix_acordos_schema_payload.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220019_fix_acordos_schema_payload.sql).
-15. Se quiser dados de exemplo para desenvolvimento, rode [seed/seed.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/seed/seed.sql).
-16. Va em `Authentication > URL Configuration`.
-17. Preencha `Site URL` com a URL publicada na Vercel.
-18. Adicione estas `Redirect URLs`:
+15. Rode o arquivo [migrations/202606220023_fix_pagamentos_schema_payload.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220023_fix_pagamentos_schema_payload.sql).
+16. Se quiser dados de exemplo para desenvolvimento, rode [seed/seed.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/seed/seed.sql).
+17. Va em `Authentication > URL Configuration`.
+18. Preencha `Site URL` com a URL publicada na Vercel.
+19. Adicione estas `Redirect URLs`:
 
 ```text
 https://URL-DA-VERCEL.vercel.app/*
 http://localhost:3000/*
 ```
 
-19. Va em `Authentication > Users`.
-20. Crie o seu usuario manualmente.
-21. Copie o `User ID` criado.
-22. Va em `Table Editor > profiles`.
-23. Crie uma linha manual com:
+20. Va em `Authentication > Users`.
+21. Crie o seu usuario manualmente.
+22. Copie o `User ID` criado.
+23. Va em `Table Editor > profiles`.
+24. Crie uma linha manual com:
 
 ```text
 user_id = ID do usuario criado
@@ -42,7 +43,7 @@ perfil = admin
 ativo = true
 ```
 
-24. Depois configure as variaveis do projeto na Vercel e faca `Redeploy`.
+25. Depois configure as variaveis do projeto na Vercel e faca `Redeploy`.
 
 ## SQLs que precisam ser rodados
 
@@ -60,6 +61,7 @@ Obrigatorios:
 10. [migrations/202606220011_unifica_credor_carteira_e_filtros.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220011_unifica_credor_carteira_e_filtros.sql)
 11. [migrations/202606220017_validations_performance_schema_indexes.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220017_validations_performance_schema_indexes.sql)
 12. [migrations/202606220019_fix_acordos_schema_payload.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220019_fix_acordos_schema_payload.sql)
+13. [migrations/202606220023_fix_pagamentos_schema_payload.sql](/C:/Users/Funcionario.LUCAS/OneDrive%20-%20LIMA,%20CABRAL%20ADVOGADOS%20ASSOCIADOS/02%20-%20PROGRAMAS/PROJETOS/COBCOBCOB/supabase/migrations/202606220023_fix_pagamentos_schema_payload.sql)
 
 Opcional:
 
@@ -150,6 +152,12 @@ Incluem:
 
 - garante as colunas usadas pelo insert/update de `public.acordos`, incluindo `credor_id`, `credor`, `modelo_acordo`, `tipo_acordo` e `data_vencimento_entrada`
 - cria indices seguros para cliente, contrato, carteira, credor, operador, equipe, datas e status
+- dispara `pg_notify('pgrst', 'reload schema')` para limpar o schema cache do PostgREST/Supabase
+
+## O que a migration 202606220023 faz
+
+- garante as colunas usadas pelo insert/update de `public.pagamentos`, incluindo `registrado_por`, `contrato_id`, `parcela_id`, `origem_manual`, `origem` e `forma_pagamento`
+- reforca os indices de vinculo por `baixa_id`, acordo, cliente, contrato, parcela e escopo operacional
 - dispara `pg_notify('pgrst', 'reload schema')` para limpar o schema cache do PostgREST/Supabase
 
 ## SQL exemplo para criar o admin manualmente

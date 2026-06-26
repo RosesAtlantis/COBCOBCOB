@@ -23,6 +23,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   listarHistoricoAcordo,
   registrarAuditoria,
+  registrarAuditoriaSegura,
 } from "@/services/auditoria-service";
 import {
   entityIdSchema,
@@ -47,6 +48,7 @@ import {
   uniqueOptions,
   type ClientsContext,
 } from "@/services/clientes-service";
+import { buildPaymentMutationPayload } from "@/services/pagamentos-service";
 import type {
   AgreementCenterFilterOptions,
   AgreementCenterFilters,
@@ -1331,31 +1333,35 @@ export async function darBaixaParcela(rawInput: unknown): Promise<AgreementOpera
   const paymentContractLabel = agreement.contrato
     ? `${agreement.contrato} :: parcela ${parcel.numero_parcela}`
     : `Parcela ${parcel.numero_parcela}`;
+  const paymentPayload = buildPaymentMutationPayload({
+    baixaId: createdWriteOff.id,
+    acordoId: agreement.id,
+    clienteId: agreement.cliente_id,
+    contratoId: agreement.contrato_id,
+    parcelaId: parcel.id,
+    dataPagamento: input.dataPagamento,
+    operadorId: resolvedOperatorId,
+    equipeId: resolvedTeamId,
+    carteiraId: agreement.carteira_id,
+    cpfCnpj: agreement.cpf_cnpj,
+    contrato: paymentContractLabel,
+    valorPago: input.valorPago,
+    valorHonorario: feeCalculation.valorHonorarios,
+    valorEscritorio: feeCalculation.valorEscritorio,
+    percentualHonorarios: feeCalculation.percentualHonorarios,
+    formaPagamento: input.formaPagamento,
+    tipoReceita: revenue.tipoReceita,
+    tipoReceitaOrigem: revenue.tipoReceitaOrigem,
+    origemManual: true,
+    origem: "baixa_manual",
+    importacaoId: agreement.importacao_id ?? null,
+    registradoPor: profile.id,
+    atualizadoPor: profile.id,
+  });
 
   const { data: paymentRecord, error: paymentError } = await supabase
     .from("pagamentos")
-    .upsert(
-      {
-        baixa_id: createdWriteOff.id,
-        acordo_id: agreement.id,
-        cliente_id: agreement.cliente_id,
-        data_pagamento: input.dataPagamento,
-        operador_id: resolvedOperatorId,
-        equipe_id: resolvedTeamId,
-        carteira_id: agreement.carteira_id,
-        cpf_cnpj: agreement.cpf_cnpj,
-        contrato: paymentContractLabel,
-        valor_pago: roundCurrency(input.valorPago),
-        valor_honorario: feeCalculation.valorHonorarios,
-        percentual_honorarios: feeCalculation.percentualHonorarios,
-        valor_escritorio: feeCalculation.valorEscritorio,
-        tipo_receita: revenue.tipoReceita,
-        tipo_receita_origem: revenue.tipoReceitaOrigem,
-        registrado_por: profile.id,
-        origem_arquivo: "baixa_manual",
-      },
-      { onConflict: "baixa_id" },
-    )
+    .upsert(paymentPayload, { onConflict: "baixa_id" })
     .select("*")
     .single();
 
@@ -1386,7 +1392,7 @@ export async function darBaixaParcela(rawInput: unknown): Promise<AgreementOpera
     target_acordo_id: agreement.id,
   });
 
-  await registrarAuditoria({
+  await registrarAuditoriaSegura({
     entidade: "baixa",
     entidadeId: createdWriteOff.id,
     acao: "baixa_registrada",

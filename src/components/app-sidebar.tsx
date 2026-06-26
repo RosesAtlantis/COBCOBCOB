@@ -49,8 +49,8 @@ export function AppSidebar({
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
-        <nav className="space-y-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
+        <nav className="space-y-3">
           {groups.map((group) => (
             <div key={group.title} className="space-y-2">
               <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/42">
@@ -67,7 +67,7 @@ export function AppSidebar({
                       onClick={onNavigate}
                       aria-current={isActive ? "page" : undefined}
                       className={cn(
-                        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
+                        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
                         isActive
                           ? "bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-border"
                           : "text-sidebar-foreground/78 hover:bg-sidebar-accent/80 hover:text-sidebar-foreground",
@@ -75,7 +75,7 @@ export function AppSidebar({
                     >
                       <div
                         className={cn(
-                          "flex size-9 shrink-0 items-center justify-center rounded-lg border transition-colors",
+                          "flex size-8 shrink-0 items-center justify-center rounded-lg border transition-colors",
                           isActive
                             ? "border-sidebar-primary bg-sidebar-primary text-sidebar-primary-foreground"
                             : "border-sidebar-border bg-background text-sidebar-foreground/62 group-hover:border-sidebar-border group-hover:bg-sidebar-accent",

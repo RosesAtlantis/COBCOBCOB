@@ -1,8 +1,11 @@
 import {
+  differenceInCalendarDays,
   eachMonthOfInterval,
+  endOfDay,
   endOfMonth,
   format,
   parseISO,
+  startOfDay,
   startOfMonth,
   subMonths,
 } from "date-fns";
@@ -35,29 +38,26 @@ function buildWalletMap(wallets: Wallet[]) {
   return new Map(wallets.map((wallet) => [wallet.id, wallet]));
 }
 
+function resolvePeriodRange(filters: DashboardFilters) {
+  const baseMonthStart = startOfMonth(new Date(filters.year, filters.month - 1, 1));
+  const start = filters.startDate
+    ? startOfDay(parseISO(filters.startDate))
+    : baseMonthStart;
+  const end = filters.endDate
+    ? endOfDay(parseISO(filters.endDate))
+    : endOfMonth(baseMonthStart);
+
+  return {
+    start,
+    end,
+  };
+}
+
 function inDateRange(dateValue: string, filters: DashboardFilters) {
   const date = parseISO(dateValue);
+  const { start, end } = resolvePeriodRange(filters);
 
-  if (filters.startDate || filters.endDate) {
-    const start = filters.startDate
-      ? startOfMonth(parseISO(filters.startDate))
-      : undefined;
-    const end = filters.endDate ? endOfMonth(parseISO(filters.endDate)) : undefined;
-
-    if (start && date < start) {
-      return false;
-    }
-
-    if (end && date > end) {
-      return false;
-    }
-
-    return true;
-  }
-
-  return (
-    date.getMonth() + 1 === filters.month && date.getFullYear() === filters.year
-  );
+  return date >= start && date <= end;
 }
 
 function recordMatchesEntityFilter(
@@ -91,7 +91,9 @@ export function filterPayments(dataset: PortalDataset, filters: DashboardFilters
 
   return dataset.payments.filter(
     (payment) =>
+      !payment.estornado &&
       inDateRange(payment.data_pagamento, filters) &&
+      (!filters.revenueType || payment.tipo_receita === filters.revenueType) &&
       recordMatchesEntityFilter(
         payment.equipe_id,
         payment.operador_id,
@@ -108,6 +110,7 @@ export function filterAgreements(dataset: PortalDataset, filters: DashboardFilte
   return dataset.agreements.filter(
     (agreement) =>
       inDateRange(agreement.data_acordo, filters) &&
+      (!filters.agreementStatus || agreement.status === filters.agreementStatus) &&
       recordMatchesEntityFilter(
         agreement.equipe_id,
         agreement.operador_id,
@@ -172,6 +175,58 @@ function sumGoals(goals: Goal[]) {
 
 function countAgreements(agreements: Agreement[]) {
   return agreements.length;
+}
+
+function buildCurrentPeriodProgress(filters: DashboardFilters) {
+  const today = startOfDay(new Date());
+  const { start, end } = resolvePeriodRange(filters);
+  const totalDays = Math.max(differenceInCalendarDays(end, start) + 1, 1);
+
+  if (today < start) {
+    return {
+      elapsedDays: 0,
+      remainingDays: totalDays,
+      totalDays,
+    };
+  }
+
+  const effectiveEnd = today > end ? end : today;
+  const elapsedDays = Math.max(differenceInCalendarDays(effectiveEnd, start) + 1, 0);
+
+  return {
+    elapsedDays,
+    remainingDays: Math.max(totalDays - elapsedDays, 0),
+    totalDays,
+  };
+}
+
+function countActiveOperators(
+  dataset: PortalDataset,
+  filters: DashboardFilters,
+  payments: Payment[],
+  agreements: Agreement[],
+) {
+  const operatorIds = new Set(
+    [...payments, ...agreements]
+      .map((item) => item.operador_id)
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  if (operatorIds.size > 0) {
+    return operatorIds.size;
+  }
+
+  return dataset.operators.filter((operator) => {
+    if (filters.operatorId) {
+      return operator.id === filters.operatorId;
+    }
+
+    if (filters.teamId) {
+      return operator.equipe_id === filters.teamId;
+    }
+
+    return true;
+  }).length;
 }
 
 function buildTopWalletLabel(
@@ -358,37 +413,41 @@ export function buildDailyEvolution(
 ) {
   const payments = filterPayments(dataset, filters);
   const agreements = filterAgreements(dataset, filters);
-  const byDay = new Map<string, RevenuePoint>();
+  const byDay = new Map<string, RevenuePoint & { sortKey: string }>();
 
   payments.forEach((payment) => {
-    const label = format(parseISO(payment.data_pagamento), "dd/MM", {
-      locale: ptBR,
-    });
-    const current = byDay.get(label) ?? {
+    const sortKey = payment.data_pagamento;
+    const label = format(parseISO(sortKey), "dd/MM", { locale: ptBR });
+    const current = byDay.get(sortKey) ?? {
       label,
+      sortKey,
       arrecadacao: 0,
       acordos: 0,
     };
     current.arrecadacao += payment.valor_pago;
-    byDay.set(label, current);
+    byDay.set(sortKey, current);
   });
 
   agreements.forEach((agreement) => {
-    const label = format(parseISO(agreement.data_acordo), "dd/MM", {
-      locale: ptBR,
-    });
-    const current = byDay.get(label) ?? {
+    const sortKey = agreement.data_acordo;
+    const label = format(parseISO(sortKey), "dd/MM", { locale: ptBR });
+    const current = byDay.get(sortKey) ?? {
       label,
+      sortKey,
       arrecadacao: 0,
       acordos: 0,
     };
     current.acordos += 1;
-    byDay.set(label, current);
+    byDay.set(sortKey, current);
   });
 
-  return Array.from(byDay.values()).sort((left, right) =>
-    left.label.localeCompare(right.label),
-  );
+  return Array.from(byDay.values())
+    .sort((left, right) => left.sortKey.localeCompare(right.sortKey))
+    .map((point) => ({
+      label: point.label,
+      arrecadacao: point.arrecadacao,
+      acordos: point.acordos,
+    }));
 }
 
 export function buildMonthlyEvolution(
@@ -466,14 +525,47 @@ export function buildDashboardSummary(
 
   const previousCollected = sumPayments(filterPayments(dataset, previousFilters));
   const currentCollected = sumPayments(payments);
+  const totalGoal = sumGoals(goals);
+  const remainingGoal = Math.max(totalGoal - currentCollected, 0);
+  const receivableTotal = agreements.reduce(
+    (total, agreement) =>
+      total + Math.max(agreement.valor_acordo - agreement.valor_pago, 0),
+    0,
+  );
+  const { elapsedDays, remainingDays, totalDays } = buildCurrentPeriodProgress(filters);
+  const activeOperators = countActiveOperators(dataset, filters, payments, agreements);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayCollected = payments
+    .filter((payment) => payment.data_pagamento === todayKey)
+    .reduce((total, payment) => total + payment.valor_pago, 0);
 
   return {
     totalCollected: currentCollected,
-    totalGoal: sumGoals(goals),
-    goalCompletion: safeDivide(currentCollected, sumGoals(goals)) * 100,
+    totalGoal,
+    goalCompletion: safeDivide(currentCollected, totalGoal) * 100,
     agreementCount: agreements.length,
     averageTicket: safeDivide(currentCollected, agreements.length),
     monthlyDelta: safeDivide(currentCollected - previousCollected, previousCollected) * 100,
+    receivableTotal,
+    remainingGoal,
+    lastMonthCollected: previousCollected,
+    collectedToday: todayCollected,
+    projectedMonthEnd:
+      elapsedDays > 0 ? safeDivide(currentCollected, elapsedDays) * totalDays : 0,
+    requiredDailyPace:
+      remainingGoal > 0 && remainingDays > 0
+        ? safeDivide(remainingGoal, remainingDays)
+        : 0,
+    averagePerOperatorDay:
+      elapsedDays > 0 && activeOperators > 0
+        ? safeDivide(currentCollected, activeOperators * elapsedDays)
+        : 0,
+    officeFeesCollected: payments.reduce(
+      (total, payment) => total + (payment.valor_escritorio ?? 0),
+      0,
+    ),
+    paymentCount: payments.length,
+    activeOperators,
     bestOperator: operatorRanking[0]
       ? {
           label: operatorRanking[0].operator,

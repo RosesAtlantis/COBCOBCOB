@@ -26,6 +26,8 @@ export function parseClientFilters(searchParams: SearchParamsLike) {
     query: readSearchParam(searchParams, "q") || undefined,
     walletId: readSearchParam(searchParams, "carteira") || undefined,
     creditor: readSearchParam(searchParams, "credor") || undefined,
+    city: readSearchParam(searchParams, "cidade") || undefined,
+    state: readSearchParam(searchParams, "uf") || undefined,
     teamId: readSearchParam(searchParams, "equipe") || undefined,
     operatorId: readSearchParam(searchParams, "operador") || undefined,
     status: (readSearchParam(searchParams, "status") as ClientListFilters["status"]) || undefined,
@@ -47,6 +49,14 @@ export function createClientSearchParams(filters: ClientListFilters) {
 
   if (filters.creditor) {
     params.set("credor", filters.creditor);
+  }
+
+  if (filters.city) {
+    params.set("cidade", filters.city);
+  }
+
+  if (filters.state) {
+    params.set("uf", filters.state);
   }
 
   if (filters.teamId) {

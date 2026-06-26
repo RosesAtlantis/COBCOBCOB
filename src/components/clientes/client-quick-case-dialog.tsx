@@ -20,6 +20,7 @@ interface ClientQuickCaseDialogProps {
   teams: FilterOption[];
   wallets: FilterOption[];
   canManageWallets?: boolean;
+  triggerLabel?: string;
 }
 
 export function ClientQuickCaseDialog({
@@ -27,6 +28,7 @@ export function ClientQuickCaseDialog({
   teams,
   wallets,
   canManageWallets = false,
+  triggerLabel = "Novo cliente",
 }: ClientQuickCaseDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -34,13 +36,13 @@ export function ClientQuickCaseDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button className="rounded-lg" />}>
-        Novo caso
+        {triggerLabel}
       </DialogTrigger>
       <DialogContent className="w-[calc(100vw-1rem)] max-w-4xl overflow-x-hidden sm:w-[calc(100vw-2rem)]">
         <DialogHeader>
-          <DialogTitle>Novo caso</DialogTitle>
+          <DialogTitle>Novo cliente</DialogTitle>
           <DialogDescription>
-            Abra um caso rapido sem sair da fila de clientes.
+            Cadastre um cliente rapido sem sair da fila de pesquisa.
           </DialogDescription>
         </DialogHeader>
 

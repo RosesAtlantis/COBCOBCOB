@@ -32,22 +32,6 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         description="Consulta e gestao de casos em cobranca."
         actions={
           <>
-            {data.canCreateCase ? (
-              <>
-                <ClientQuickCaseDialog
-                  operators={quickCaseData.operators}
-                  teams={quickCaseData.teams}
-                  wallets={quickCaseData.wallets}
-                  canManageWallets={quickCaseData.canManageWallets}
-                />
-                <Link
-                  href="/clientes/novo"
-                  className={cn(buttonVariants({ variant: "outline" }), "rounded-lg")}
-                >
-                  Formulario completo
-                </Link>
-              </>
-            ) : null}
             <Badge variant="secondary" className="rounded-md px-3 py-1">
               {data.clients.length} cliente(s)
             </Badge>
@@ -64,6 +48,25 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         key={JSON.stringify(data.filters)}
         filters={data.filters}
         options={data.options}
+        actions={
+          data.canCreateCase ? (
+            <>
+              <ClientQuickCaseDialog
+                operators={quickCaseData.operators}
+                teams={quickCaseData.teams}
+                wallets={quickCaseData.wallets}
+                canManageWallets={quickCaseData.canManageWallets}
+                triggerLabel="Novo cliente"
+              />
+              <Link
+                href="/clientes/novo"
+                className={cn(buttonVariants({ variant: "outline" }), "rounded-lg")}
+              >
+                Formulario completo
+              </Link>
+            </>
+          ) : null
+        }
       />
       <ClientesTable rows={data.clients} />
     </div>

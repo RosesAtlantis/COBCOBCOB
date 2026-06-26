@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { RotateCcw, Search } from "lucide-react";
@@ -21,9 +22,14 @@ import type { ClientFilterOptions, ClientListFilters } from "@/types/portal";
 interface ClientesFiltersProps {
   filters: ClientListFilters;
   options: ClientFilterOptions;
+  actions?: ReactNode;
 }
 
-export function ClientesFilters({ filters, options }: ClientesFiltersProps) {
+export function ClientesFilters({
+  filters,
+  options,
+  actions,
+}: ClientesFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
@@ -58,10 +64,12 @@ export function ClientesFilters({ filters, options }: ClientesFiltersProps) {
           <div>
             <p className="text-sm font-semibold">Filtros operacionais</p>
             <p className="text-sm text-muted-foreground">
-              Pesquise por nome, CPF/CNPJ ou contrato e refine a fila pelos filtros principais.
+              Pesquise por nome, CPF/CNPJ ou contrato e refine a fila por carteira, credor,
+              localidade e responsavel.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            {actions}
             <Button
               type="button"
               variant="outline"
@@ -126,6 +134,32 @@ export function ClientesFilters({ filters, options }: ClientesFiltersProps) {
 
           <div className="space-y-2">
             <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Credor
+            </Label>
+            <Select
+              value={localFilters.creditor ?? "all"}
+              onValueChange={(value) =>
+                updateFilter({
+                  creditor: !value || value === "all" ? undefined : value,
+                })
+              }
+            >
+              <SelectTrigger className={controlClassName}>
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {options.creditors.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Equipe
             </Label>
             <Select
@@ -169,6 +203,58 @@ export function ClientesFilters({ filters, options }: ClientesFiltersProps) {
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 {options.operators.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Cidade
+            </Label>
+            <Select
+              value={localFilters.city ?? "all"}
+              onValueChange={(value) =>
+                updateFilter({
+                  city: !value || value === "all" ? undefined : value,
+                })
+              }
+            >
+              <SelectTrigger className={controlClassName}>
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {options.cities.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              UF
+            </Label>
+            <Select
+              value={localFilters.state ?? "all"}
+              onValueChange={(value) =>
+                updateFilter({
+                  state: !value || value === "all" ? undefined : value,
+                })
+              }
+            >
+              <SelectTrigger className={controlClassName}>
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {options.states.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

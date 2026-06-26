@@ -8,6 +8,7 @@ import {
   History,
   Layers3,
   ListTodo,
+  Settings2,
   Target,
   Trophy,
   UserCog,
@@ -64,13 +65,6 @@ const clientsItem: NavigationItem = {
   icon: Users,
 };
 
-const newClientItem: NavigationItem = {
-  title: "Novo caso",
-  href: "/clientes/novo",
-  icon: UserCog,
-  matchPrefixes: ["/clientes/novo"],
-};
-
 const agreementsItem: NavigationItem = {
   title: "Acordos",
   href: "/acordos",
@@ -105,11 +99,11 @@ const auditItem: NavigationItem = {
   matchPrefixes: ["/auditoria"],
 };
 
-const adminUsersItem: NavigationItem = {
-  title: "Usuarios",
-  href: "/admin/usuarios",
-  icon: Users,
-  matchPrefixes: ["/admin/usuarios"],
+const adminItem: NavigationItem = {
+  title: "Administracao",
+  href: "/admin",
+  icon: Settings2,
+  matchPrefixes: ["/admin"],
 };
 
 const adminOperatorsItem: NavigationItem = {
@@ -149,10 +143,6 @@ const operatorNavigation: NavigationGroup[] = [
     title: "Operacao",
     items: [clientsItem, agreementsItem, installmentsItem],
   },
-  {
-    title: "Cadastros",
-    items: [newClientItem],
-  },
 ];
 
 const supervisorNavigation: NavigationGroup[] = [
@@ -166,7 +156,7 @@ const supervisorNavigation: NavigationGroup[] = [
   },
   {
     title: "Cadastros",
-    items: [newClientItem, walletsItem, adminOperatorsItem, teamsItem],
+    items: [walletsItem, adminOperatorsItem, teamsItem],
   },
   {
     title: "Dados",
@@ -205,20 +195,13 @@ const managementNavigation: NavigationGroup[] = [
   {
     title: "Cadastros",
     items: [
-      newClientItem,
       walletsItem,
-      adminOperatorsItem,
-      teamsItem,
-      adminGoalsItem,
+      adminItem,
     ],
   },
   {
     title: "Dados",
     items: [importsItem, auditItem],
-  },
-  {
-    title: "Sistema",
-    items: [adminUsersItem],
   },
 ];
 

@@ -2,6 +2,8 @@ import {
   CircleDollarSign,
   HandCoins,
   Target,
+  TrendingUp,
+  Users,
   WalletCards,
 } from "lucide-react";
 
@@ -50,26 +52,22 @@ export default async function DashboardPage({
 
   const topRanking = data.operatorRanking.slice(0, 5);
   const featuredWallets = data.walletPerformance.slice(0, 5);
-  const goalGap = Math.max(data.summary.totalGoal - data.summary.totalCollected, 0);
-
   const decliningTeam = data.teamPerformance
     .filter((team) => team.evolution < 0)
     .sort((left, right) => left.evolution - right.evolution)[0];
-
   const lowRecoveryWallet = data.walletPerformance
     .filter((wallet) => wallet.agreements > 0 && wallet.recoveryRate < 25)
     .sort((left, right) => left.recoveryRate - right.recoveryRate)[0];
-
   const lowGoalOperator = data.operatorRanking
     .filter((operator) => operator.goal > 0 && operator.goalCompletion < 60)
     .sort((left, right) => left.goalCompletion - right.goalCompletion)[0];
 
   const attentionItems: AttentionItem[] = [];
 
-  if (goalGap > 0) {
+  if (data.summary.remainingGoal > 0) {
     attentionItems.push({
       title: "Meta do periodo ainda nao atingida",
-      description: `Faltam ${formatCurrency(goalGap)} para fechar o mes em 100% da meta.`,
+      description: `Faltam ${formatCurrency(data.summary.remainingGoal)} para fechar o periodo em 100% da meta.`,
       tone: "critical",
     });
   }
@@ -104,85 +102,172 @@ export default async function DashboardPage({
         key={JSON.stringify(data.filters)}
         filters={data.filters}
         options={data.options}
-        title="Filtros principais"
-        description="Mes, ano, equipe e carteira para a visao geral."
-        showDateRange={false}
-        showOperatorFilter={false}
-        showCreditorFilter={false}
+        title="Painel de cobranca"
+        description="Acompanhe pagamentos, saldo negociado, meta, ritmo diario e previsao de fechamento."
+        showCreditorFilter
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <DashboardCard
-          title="Arrecadacao do mes"
+          title="Pagamentos no periodo"
           value={formatCurrency(data.summary.totalCollected)}
-          subtitle="Valor pago consolidado no recorte atual."
+          subtitle={`${formatNumber(data.summary.paymentCount)} pagamento(s) validos no recorte.`}
           delta={`${formatSignedPercent(data.summary.monthlyDelta)} vs mes anterior`}
           icon={CircleDollarSign}
           accent="primary"
         />
         <DashboardCard
-          title="Meta do mes"
-          value={formatCurrency(data.summary.totalGoal)}
-          subtitle="Base mensal considerada para comparacao."
+          title="A receber"
+          value={formatCurrency(data.summary.receivableTotal)}
+          subtitle="Saldo ainda em aberto nos acordos filtrados."
+          icon={WalletCards}
+          accent="info"
+        />
+        <DashboardCard
+          title="Meta atingida"
+          value={formatPercent(data.summary.goalCompletion)}
+          subtitle={`Meta base de ${formatCurrency(data.summary.totalGoal)}.`}
           icon={Target}
           accent="warning"
         />
         <DashboardCard
-          title="Atingimento"
-          value={formatPercent(data.summary.goalCompletion)}
+          title="Falta para meta"
+          value={formatCurrency(data.summary.remainingGoal)}
           subtitle={
-            goalGap > 0
-              ? `Faltam ${formatCurrency(goalGap)} para a meta.`
+            data.summary.remainingGoal > 0
+              ? `${formatCurrency(data.summary.requiredDailyPace)} por dia para bater a meta.`
               : "Meta do periodo atingida."
           }
-          icon={Target}
+          icon={HandCoins}
           accent="warning"
         />
         <DashboardCard
-          title="Acordos"
-          value={formatNumber(data.summary.agreementCount)}
-          subtitle="Quantidade formalizada no recorte atual."
-          icon={HandCoins}
+          title="Previsao de fechamento"
+          value={formatCurrency(data.summary.projectedMonthEnd)}
+          subtitle="Projecao pela media diaria do periodo."
+          icon={TrendingUp}
           accent="success"
         />
         <DashboardCard
-          title="Ticket medio"
-          value={formatCurrency(data.summary.averageTicket)}
-          subtitle="Valor medio por acordo fechado."
-          icon={WalletCards}
+          title="Media por operador/dia"
+          value={formatCurrency(data.summary.averagePerOperatorDay)}
+          subtitle={`${formatNumber(data.summary.activeOperators)} operador(es) com carteira no recorte.`}
+          icon={Users}
           accent="info"
         />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+      <section className="dashboard-grid md:grid-cols-2 xl:grid-cols-5">
+        <div className="dashboard-stat">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Recebido hoje
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">
+            {formatCurrency(data.summary.collectedToday)}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Producao confirmada na data atual.
+          </p>
+        </div>
+        <div className="dashboard-stat">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Mes passado
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">
+            {formatCurrency(data.summary.lastMonthCollected)}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Base para o comparativo mensal.
+          </p>
+        </div>
+        <div className="dashboard-stat">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Honorarios escritorio
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">
+            {formatCurrency(data.summary.officeFeesCollected)}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Valor de escritorio consolidado em pagamentos.
+          </p>
+        </div>
+        <div className="dashboard-stat">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Ticket medio
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">
+            {formatCurrency(data.summary.averageTicket)}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Media por acordo fechado no recorte.
+          </p>
+        </div>
+        <div className="dashboard-stat">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Acordos no periodo
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">
+            {formatNumber(data.summary.agreementCount)}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Negociacoes registradas na janela filtrada.
+          </p>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
         {data.dailyEvolution.length > 0 ? (
           <ChartCard
-            title="Evolucao da arrecadacao"
-            description="Leitura diaria da arrecadacao no periodo selecionado."
+            title="Evolucao diaria da cobranca"
+            description="Arrecadacao confirmada por dia no recorte selecionado."
             data={data.dailyEvolution}
             xKey="label"
-            series={[{ key: "arrecadacao", label: "Arrecadacao", color: "#7aa2f7" }]}
+            series={[{ key: "arrecadacao", label: "Pagamentos", color: "#7aa2f7" }]}
             variant="area"
             height={320}
           />
         ) : (
           <div className="dashboard-surface p-5">
-            <p className="text-sm font-semibold">Evolucao da arrecadacao</p>
+            <p className="text-sm font-semibold">Evolucao diaria da cobranca</p>
             <div className="dashboard-subtle mt-5 flex min-h-80 items-center justify-center p-6 text-center text-sm text-muted-foreground">
               Ainda nao ha movimentacao suficiente para exibir a evolucao do periodo.
             </div>
           </div>
         )}
 
+        {data.monthlyEvolution.length > 0 ? (
+          <ChartCard
+            title="Arrecadacao x meta"
+            description="Comparativo mensal para ritmo de cobranca e fechamento."
+            data={data.monthlyEvolution}
+            xKey="label"
+            series={[
+              { key: "arrecadacao", label: "Arrecadacao", color: "#0f766e" },
+              { key: "meta", label: "Meta", color: "#f59e0b" },
+            ]}
+            variant="bar"
+            height={320}
+          />
+        ) : (
+          <div className="dashboard-surface p-5">
+            <p className="text-sm font-semibold">Arrecadacao x meta</p>
+            <div className="dashboard-subtle mt-5 flex min-h-80 items-center justify-center p-6 text-center text-sm text-muted-foreground">
+              Ainda nao ha historico suficiente para comparar arrecadacao e meta.
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <div className="dashboard-surface p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Ranking resumido
               </p>
-              <h2 className="mt-2 text-lg font-semibold">Top 5 operadores</h2>
+              <h2 className="mt-2 text-lg font-semibold">Top operadores</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Leitura rapida de quem mais performou no periodo.
+                Quem puxou a cobranca e quanto da meta ja foi entregue.
               </p>
             </div>
             <Badge variant="outline" className="rounded-md border-border/80 bg-card px-3 py-1">
@@ -206,13 +291,15 @@ export default async function DashboardPage({
                     </Badge>
                     <div className="min-w-0">
                       <p className="truncate font-medium">{row.operator}</p>
-                      <p className="truncate text-xs text-muted-foreground">{row.team}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {row.team} / {row.wallet}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">{formatCurrency(row.collected)}</p>
-                    <p className="text-xs font-medium text-primary">
-                      {formatPercent(row.goalCompletion)}
+                    <p className="text-xs text-muted-foreground">
+                      {formatPercent(row.goalCompletion)} da meta
                     </p>
                   </div>
                 </div>
@@ -224,18 +311,16 @@ export default async function DashboardPage({
             </div>
           )}
         </div>
-      </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
         <div className="dashboard-surface p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Carteiras em destaque
               </p>
-              <h2 className="mt-2 text-lg font-semibold">Top carteiras do periodo</h2>
+              <h2 className="mt-2 text-lg font-semibold">Top carteiras</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Participacao sobre a arrecadacao total filtrada.
+                Onde a cobranca mais converteu no periodo.
               </p>
             </div>
             <Badge variant="outline" className="rounded-md border-border/80 bg-card px-3 py-1">
@@ -246,10 +331,8 @@ export default async function DashboardPage({
           {featuredWallets.length > 0 ? (
             <div className="mt-5 space-y-3">
               {featuredWallets.map((wallet) => {
-                const participation = safeDivide(
-                  wallet.collected,
-                  data.summary.totalCollected,
-                ) * 100;
+                const participation =
+                  safeDivide(wallet.collected, data.summary.totalCollected) * 100;
 
                 return (
                   <div
@@ -278,44 +361,44 @@ export default async function DashboardPage({
             </div>
           )}
         </div>
+      </section>
 
-        <div className="dashboard-surface p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Pontos de atencao
-              </p>
-              <h2 className="mt-2 text-lg font-semibold">Alertas operacionais</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Sinais objetivos para acompanhamento rapido do gestor.
-              </p>
-            </div>
-            <Badge variant="outline" className="rounded-md border-border/80 bg-card px-3 py-1">
-              {attentionItems.length > 0 ? attentionItems.length : "Sem alertas"}
-            </Badge>
+      <section className="dashboard-surface p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Pontos de atencao
+            </p>
+            <h2 className="mt-2 text-lg font-semibold">Leitura rapida do gestor</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Alertas operacionais para agir no dia sem perder tempo.
+            </p>
           </div>
-
-          {attentionItems.length > 0 ? (
-            <div className="mt-5 space-y-3">
-              {attentionItems.map((item) => (
-                <div
-                  key={item.title}
-                  className={`rounded-xl border p-4 ${attentionToneStyles[item.tone]}`}
-                >
-                  <p className="text-sm font-medium">{item.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    {item.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="dashboard-subtle mt-5 p-4 text-sm text-muted-foreground">
-              Nenhum ponto critico identificado no recorte atual. O painel segue
-              estavel para acompanhamento executivo.
-            </div>
-          )}
+          <Badge variant="outline" className="rounded-md border-border/80 bg-card px-3 py-1">
+            {attentionItems.length > 0 ? attentionItems.length : "Sem alertas"}
+          </Badge>
         </div>
+
+        {attentionItems.length > 0 ? (
+          <div className="mt-5 grid gap-3 xl:grid-cols-3">
+            {attentionItems.map((item) => (
+              <div
+                key={item.title}
+                className={`rounded-xl border p-4 ${attentionToneStyles[item.tone]}`}
+              >
+                <p className="text-sm font-medium">{item.title}</p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="dashboard-subtle mt-5 p-4 text-sm text-muted-foreground">
+            Nenhum ponto critico identificado no recorte atual. O painel segue estavel
+            para acompanhamento da cobranca.
+          </div>
+        )}
       </section>
     </div>
   );
